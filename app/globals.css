@@ -1,0 +1,639 @@
+:root {
+  --ink: #292623;
+  --rice: #fff8e8;
+  --persimmon: #e7784f;
+  --night: #151c29;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--night); color: var(--ink); }
+body { font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #ffd995; outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+.title-screen, .birthday-screen, .game-shell { min-height: 100svh; width: 100%; overflow: hidden; }
+
+.title-screen {
+  display: grid; place-items: center; position: relative; color: var(--rice);
+  background: radial-gradient(circle at 50% 40%, #31455a 0, #1b2738 38%, #101722 100%);
+}
+.title-screen::before { content: ""; position: absolute; inset: 0; opacity: .18; background-image: url('/assets/room-evening.png'); background-size: cover; background-position: center; filter: blur(5px); transform: scale(1.03); }
+.title-screen::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,16,24,.15), rgba(11,16,24,.84)); }
+.title-dust { position: absolute; inset: 0; z-index: 1; background-image: radial-gradient(circle, #fff 0 1px, transparent 1.5px); background-size: 61px 61px; opacity: .17; animation: drift 18s linear infinite; }
+.title-content { position: relative; z-index: 2; text-align: center; padding: 32px 24px; animation: appear 1.2s ease-out both; }
+.title-moon { display: block; font-family: serif; font-size: 38px; opacity: .62; margin-bottom: 28px; }
+.title-content h1 { margin: 0; font-family: "Yu Mincho", "Hiragino Mincho ProN", serif; font-weight: 500; letter-spacing: .13em; font-size: clamp(1.72rem, 5vw, 3.45rem); text-shadow: 0 3px 22px #000; }
+.title-content p { margin: 22px 0 42px; color: #d9e0e8; letter-spacing: .11em; font-size: clamp(.9rem, 2vw, 1.05rem); }
+.primary-button { min-width: 172px; min-height: 52px; padding: 13px 30px; border: 1px solid rgba(255,255,255,.52); border-radius: 5px; color: #fff; background: #d96843; box-shadow: 0 8px 26px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.2); letter-spacing: .13em; font-weight: 700; transition: transform .2s, background .2s; }
+.primary-button:hover { transform: translateY(-2px); background: #e57852; }
+.primary-button:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+
+.birthday-screen { display: grid; place-items: center; padding: 24px; color: var(--rice); background: radial-gradient(circle at 50% 30%, #415b70, #172434 55%, #0f1823 100%); }
+.birthday-card { display: grid; grid-template-columns: minmax(156px, .72fr) minmax(290px, 1fr); align-items: center; gap: clamp(22px, 5vw, 66px); width: min(100%, 780px); padding: clamp(22px, 4vw, 42px); border: 1px solid rgba(255,255,255,.22); border-radius: 28px; background: linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.035)); box-shadow: 0 20px 58px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.13); backdrop-filter: blur(8px); }
+.birthday-companion { position: relative; display: grid; place-items: center; min-height: 250px; }
+.birthday-companion::before { content: ""; position: absolute; bottom: 22px; width: 132px; height: 25px; border-radius: 50%; background: rgba(2,9,14,.32); filter: blur(4px); }
+.birthday-companion-speech { position: absolute; top: 3px; right: -8px; z-index: 4; isolation: isolate; padding: 9px 12px; border: 2px solid rgba(67,75,83,.43); border-radius: 18px 18px 18px 6px; color: #48535f; background: #fffdf6; box-shadow: 0 4px 11px rgba(0,0,0,.15); font-size: .73rem; font-weight: 800; transform: rotate(-3deg); }
+.birthday-companion-speech::before { content: ""; position: absolute; z-index: -1; bottom: -10px; left: 13px; width: 17px; height: 17px; border-right: 2px solid rgba(67,75,83,.43); border-bottom: 2px solid rgba(67,75,83,.43); background: #fffdf6; transform: rotate(45deg); }
+.birthday-zoom-mochi { position: relative; z-index: 1; width: min(100%, 190px); aspect-ratio: 1; filter: drop-shadow(0 10px 11px rgba(0,0,0,.26)); animation: birthday-companion-breathe 3.8s ease-in-out infinite; }
+.birthday-zoom-part { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; image-rendering: auto; }
+.birthday-zoom-body { z-index: 1; }
+.birthday-zoom-arm { z-index: 2; }
+.birthday-zoom-face { z-index: 3; }
+.birthday-zoom-arm-idle { animation: birthday-arm-idle 5.8s ease-in-out infinite; }
+.birthday-zoom-arm-left { transform-origin: 48% 54%; }
+.birthday-zoom-arm-right { transform-origin: 52% 54%; animation-delay: -2.9s; }
+.birthday-zoom-eye-open { animation: birthday-eye-open 9.6s steps(1, end) infinite; }
+.birthday-zoom-eye-closed, .birthday-zoom-mouth-small, .birthday-zoom-mouth-open { opacity: 0; }
+.birthday-zoom-eye-closed { animation: birthday-eye-closed 9.6s steps(1, end) infinite; }
+.birthday-zoom-mouth-closed { animation: birthday-mouth-closed 9.6s steps(1, end) infinite; }
+.birthday-zoom-mouth-small { animation: birthday-mouth-small 9.6s steps(1, end) infinite; }
+.birthday-zoom-mouth-open { animation: birthday-mouth-open 9.6s steps(1, end) infinite; }
+.birthday-form { width: min(100%, 430px); text-align: left; }
+.eyebrow { margin: 0 0 14px; color: #d5e3e9; font-size: .78rem; line-height: 1.65; letter-spacing: .08em; }
+.birthday-form h1 { margin: 0 0 14px; color: #fffaf0; font-family: "Yu Mincho", serif; font-size: clamp(1.62rem, 4vw, 2.45rem); font-weight: 500; line-height: 1.45; letter-spacing: .08em; }
+.birthday-guide { margin: 0 0 20px; color: #d6e0e4; font-size: .92rem; line-height: 1.65; }
+.birthday-input-label { display: grid; gap: 7px; color: #f7ebd8; font-size: .82rem; font-weight: 800; letter-spacing: .09em; }
+.birthday-form input { width: 100%; min-height: 56px; border: 2px solid rgba(255,247,226,.6); border-radius: 13px; padding: 11px 14px; color-scheme: dark; color: #fff; background: rgba(7,18,29,.5); box-shadow: inset 0 1px 5px rgba(0,0,0,.28), 0 4px 14px rgba(0,0,0,.12); font-size: 1.13rem; text-align: center; letter-spacing: .09em; }
+.birthday-form input:hover { border-color: rgba(255,247,226,.9); background: rgba(9,23,35,.68); }
+.birthday-form input:focus-visible { border-color: #ffd995; outline-color: #ffd995; }
+.birthday-form .primary-button { display: block; width: 100%; margin: 23px 0 9px; }
+.birthday-form .text-button { display: block; width: 100%; }
+@keyframes birthday-companion-breathe { 0%, 100% { transform: translateX(-2px) rotate(-.6deg); } 50% { transform: translateX(2px) rotate(.6deg); } }
+@keyframes birthday-arm-idle { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-1px) rotate(.7deg); } }
+@keyframes birthday-eye-open { 0%, 91%, 94%, 100% { opacity: 1; } 92%, 93% { opacity: 0; } }
+@keyframes birthday-eye-closed { 0%, 91%, 94%, 100% { opacity: 0; } 92%, 93% { opacity: 1; } }
+@keyframes birthday-mouth-closed { 0%, 34%, 52%, 100% { opacity: 1; } 38%, 48% { opacity: 0; } }
+@keyframes birthday-mouth-small { 0%, 34%, 52%, 100% { opacity: 0; } 35%, 39%, 47%, 50% { opacity: 1; } }
+@keyframes birthday-mouth-open { 0%, 40%, 46%, 100% { opacity: 0; } 42%, 44% { opacity: 1; } }
+.text-button { border: 0; padding: 10px; color: #aeb9c7; background: transparent; font-size: .86rem; }
+
+.game-shell { display: grid; place-items: center; background: #0b0f17; transition: filter 1.2s, opacity 1.2s; }
+.game-shell.blackout { filter: brightness(0); }
+.room { position: relative; width: min(100vw, calc(100svh * 1.6)); aspect-ratio: 16 / 10; max-height: 100svh; overflow: hidden; background: #17130f url('/assets/room-evening.png') center/cover no-repeat; box-shadow: 0 0 80px #000; }
+.room-tint { position: absolute; inset: 0; pointer-events: none; transition: background 1s; }
+.room-items { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: visible; }
+.room-item { position: absolute; display: block; height: auto; user-select: none; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 4px 4px rgba(43, 23, 11, .22)); }
+.room-item-editable { cursor: grab; touch-action: none; }
+.room-item-editable:active { cursor: grabbing; }
+.room-item-selected { filter: drop-shadow(0 0 6px #fff2a3) drop-shadow(0 4px 4px rgba(43, 23, 11, .22)); }
+.bed-sleep-choice { position: absolute; z-index: 12; min-width: 118px; min-height: 48px; padding: 9px 18px; border: 2px solid #69482f; border-radius: 999px; color: #fff8e8; background: #a96b46; box-shadow: 0 4px 0 #633e2b, 0 7px 12px rgba(38, 20, 10, .3); font-weight: 700; letter-spacing: .08em; transform: translate(-50%, -100%); transition: transform .12s, box-shadow .12s; }
+.bed-sleep-choice:hover { background: #bb7951; transform: translate(-50%, calc(-100% - 2px)); }
+.bed-sleep-choice:active { transform: translate(-50%, calc(-100% + 3px)); box-shadow: 0 1px 0 #633e2b, 0 4px 8px rgba(38, 20, 10, .25); }
+.room-item-bookshelf { left: 1%; top: 36%; width: 24%; z-index: 2; clip-path: inset(6.5% 15.8% 2.9% 16%); }
+.room-item-bed-flower-red,
+.room-item-bed-leaf-green,
+.room-item-bed-check-yellow { left: 24%; top: 43%; width: 28%; z-index: 2; clip-path: inset(8% 5% 4% 5%); }
+.bed-sleep-front { z-index: 5 !important; clip-path: inset(59% 5% 4% 5%) !important; pointer-events: none; filter: none; }
+.room-item-cabinet { left: 77%; top: 43%; width: 21%; z-index: 2; clip-path: inset(22.8% 7.9% 14.2% 9.1%); }
+.room-item-hanging-shelf { left: 5%; top: 4%; width: 22%; z-index: 2; clip-path: inset(8.8% 20.5% 7.2% 20.5%); }
+.room-item-wall-frame { left: 78%; top: 10%; width: 11%; z-index: 2; clip-path: inset(13.8% 20.1% 11.6% 19.9%); }
+.room-item-floor-lamp { left: 84%; top: 42%; width: 16%; z-index: 3; clip-path: inset(4% 31.4% 4.5% 31.2%); }
+.room-item-rug { left: 21%; top: 63%; width: 50%; z-index: 0; clip-path: inset(22.2% .8% 16.8% 1.4%); }
+.room-item-low-table { left: 40%; top: 61%; width: 27%; z-index: 3; clip-path: inset(28.5% 4.9% 21.2% 4.9%); }
+.room-item-cushion { left: 3%; top: 72%; width: 18%; z-index: 3; clip-path: inset(24% 3.7% 17.3% 4.9%); }
+.room-item-plant { left: 69%; top: 49%; width: 15%; z-index: 3; clip-path: inset(3.1% 15.1% 3% 17.6%); }
+.room-item-vase { left: 49%; top: 53%; width: 8%; z-index: 3; clip-path: inset(12% 20.6% 9.3% 20.6%); }
+.room-item-wall-clock { left: 59%; top: 11%; width: 13%; aspect-ratio: 1; z-index: 2; }
+.room-item-wall-clock-digital { left: 74%; top: 13%; width: 11%; aspect-ratio: 1; z-index: 2; }
+.room-collider-debug { position: absolute; z-index: 9; pointer-events: none; box-sizing: border-box; border: 2px dashed rgba(255, 79, 61, .92); background: rgba(255, 85, 64, .2); }
+.room-collider-debug-low-table { border-radius: 50%; }
+.room-collider-debug-nonblocking { border-color: rgba(83, 158, 219, .9); background: rgba(83, 158, 219, .16); }
+.room-collider-debug-clock { border-radius: 5px; border-color: rgba(255, 210, 72, .95); background: rgba(255, 210, 72, .22); }
+.world-layer-walkable { cursor: pointer; }
+.room-clock { position: absolute; left: 74%; top: 49%; z-index: 3; display: grid; place-items: center; width: clamp(100px, 13vw, 136px); aspect-ratio: 2.55 / 1; margin: 0; border: 0; border-radius: 4px; background: #f2d59e; box-shadow: -3px 0 0 #68492f, 3px 0 0 #68492f, 0 -3px 0 #68492f, 0 3px 0 #68492f, 4px 7px 0 rgba(58,37,22,.42), inset 0 4px 0 #ffedc2, inset 0 -5px 0 #d4a86d; image-rendering: pixelated; pointer-events: none; transform: translate(-50%, -50%) rotate(-1deg); transition: left .2s ease, top .2s ease, box-shadow .2s ease; }
+.room-clock-editing { z-index: 7; pointer-events: auto; cursor: grab; touch-action: none; box-shadow: -3px 0 0 #68492f, 3px 0 0 #68492f, 0 -3px 0 #68492f, 0 3px 0 #68492f, 0 0 0 7px rgba(255,244,196,.72), 4px 7px 0 rgba(58,37,22,.42), inset 0 4px 0 #ffedc2, inset 0 -5px 0 #d4a86d; }
+.room-clock-editing:active { cursor: grabbing; }
+.room-clock::before { content: ""; position: absolute; left: 7px; top: 7px; width: 4px; height: 4px; background: #df6e5d; box-shadow: 0 6px 0 #fff0c9; }
+.room-clock::after { content: ""; position: absolute; right: 7px; top: 7px; width: 4px; height: 4px; background: #fff0c9; box-shadow: 0 6px 0 #df6e5d; }
+.room-clock-top-button { position: absolute; top: -10px; left: 50%; width: 28%; height: 7px; border-radius: 2px 2px 0 0; background: #e77962; box-shadow: -2px 0 0 #68492f, 2px 0 0 #68492f, 0 -2px 0 #68492f, inset 0 2px 0 #ffb08d; transform: translateX(-50%); }
+.room-clock-feet { position: absolute; left: 14%; right: 14%; bottom: -9px; display: flex; justify-content: space-between; }
+.room-clock-feet i { display: block; width: 16px; height: 7px; background: #d4a86d; box-shadow: -2px 0 0 #68492f, 2px 0 0 #68492f, 0 2px 0 #68492f; }
+.room-clock-screen { display: grid; place-items: center; width: 80%; height: 66%; overflow: hidden; padding: 3px 5px; border: 0; border-radius: 1px; background: #bcd0b8; box-shadow: -2px 0 0 #58614f, 2px 0 0 #58614f, 0 -2px 0 #58614f, 0 2px 0 #58614f, inset 3px 3px 0 rgba(255,255,255,.22), inset -3px -3px 0 rgba(78,101,76,.18); line-height: 1; }
+.pixel-clock-digits { display: flex; align-items: center; justify-content: center; width: max-content; max-width: 100%; gap: clamp(2px, .28vw, 4px); font-size: clamp(.88rem, 1.7vw, 1.2rem); line-height: 1; }
+.room-clock-digit { position: relative; display: block; width: .72em; height: 1.22em; flex: 0 0 .72em; }
+.room-clock-segment { position: absolute; display: block; width: .18em; height: .18em; background: #304336; box-shadow: 1px 1px 0 #829984; }
+.room-clock-segment-a { left: .18em; top: 0; width: .42em; }
+.room-clock-segment-b { right: 0; top: .18em; height: .38em; }
+.room-clock-segment-c { right: 0; bottom: .18em; height: .38em; }
+.room-clock-segment-d { left: .18em; bottom: 0; width: .42em; }
+.room-clock-segment-e { left: 0; bottom: .18em; height: .38em; }
+.room-clock-segment-f { left: 0; top: .18em; height: .38em; }
+.room-clock-segment-g { left: .18em; top: .52em; width: .42em; }
+.room-clock-colon { display: grid; gap: .24em; margin-inline: .04em; flex: 0 0 .18em; }
+.room-clock-colon i { display: block; width: .16em; height: .16em; background: #304336; box-shadow: 1px 1px 0 #829984; }
+.room-wall-clock { position: relative; z-index: 2; display: block; width: 100%; height: 100%; pointer-events: none; }
+.room-wall-clock-art { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(2px 3px 1px rgba(62,36,18,.24)); image-rendering: pixelated; }
+.room-wall-clock-analog-face { position: absolute; inset: 23% 21% 20% 21%; display: block; border-radius: 50%; }
+.room-wall-clock-hand { position: absolute; left: 50%; top: 50%; display: block; width: 5%; border-radius: 999px 999px 2px 2px; background: #62432f; box-shadow: 1px 0 0 rgba(255,250,224,.45); transform-origin: 50% 0; }
+.room-wall-clock-hand-hour { height: 29%; background: #9a5c42; }
+.room-wall-clock-hand-minute { width: 3.5%; height: 43%; background: #556d58; }
+.room-wall-clock-pin { position: absolute; left: 50%; top: 50%; width: 11%; aspect-ratio: 1; border: 1px solid rgba(104,68,43,.55); border-radius: 50%; background: #d9835e; box-shadow: 0 1px 0 rgba(255,245,217,.8), 0 1px 2px rgba(80,44,24,.35); transform: translate(-50%, -50%); }
+.room-wall-clock-digital { position: relative; z-index: 2; display: block; width: 100%; height: 100%; pointer-events: none; }
+.room-wall-clock-digital-art { display: block; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 3px 1px rgba(62,36,18,.24)); }
+.room-wall-clock-digital-display { position: absolute; left: 26%; top: 41%; display: block; width: 49%; height: 22%; min-width: 0; overflow: hidden; padding: 0; color: #304336; container-type: inline-size; }
+.room-wall-clock-digital-display .pixel-clock-digits { position: absolute; left: 2%; top: 50%; max-width: 91%; gap: 1px; justify-content: flex-start; font-size: 27cqi; transform: translateY(-50%); }
+.time-morning .room-tint { background: linear-gradient(180deg, rgba(252,203,129,.23), rgba(255,232,183,.05)); mix-blend-mode: screen; }
+.time-day .room-tint { background: rgba(177,215,229,.2); mix-blend-mode: screen; }
+.time-evening .room-tint { background: transparent; }
+.time-night .room-tint, .time-midnight .room-tint { background: rgba(7,19,45,.22); mix-blend-mode: multiply; }
+
+.mochi { --accent: #e66f51; position: absolute; left: 41%; top: 58%; width: clamp(90px, 13%, 180px); z-index: 4; transform-origin: 50% 85%; transition: left 2.3s cubic-bezier(.45,0,.25,1), top 2.3s cubic-bezier(.45,0,.25,1), transform 1s; filter: drop-shadow(0 14px 9px rgba(31,16,7,.45)); }
+.mochi img { display: block; width: 100%; user-select: none; animation: none; }
+.mochi-type-1 .sprite { position: relative; width: 100%; aspect-ratio: 1; animation: none; image-rendering: auto; }
+.mochi-type-1 .sprite img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; animation: none; image-rendering: auto; }
+.suuhimochi { width: 128px; height: 128px; image-rendering: auto; }
+.mochi-type-1 { width: 128px; }
+.mochi-type-1 .sprite { width: 128px; height: 128px; aspect-ratio: auto; }
+.mochi-type-1 .sprite .suuhimochi { width: 128px; height: 128px; }
+.mochi-type-1 .sprite-walk img { opacity: 0; }
+.mochi-type-1 .sprite-walk img:first-child { opacity: 1; animation: sprite-frame 1.2s steps(1) infinite; }
+.mochi-type-1 .sprite-walk img:nth-child(2) { animation: sprite-frame-2 1.2s steps(1) infinite; }
+.mochi-type-1 .sprite-walk img:nth-child(3) { animation: sprite-frame-3 1.2s steps(1) infinite; }
+.mochi-type-1 .sprite-walk img:nth-child(4) { animation: sprite-frame-4 1.2s steps(1) infinite; }
+.mochi-type-1 .sprite-sleep img { opacity: 0; animation: sprite-sleep-frame 2.8s steps(1) infinite; }
+.mochi-type-1 .sprite-sleep img:nth-child(1) { animation-delay: 0s; }
+.mochi-type-1 .sprite-sleep img:nth-child(2) { animation-delay: .4s; }
+.mochi-type-1 .sprite-sleep img:nth-child(3) { animation-delay: .8s; }
+.mochi-type-1 .sprite-sleep img:nth-child(4) { animation-delay: 1.2s; }
+.mochi-type-1 .sprite-sleep img:nth-child(5) { animation-delay: 1.6s; }
+.mochi-type-1 .sprite-sleep img:nth-child(6) { animation-delay: 2s; }
+.mochi-type-1 .sprite-sleep img:nth-child(7) { animation-delay: 2.4s; }
+.type-charm { position: absolute; right: 5%; bottom: 12%; width: 13%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 2px 6px rgba(0,0,0,.34); }
+.mochi-type-1 { width: clamp(112px, 17%, 225px); top: 54%; }
+.mochi-type-1 .type-charm { display: none; }
+.mochi-type-1.mochi-window { top: 38%; }
+.mochi-type-1.mochi-sit { top: 59%; }
+.mochi-type-1.mochi-roll, .mochi-type-1.mochi-sleep { top: 61%; }
+.mochi-walk { left: 56%; animation: hopwalk 2.3s ease-in-out infinite; }
+.mochi-sit { top: 63%; transform: scaleY(.82) scaleX(1.08); }
+.mochi-window { left: 51%; top: 42%; transform: scale(.8) rotate(-4deg); }
+.mochi-window img { transform: scaleX(-1); }
+.mochi-roll { left: 30%; top: 68%; transform: rotate(-74deg) scaleY(.88); }
+.mochi-look { left: 43%; top: 57%; transform: scale(1.05); }
+.mochi-sleep { left: 25%; top: 65%; transform: rotate(-11deg); filter: drop-shadow(0 9px 7px rgba(31,16,7,.5)) saturate(.75); }
+.mochi-sleep::after { content: "z"; position: absolute; left: 57%; top: -4%; color: #d8e5ed; font-family: serif; font-size: clamp(18px, 2vw, 28px); animation: snooze 2s ease-out infinite; }
+
+/* The 64px pixel sprites stay anchored to the floor and move as a body. */
+.mochi-type-1 { left: 41%; top: 54%; transition: left 900ms cubic-bezier(.22,.75,.28,1), top 900ms cubic-bezier(.22,.75,.28,1), transform .9s cubic-bezier(.22,.72,.28,1), translate var(--walk-duration, 145ms) cubic-bezier(.22,.75,.28,1); }
+.mochi-type-1.mochi-idle,
+.mochi-type-1.mochi-look,
+.mochi-type-1.mochi-walk { left: 41%; top: 54%; transform: translate3d(0, 0, 0); }
+.mochi-type-1.mochi-look { transform: scale(1.04); }
+.mochi-type-1.mochi-walk .sprite { animation: type1-walk-bob .3s ease-in-out infinite alternate; }
+.mochi-type-1.mochi-window { left: 41%; top: 54%; transform: translate3d(8vw, -12vh, 0) scale(.88) rotate(-3deg); }
+.mochi-type-1.mochi-sit { left: 41%; top: 54%; transform: translate3d(0, 2vh, 0) scaleY(.9) scaleX(1.04); }
+.mochi-type-1.mochi-roll { left: 41%; top: 54%; transform: translate3d(-7vw, 8vh, 0) rotate(-42deg) scale(.92); }
+.mochi-type-1.mochi-sleep { left: 41%; top: 54%; transform: rotate(-11deg); }
+.mochi.mochi-talk { top: 40% !important; }
+
+.encounter-caption { position: absolute; left: 50%; bottom: 8%; z-index: 8; width: min(90%, 580px); transform: translateX(-50%); color: #fff8e8; text-align: center; text-shadow: 0 3px 10px #000; }
+.encounter-caption p { min-height: 2em; margin: 0 0 18px; font-family: "Yu Mincho", serif; font-size: clamp(1.15rem, 3vw, 1.8rem); letter-spacing: .14em; animation: textin .55s ease both; }
+.encounter-caption button { border: 0; border-bottom: 1px solid rgba(255,255,255,.7); padding: 9px 4px; color: #fff; background: transparent; font-size: .9rem; letter-spacing: .1em; animation: appear .8s 1s both; }
+
+.dialogue-box { position: absolute; left: 50%; bottom: 7%; z-index: 10; width: min(86%, 700px); min-height: 132px; padding: 28px 30px 24px; transform: translateX(-50%); border: 3px solid #3b3b3b; border-radius: 26px; color: #2f2f2f; background: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.18); }
+.dialogue-box::before { content: ""; position: absolute; left: 54%; bottom: -24px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-top: 24px solid #3b3b3b; transform: translateX(-50%); }
+.dialogue-box::after { content: ""; position: absolute; left: 54%; bottom: -18px; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 19px solid #fff; transform: translateX(-50%); }
+.speaker { position: absolute; top: -18px; left: 24px; z-index: 3; padding: 5px 15px; border: 3px solid #3b3b3b; border-radius: 14px; color: #2f2f2f; background: #fff; font-size: .78rem; font-weight: 700; letter-spacing: .08em; }
+.dialogue-box p { margin: 8px 0; font-size: clamp(1rem, 2.3vw, 1.22rem); line-height: 1.75; letter-spacing: .05em; }
+.dialogue-box .permission-line { font-family: "Yu Mincho", serif; font-weight: 700; font-size: clamp(1.16rem, 3vw, 1.55rem); }
+.initial-goal-form { display: grid; gap: 10px; margin-top: 14px; }
+.initial-goal-form input { width: 100%; min-height: 48px; border: 1px solid #c6aa8e; border-radius: 11px; padding: 10px 13px; color: #4a392d; background: #fffdf7; font-size: 1rem; }
+.initial-goal-form input::placeholder { color: #ae9a84; }
+.initial-goal-form .choices { margin-top: 3px; }
+.initial-goal-form .choices button:last-child { color: #735d4b; background: #f5eee1; }
+.initial-goal-form .choices button:disabled { cursor: not-allowed; opacity: .42; }
+.dialogue-next { position: absolute; right: 18px; bottom: 12px; border: 0; color: #d46f4b; background: transparent; font-size: .7rem; animation: pulse 1s infinite; }
+.choices { display: flex; gap: 12px; justify-content: flex-end; margin-top: 17px; }
+.choices button, .soft-accept { min-height: 42px; border: 1px solid #a7876b; border-radius: 4px; padding: 8px 22px; color: #4a392d; background: #fffaf0; }
+.choices button:first-child { color: white; background: #cf6745; border-color: #b85335; }
+.soft-accept { float: right; margin-top: 15px; }
+
+.talk-panel { position: absolute; inset: 0; z-index: 18; display: block; width: 100%; color: #342d28; pointer-events: none; animation: bubblein .25s ease both; }
+.talk-dialogue-card { position: absolute; top: 8%; left: 50%; width: min(84%, 680px); max-height: 34vh; padding: 30px 38px 22px 28px; transform: translateX(-50%); border: 3px solid #3b3b3b; border-radius: 28px; color: #2f2f2f; background: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.18); pointer-events: auto; }
+.talk-dialogue-card::before { content: ""; position: absolute; left: 52%; bottom: -25px; width: 0; height: 0; border-left: 19px solid transparent; border-right: 19px solid transparent; border-top: 25px solid #3b3b3b; transform: translateX(-50%); pointer-events: none; }
+.talk-dialogue-card::after { content: ""; position: absolute; left: 52%; bottom: -18px; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 19px solid #fff; transform: translateX(-50%); pointer-events: none; }
+.talk-panel .speaker { top: -18px; left: 24px; padding: 5px 15px; border: 3px solid #3b3b3b; border-radius: 14px; color: #2f2f2f; background: #fff; box-shadow: none; font-size: .82rem; font-weight: 700; letter-spacing: .08em; }
+.talk-close { position: absolute; top: 9px; right: 10px; z-index: 2; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; color: #786555; background: rgba(255,255,255,.3); }
+.talk-close:hover { color: #49382b; background: rgba(111,82,56,.1); }
+.talk-history { display: flex; flex-direction: column; gap: 8px; max-height: min(25vh, 190px); margin: 1px 22px 8px 0; padding: 2px 6px 4px 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(165,128,91,.55) transparent; }
+.talk-message { max-width: 94%; margin: 0; padding: 7px 10px; border-radius: 0; white-space: pre-wrap; font-size: 1rem; font-weight: 600; line-height: 1.7; letter-spacing: .02em; }
+.talk-mochi { align-self: flex-start; border: 0; background: transparent; box-shadow: none; }
+.talk-user { align-self: flex-end; border: 0; border-bottom: 2px dotted #c7c7c7; border-radius: 0; color: #555; background: transparent; font-weight: 500; }
+.talk-system { align-self: center; max-width: 100%; padding-block: 3px; color: #9b725b; background: transparent; font-size: .76rem; letter-spacing: .04em; }
+.talk-input-dock { position: absolute; left: 50%; bottom: 13%; width: min(88%, 520px); transform: translateX(-50%); padding: 12px 13px 10px; border: 1px solid rgba(255,255,255,.42); border-radius: 14px; background: rgba(26,31,34,.9); box-shadow: 0 9px 24px rgba(0,0,0,.34); backdrop-filter: blur(7px); pointer-events: auto; }
+.talk-panel textarea { display: block; width: 100%; min-height: 62px; max-height: 105px; resize: vertical; border: 1px solid #c9b9a4; border-radius: 8px; padding: 11px 13px; color: #3f352e; background: #fffdf8; line-height: 1.55; }
+.talk-panel textarea:disabled { color: #7c746d; background: #e7e4df; cursor: wait; }
+.talk-input-dock .talk-actions { margin-top: 8px; }
+.talk-input-dock .talk-actions small { color: #c7c1b8; }
+.talk-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.talk-actions small { color: #8a7a6c; font-size: .72rem; }
+.talk-actions button, .word-choices button { min-height: 39px; border: 1px solid #ae8f73; border-radius: 6px; padding: 8px 17px; color: #fff; background: #cf6745; }
+.talk-actions button:disabled { opacity: .42; cursor: default; }
+.talk-actions button.ghost, .word-choices button:not(:first-child) { color: #4d3e33; background: #fffaf0; }
+.talk-actions-end { justify-content: flex-end; }
+.talk-footer-actions { position: absolute; right: 4%; bottom: 4%; width: fit-content; margin-top: 0; padding: 5px; border-radius: 9px; background: rgba(26,31,34,.86); box-shadow: 0 5px 18px rgba(0,0,0,.25); pointer-events: auto; }
+.word-question { display: grid; gap: 7px; }
+.word-question > strong { color: #b65438; font-family: "Yu Mincho", serif; font-size: clamp(1.15rem, 3vw, 1.45rem); }
+.word-question > span { color: #76675a; font-size: .9rem; }
+.word-choices { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 5px; }
+.talk-choice-dock { position: absolute; left: 50%; bottom: 13%; width: min(88%, 540px); transform: translateX(-50%); margin-top: 0; padding: 9px; border-radius: 14px; background: rgba(26,31,34,.88); box-shadow: 0 5px 18px rgba(0,0,0,.25); pointer-events: auto; }
+.speaking-status { position: absolute; right: 20px; bottom: 10px; display: flex; gap: 4px; height: 10px; }
+.speaking-status i { width: 4px; height: 4px; border-radius: 50%; background: #b36b4f; animation: speaking-dot .9s ease-in-out infinite alternate; }
+.speaking-status i:nth-child(2) { animation-delay: .16s; }
+.speaking-status i:nth-child(3) { animation-delay: .32s; }
+.speech-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -.12em; background: #b85d42; animation: caret-blink .7s steps(1) infinite; }
+
+.game-status { position: absolute; top: 0; left: 0; right: 0; z-index: 6; display: flex; align-items: flex-start; justify-content: space-between; padding: clamp(14px, 3vw, 28px); color: #fff8e7; text-shadow: 0 2px 7px #000; pointer-events: none; }
+.game-status strong { display: block; font-size: clamp(.9rem, 2vw, 1.15rem); letter-spacing: .16em; }
+.game-status div span { display: block; margin-top: 4px; opacity: .68; font-size: clamp(.68rem, 1.5vw, .82rem); }
+.time-label { padding: 4px 9px; border: 1px solid rgba(255,255,255,.34); border-radius: 999px; font-size: .75rem; letter-spacing: .14em; }
+.game-status-actions { display: flex; align-items: center; gap: 9px; }
+.room-overview-toggle { display: none; pointer-events: auto; min-height: 32px; border: 1px solid rgba(255,255,255,.42); border-radius: 999px; padding: 4px 11px; color: #fff8e7; background: rgba(24, 25, 30, .58); box-shadow: 0 3px 10px rgba(0,0,0,.2); font-size: .74rem; font-weight: 700; letter-spacing: .04em; transition: background .2s, transform .12s; }
+.room-overview-toggle:hover { background: rgba(255,255,255,.18); }
+.room-overview-toggle:active { transform: translateY(2px); }
+.room-light-toggle { pointer-events: auto; min-height: 32px; border: 1px solid rgba(255,255,255,.42); border-radius: 999px; padding: 4px 11px; color: #fff8e7; background: rgba(24, 25, 30, .48); box-shadow: 0 3px 10px rgba(0,0,0,.2); font-size: .74rem; letter-spacing: .08em; transition: background .2s, opacity .2s, transform .12s; }
+.room-light-toggle:hover:not(:disabled) { background: rgba(255,255,255,.18); }
+.room-light-toggle:active:not(:disabled) { transform: translateY(2px); }
+.room-light-toggle:disabled { cursor: default; opacity: .5; }
+
+.room-nav { position: absolute; left: 50%; bottom: 2.4%; z-index: 12; display: flex; gap: 5px; transform: translateX(-50%); padding: 5px; border: 1px solid rgba(255,255,255,.24); border-radius: 14px; background: rgba(21,26,30,.78); box-shadow: 0 8px 24px rgba(0,0,0,.34); backdrop-filter: blur(8px); }
+.room-nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 67px; border: 0; border-radius: 10px; padding: 7px 10px 5px; color: #d9d8d2; background: transparent; }
+.room-nav button:hover, .room-nav button.active { color: #fff; background: rgba(255,255,255,.12); }
+.room-nav span { font-size: .68rem; }
+.item-note { position: absolute; left: 3%; top: 13%; z-index: 20; width: min(32%, 350px); max-height: 64%; display: flex; flex-direction: column; padding: 17px; border: 1px solid rgba(119, 89, 62, .42); border-radius: 18px; color: #3f3027; background: rgba(255,248,231,.58); box-shadow: 0 12px 28px rgba(44,27,16,.3); backdrop-filter: blur(2px); cursor: grab; touch-action: pan-y; }
+.item-note:active { cursor: grabbing; }
+.item-note > strong { display: block; margin-bottom: 4px; font-family: "Yu Mincho", serif; font-size: 1.2rem; }
+.item-note-close { position: absolute; top: 9px; right: 9px; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; color: #594a3d; background: rgba(255,255,255,.7); }
+.item-note-collapse { position: absolute; top: 9px; right: 48px; min-height: 34px; border: 0; border-radius: 8px; padding: 5px 9px; color: #594a3d; background: rgba(255,255,255,.7); font-size: .8rem; font-weight: 700; }
+.item-mini-toolbar { position: absolute; left: 3%; top: 13%; z-index: 20; display: flex; align-items: center; gap: 9px; padding: 7px 9px; border: 1px solid rgba(119,89,62,.42); border-radius: 12px; color: #3f3027; background: rgba(255,248,231,.82); box-shadow: 0 6px 18px rgba(44,27,16,.22); font-size: .8rem; font-weight: 700; }
+.item-mini-toolbar button { min-height: 32px; border: 1px solid #b89b79; border-radius: 8px; padding: 5px 9px; color: #4c3828; background: #fff9eb; font-size: .8rem; font-weight: 800; }
+.item-note-guide { margin: 0 24px 12px 0; font-size: .9rem; line-height: 1.5; }
+.item-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; padding: 4px; border-radius: 11px; background: rgba(78,60,42,.12); }
+.item-tabs button { min-height: 40px; border: 0; border-radius: 8px; color: #675445; background: transparent; font-size: .9rem; font-weight: 700; }
+.item-tabs button.active { color: #3b2c22; background: #fffaf0; box-shadow: 0 2px 5px rgba(64,42,25,.16); }
+.item-tabs span { margin-left: 3px; font-size: .8rem; opacity: .72; }
+.item-card-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 9px; min-height: 100px; max-height: min(50vh, 460px); overflow-y: auto; padding: 3px 3px 6px; scrollbar-width: thin; }
+.item-tile { min-width: 0; border: 1px solid rgba(116,87,60,.34); border-radius: 12px; background: rgba(255,253,247,.84); box-shadow: 0 3px 0 rgba(91,66,43,.17); overflow: visible; }
+.item-tile.selected { border-color: #719b7d; box-shadow: 0 0 0 2px rgba(124,174,135,.34), 0 3px 0 rgba(91,66,43,.17); }
+.item-tile-main { display: grid; justify-items: center; align-content: start; width: 100%; min-height: 103px; border: 0; padding: 8px 6px 5px; color: #3e3026; background: transparent; text-align: center; overflow: visible; }
+.item-tile-preview { display: grid; place-items: center; width: 76px; height: 68px; }
+.item-tile-preview img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.item-tile-name { display: block; width: 100%; min-height: 2.5em; padding-inline: 2px; font-size: .875rem; line-height: 1.35; font-weight: 700; white-space: normal; overflow-wrap: anywhere; word-break: break-word; overflow: visible; }
+.item-tile-action { display: block; width: 100%; min-height: 36px; border: 1px solid #b89b79; border-radius: 8px; color: #5a402c; background: rgba(248,238,219,.9); font-size: .875rem; font-weight: 800; }
+.item-tile-action:hover { background: #fff6e5; }
+.item-tile-action:active { transform: translateY(2px); }
+.item-list-empty { grid-column: 1 / -1; align-self: center; margin: 15px 8px; color: #705b49; font-size: .88rem; line-height: 1.5; }
+.item-card-mini-clock { display: grid; place-items: center; width: 75px; height: 31px; border: 0; border-radius: 2px; color: #33473a; background: #f2d59e; box-shadow: -2px 0 0 #68492f, 2px 0 0 #68492f, 0 -2px 0 #68492f, 0 2px 0 #68492f, 2px 3px 0 rgba(80,58,43,.34), inset 0 3px 0 #ffedc2; font-size: .76rem; image-rendering: pixelated; }
+.item-card-mini-clock .pixel-clock-digits { width: 80%; height: 68%; gap: 2px; background: #bcd0b8; box-shadow: -1px 0 0 #58614f, 1px 0 0 #58614f, 0 -1px 0 #58614f, 0 1px 0 #58614f; font-size: .62rem; }
+.item-card-wall-clock { display: grid; place-items: center; width: 58px; height: 58px; }
+.item-card-wall-clock .room-wall-clock { width: 47px; height: 47px; }
+.settings-note { position: absolute; right: 7%; bottom: 13%; z-index: 20; width: min(84%, 340px); padding: 20px 18px 18px; border: 1px solid rgba(119, 89, 62, .28); border-radius: 18px; color: #4a382d; background: rgba(255,248,231,.97); box-shadow: 0 12px 28px rgba(44,27,16,.3); }
+.settings-note > strong { display: block; margin-bottom: 14px; font-family: "Yu Mincho", serif; font-size: 1.1rem; }
+.settings-form { display: grid; gap: 7px; }
+.settings-form label { margin-top: 3px; color: #765e4d; font-size: .88rem; font-weight: 700; }
+.settings-form input { width: 100%; min-height: 42px; border: 1px solid #c9b79e; border-radius: 9px; padding: 8px 11px; color: #44372e; background: #fffdf8; }
+.settings-form input::placeholder { color: #ab9a87; }
+.settings-form small { margin-top: 3px; color: #8b7765; font-size: .78rem; line-height: 1.45; }
+.settings-save { min-height: 42px; margin-top: 5px; border: 1px solid #b85335; border-radius: 8px; color: #fffdf8; background: #cf6745; box-shadow: 0 3px 0 rgba(91,56,37,.3); font-weight: 700; }
+.settings-save:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(91,56,37,.3); }
+
+.thought-bubble { --bubble-border: #9bb8aa; --bubble-fill: #fffefb; position: absolute; top: 13%; right: 3.5%; z-index: 8; display: block; appearance: none; width: min(38%, 460px); min-height: clamp(126px, 22vh, 176px); overflow: visible; padding: clamp(20px, 2.4vw, 28px) clamp(22px, 3vw, 34px) clamp(38px, 4vw, 46px); border: 2px solid var(--bubble-border); border-radius: 34px; color: #493d28; background: var(--bubble-fill); box-shadow: 0 3px 9px rgba(37,53,44,.16); font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", Meiryo, sans-serif; font-size: clamp(1.03rem, 1.75vw, 1.32rem); font-weight: 700; line-height: 1.58; letter-spacing: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; word-break: normal; animation: bubblein .35s ease both; }
+.thought-bubble-text { display: block; animation: textin .2s ease both; }
+.thought-bubble-page { position: absolute; right: 48px; bottom: 13px; color: #71877c; font-size: .68em; font-weight: 700; letter-spacing: .08em; }
+.thought-bubble-next { position: absolute; right: 20px; bottom: 12px; color: #617a6d; font-size: .7em; animation: pulse 1s ease-in-out infinite; }
+.thought-bubble.sleep-thought-bubble { --bubble-border: #94a9bd; --bubble-fill: rgba(255, 255, 252, .96); right: auto; z-index: 10; width: min(33%, 350px); min-height: 92px; padding: clamp(15px, 1.8vw, 21px) clamp(18px, 2.2vw, 26px) clamp(25px, 3vw, 34px); border-radius: 29px; color: #405264; font-size: clamp(.94rem, 1.45vw, 1.13rem); line-height: 1.5; box-shadow: 0 4px 12px rgba(49, 66, 82, .18); }
+.sleep-thought-bubble .thought-bubble-tail { left: calc(50% - 26px); bottom: -35px; transform: scaleX(.82); transform-origin: top center; }
+
+.memory-note { position: absolute; z-index: 20; inset: 12% 12% auto auto; width: min(82%, 360px); max-height: 72%; padding: 29px 26px 27px; overflow-y: auto; border-radius: 2px; color: #4a3d31; background: #fff7dc; box-shadow: 0 15px 45px rgba(0,0,0,.46); transform: rotate(1deg); animation: bubblein .25s ease both; }
+.memory-note::before { content: ""; position: absolute; top: -9px; left: 42%; width: 62px; height: 20px; background: rgba(226,202,149,.74); transform: rotate(-3deg); }
+.memory-note button { float: right; border: 0; color: #685b50; background: transparent; }
+.memory-note > span { font-size: .72rem; letter-spacing: .16em; color: #a16d50; }
+.memory-note p { margin: 18px 0; font-family: "Yu Mincho", serif; font-size: 1.05rem; line-height: 1.7; }
+.memory-note small { color: #8e7b68; }
+.memory-topics { display: grid; gap: 8px; }
+.memory-topics div { display: grid; grid-template-columns: 58px 1fr; align-items: baseline; gap: 8px; padding-bottom: 7px; border-bottom: 1px dashed #decfb2; }
+.memory-topics b { color: #a16d50; font-size: .67rem; letter-spacing: .08em; }
+.memory-topics span { font-family: "Yu Mincho", serif; font-size: .88rem; }
+.farewell-letter { margin-top: 20px; white-space: pre-wrap; font-family: "Yu Mincho", serif; font-size: .93rem; line-height: 1.85; }
+.learned-words { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 20px; padding-top: 14px; border-top: 1px dashed #d8c7a7; }
+.learned-words b { width: 100%; margin-bottom: 2px; color: #977359; font-size: .72rem; letter-spacing: .12em; }
+.learned-words i { padding: 5px 8px; border-radius: 999px; color: #675447; background: #eee2c8; font-size: .76rem; font-style: normal; }
+
+/* Suuhimochi's dictionary is a little paper notebook: familiar enough to
+   browse at a glance, but still visibly part of the room rather than an app
+   settings screen. */
+.dictionary-note { position: absolute; top: 11%; right: 5%; bottom: 13%; z-index: 20; display: flex; flex-direction: column; width: min(88%, 438px); min-height: 210px; padding: 20px 18px 17px; overflow: hidden; border: 2px solid #9e7656; border-radius: 21px 16px 19px 15px; color: #49392e; background: linear-gradient(90deg, #f8ebc9 0 27px, #fff8df 27px 100%); box-shadow: 0 7px 0 rgba(93,65,44,.32), 0 18px 38px rgba(39,25,16,.38), inset 0 0 0 3px rgba(255,255,255,.45); animation: bubblein .25s ease both; }
+.dictionary-note::before { content: ""; position: absolute; inset: 0 auto 0 27px; width: 1px; background: rgba(190,111,90,.26); box-shadow: 7px 0 0 rgba(255,255,255,.3); pointer-events: none; }
+.dictionary-close { position: absolute; top: 10px; right: 11px; z-index: 2; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(113,77,53,.3); border-radius: 50%; color: #76553e; background: rgba(255,253,243,.86); box-shadow: 0 2px 0 rgba(101,70,48,.16); }
+.dictionary-close:active { transform: translateY(2px); box-shadow: none; }
+.dictionary-heading { position: relative; display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 43px 11px 14px; border-bottom: 1px dashed rgba(143,103,70,.45); }
+.dictionary-heading-mark { display: grid; place-items: center; width: 43px; height: 43px; border: 2px solid #a9704e; border-radius: 13px 10px 12px 9px; color: #fff9e9; background: #d38456; box-shadow: inset 0 -3px 0 rgba(105,56,36,.2); font-size: .66rem; font-weight: 900; letter-spacing: .08em; transform: rotate(-4deg); }
+.dictionary-heading strong { display: block; color: #654532; font-family: "Yu Mincho", serif; font-size: clamp(1.05rem, 2.1vw, 1.3rem); letter-spacing: .08em; }
+.dictionary-heading small { display: block; margin-top: 3px; color: #9a7458; font-size: .73rem; font-weight: 700; letter-spacing: .06em; }
+.dictionary-filters { position: relative; display: flex; gap: 6px; margin: 12px 1px 10px 14px; overflow-x: auto; padding: 1px 1px 5px; scrollbar-width: thin; }
+.dictionary-filters button { flex: 0 0 auto; min-height: 30px; border: 1px solid #d2b18d; border-radius: 999px; padding: 5px 10px; color: #785b48; background: rgba(255,252,241,.82); box-shadow: 0 2px 0 rgba(117,79,51,.12); font-size: .76rem; font-weight: 800; white-space: nowrap; }
+.dictionary-filters button.active { color: #fffaf0; border-color: #a96d4a; background: #c97951; box-shadow: inset 0 -2px 0 rgba(102,55,36,.22); }
+.dictionary-list { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 9px; overflow-y: auto; padding: 1px 1px 8px 14px; scrollbar-width: thin; scrollbar-color: rgba(135,94,62,.45) transparent; }
+.dictionary-word-card { position: relative; min-width: 0; padding: 11px 10px 10px; border: 1px solid rgba(159,111,75,.36); border-radius: 13px 10px 12px 9px; background: rgba(255,253,243,.76); box-shadow: 0 3px 0 rgba(120,79,50,.12); }
+.dictionary-word-title { display: flex; align-items: center; gap: 5px; min-width: 0; padding-right: 2px; }
+.dictionary-word-title b { min-width: 0; overflow-wrap: anywhere; color: #513a2c; font-family: "Yu Mincho", serif; font-size: 1.03rem; line-height: 1.25; }
+.dictionary-word-title em { flex: 0 0 auto; padding: 2px 5px; border: 1px solid #d8877e; border-radius: 999px; color: #b4524a; background: #ffe3d5; font-size: .64rem; font-style: normal; font-weight: 900; }
+.dictionary-category { display: inline-block; margin-top: 7px; padding: 2px 6px; border-radius: 999px; color: #876551; background: #f1e1bf; font-size: .65rem; font-weight: 800; }
+.dictionary-word-card p { margin: 7px 0 0; color: #735c4b; font-size: .73rem; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.dictionary-word-card small { display: block; margin-top: 7px; padding-top: 6px; border-top: 1px dashed rgba(160,116,82,.3); color: #a06052; font-size: .67rem; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.dictionary-word-delete { display: block; width: 100%; min-height: 27px; margin-top: 9px; border: 1px dashed rgba(172,104,86,.45); border-radius: 8px; color: #a06654; background: rgba(255,248,233,.7); font-size: .67rem; font-weight: 800; }
+.dictionary-word-delete:hover { border-color: #c2765d; color: #8f4c3b; background: #fff1dd; }
+.dictionary-word-delete:active { transform: translateY(1px); }
+.dictionary-filter-empty { grid-column: 1 / -1; margin: 24px 8px; color: #8b705d; font-family: "Yu Mincho", serif; font-size: .9rem; line-height: 1.6; text-align: center; }
+.dictionary-empty { position: relative; margin: auto 14px; color: #806555; font-family: "Yu Mincho", serif; font-size: 1rem; line-height: 1.8; text-align: center; }
+
+.dev-panel { position: absolute; left: 7px; bottom: 7px; z-index: 30; color: rgba(255,255,255,.35); font: 9px/1.2 monospace; }
+.dev-panel summary { cursor: pointer; list-style: none; letter-spacing: .1em; }
+.dev-panel summary::-webkit-details-marker { display: none; }
+.dev-panel > div { position: absolute; left: 0; bottom: 18px; display: grid; gap: 7px; width: min(330px, 82vw); max-height: 78vh; padding: 12px; overflow-y: auto; border: 1px solid #63717d; border-radius: 5px; color: #eaf0f4; background: rgba(12,18,25,.94); font-size: 11px; }
+.dev-panel button, .dev-panel select { min-height: 28px; border: 1px solid #596774; border-radius: 3px; color: #eaf0f4; background: #26313b; }
+.dev-panel button { display: flex; align-items: center; justify-content: center; gap: 5px; }
+.dev-panel label { display: grid; grid-template-columns: 1fr 72px; align-items: center; gap: 6px; }
+.dev-initial-preview { display: grid; gap: 6px; padding: 9px; border: 1px solid #6c8090; border-radius: 5px; background: rgba(91, 116, 130, .18); }
+.dev-initial-preview b { color: #d8edf5; font-size: 11px; letter-spacing: .06em; }
+.dev-initial-preview span { color: #b9ccd6; font-size: 10px; }
+.dev-initial-preview button { border-color: #87a8ba; color: #effbff; background: #36586b; }
+.initial-preview-return { position: fixed; top: max(12px, env(safe-area-inset-top)); right: 12px; z-index: 50; min-height: 38px; border: 1px solid rgba(255,255,255,.54); border-radius: 999px; padding: 8px 13px; color: #fff; background: rgba(26, 41, 53, .88); box-shadow: 0 5px 16px rgba(0,0,0,.28); font-size: .78rem; font-weight: 800; }
+.initial-preview-return:hover { background: rgba(52, 77, 94, .96); }
+.dev-expression-preview { display: grid; gap: 6px; margin-top: 4px; padding-top: 9px; border-top: 1px solid #46525e; }
+.dev-expression-canvas { position: relative; width: 230px; aspect-ratio: 1; margin: 2px auto 5px; border: 1px solid #596774; border-radius: 6px; background: linear-gradient(180deg, #34414a, #202a31); overflow: hidden; }
+.dev-expression-canvas img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.conversation-debug { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 8px; margin-top: 5px; padding-top: 9px; border-top: 1px solid #46525e; }
+.conversation-debug b { color: #9cb8ca; font-size: 9px; letter-spacing: .05em; }
+.conversation-debug span, .conversation-debug code { min-width: 0; overflow-wrap: anywhere; color: #f1eee5; white-space: pre-wrap; font: 10px/1.45 monospace; }
+
+.loading { background: #111821; }
+@keyframes appear { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes drift { to { background-position: 61px 61px; } }
+@keyframes hopwalk { 0%,100% { translate: 0 0; } 50% { translate: -8px -7px; } }
+@keyframes textin { from { opacity: 0; transform: translateY(4px); } }
+@keyframes pulse { 50% { opacity: .3; transform: translateY(3px); } }
+@keyframes bubblein { from { opacity: 0; transform: scale(.92) translateY(5px); } }
+@keyframes speaking-dot { to { opacity: .25; transform: translateY(-3px); } }
+@keyframes caret-blink { 50% { opacity: 0; } }
+@keyframes snooze { to { opacity: 0; transform: translate(6px,-8px) scale(1.25); } }
+@keyframes type1-walk-bob { from { transform: translateY(1px); } to { transform: translateY(-3px); } }
+@keyframes sprite-frame { 0%,24% { opacity: 1; } 25%,100% { opacity: 0; } }
+@keyframes sprite-frame-2 { 0%,24% { opacity: 0; } 25%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+@keyframes sprite-frame-3 { 0%,49% { opacity: 0; } 50%,74% { opacity: 1; } 75%,100% { opacity: 0; } }
+@keyframes sprite-frame-4 { 0%,74% { opacity: 0; } 75%,100% { opacity: 1; } }
+@keyframes sprite-sleep-frame { 0%,14.28% { opacity: 1; } 14.29%,100% { opacity: 0; } }
+
+@media (max-width: 700px) {
+  .game-shell { align-items: center; }
+  .birthday-screen { display: block; overflow-y: auto; padding: max(20px, env(safe-area-inset-top)) 16px 24px; }
+  .birthday-card { grid-template-columns: 1fr; gap: 4px; margin: 0 auto; padding: 20px 18px; }
+  .birthday-companion { min-height: 154px; }
+  .birthday-companion::before { bottom: 11px; width: 105px; height: 18px; }
+  .birthday-companion-speech { top: 0; right: calc(50% - 122px); }
+  .birthday-zoom-mochi { width: 138px; }
+  .birthday-form { margin: 0 auto; }
+  .birthday-form h1 { font-size: 1.7rem; }
+  .room { width: 100vw; height: 100svh; aspect-ratio: auto; background-size: cover; background-position: center; }
+  .room-clock-screen { font-size: 1rem; }
+  .room-nav { width: calc(100% - 10px); justify-content: center; gap: 2px; padding: 4px; }
+  .room-nav button { flex: 1 1 0; min-width: 0; padding-inline: 3px; }
+  .room-nav span { font-size: .6rem; white-space: nowrap; }
+  .item-note { left: 12px; right: auto; top: auto; bottom: 13%; width: min(78%, 320px); max-height: 56%; padding: 12px; }
+  .item-mini-toolbar { left: 12px; top: max(66px, calc(env(safe-area-inset-top) + 48px)); }
+  .item-note-guide { font-size: .875rem; }
+  .item-card-list { max-height: 38vh; }
+  .item-tile-main { min-height: 88px; }
+  .item-tile-preview { width: 62px; height: 54px; }
+  .item-tile-name { font-size: .875rem; }
+  .settings-note { right: 12px; bottom: 13%; width: min(88%, 340px); }
+  .dictionary-note { top: max(70px, calc(env(safe-area-inset-top) + 54px)); right: 10px; bottom: 12%; width: calc(100% - 20px); padding: 16px 13px 13px; }
+  .dictionary-heading { padding-left: 12px; }
+  .dictionary-list { grid-template-columns: 1fr; padding-left: 12px; }
+  .dictionary-filters { margin-left: 12px; }
+  .mochi.mochi-talk { top: 35% !important; }
+  .dialogue-box { bottom: 4.5%; padding: 24px 20px 18px; min-height: 150px; }
+  .talk-dialogue-card { top: 8%; width: 92%; padding: 25px 18px 16px; }
+  .talk-history { max-height: 24vh; }
+  .talk-input-dock, .talk-choice-dock { bottom: 13%; width: 92%; }
+  .talk-footer-actions { right: 3%; bottom: 8%; }
+  .word-choices { justify-content: flex-start; }
+  .word-choices button { flex: 1 1 auto; padding-inline: 10px; }
+  .room-nav { bottom: 2%; }
+  .thought-bubble { top: 10%; right: 12px; width: calc(100% - 24px); min-height: 118px; padding: 17px 20px 38px; border-radius: 24px; font-size: 1rem; }
+  .thought-bubble-page { right: 42px; bottom: 10px; }
+  .thought-bubble-next { right: 16px; bottom: 9px; }
+  .game-status { padding-top: max(16px, env(safe-area-inset-top)); }
+  .room-overview-toggle { display: inline-flex; align-items: center; justify-content: center; }
+}
+
+@media (max-height: 600px) {
+  .dialogue-box { min-height: 115px; padding: 20px 20px 14px; }
+  .dialogue-box p { line-height: 1.5; }
+  .room-nav { bottom: 1%; }
+  .mochi { width: 13%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* =========================================================
+   Doko Demo Issyo-style speech bubble v2
+   - No internal scrolling: bubble/history expand with content.
+   - Tail is an off-center, slanted tapered point aimed at the character,
+     rather than a centered symmetrical triangle.
+   ========================================================= */
+
+/* Speech bubbles grow with their contents instead of becoming scroll areas. */
+.dialogue-box,
+.talk-dialogue-card,
+.thought-bubble {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.talk-history {
+  max-height: none;
+  overflow: visible;
+  scrollbar-width: none;
+}
+
+.talk-history::-webkit-scrollbar {
+  display: none;
+}
+
+/* Keep the tail and the rounded bubble in one visual layer. */
+.dialogue-box,
+.talk-dialogue-card,
+.thought-bubble {
+  isolation: isolate;
+}
+
+/* Main dialogue: tail starts near the lower-right edge and leans toward the character. */
+.dialogue-box::before,
+.talk-dialogue-card::before {
+  content: "";
+  position: absolute;
+  left: auto;
+  right: 58px;
+  bottom: -35px;
+  width: 56px;
+  height: 39px;
+  border: 0;
+  background: #3b3b3b;
+  clip-path: polygon(0 0, 100% 0, 80% 100%);
+  transform: none;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dialogue-box::after,
+.talk-dialogue-card::after {
+  content: "";
+  position: absolute;
+  left: auto;
+  right: 64px;
+  bottom: -28px;
+  width: 45px;
+  height: 33px;
+  border: 0;
+  background: #fff;
+  clip-path: polygon(0 0, 100% 0, 80% 100%);
+  transform: none;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Ambient bubble tail: one continuous, hand-drawn curve with the exact body colors. */
+.thought-bubble-tail {
+  position: absolute;
+  left: 43px;
+  bottom: -39px;
+  width: 64px;
+  height: 48px;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.thought-bubble-tail-fill {
+  fill: var(--bubble-fill);
+}
+
+.thought-bubble-tail-stroke {
+  fill: none;
+  stroke: var(--bubble-border);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.thought-bubble::before,
+.thought-bubble::after {
+  content: none;
+}
+
+@media (max-width: 700px) {
+  .talk-dialogue-card,
+  .thought-bubble {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .talk-history {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .dialogue-box::before,
+  .talk-dialogue-card::before {
+    right: 34px;
+    bottom: -29px;
+    width: 47px;
+    height: 33px;
+  }
+
+  .dialogue-box::after,
+  .talk-dialogue-card::after {
+    right: 39px;
+    bottom: -23px;
+    width: 37px;
+    height: 27px;
+  }
+
+  .thought-bubble-tail {
+    left: 28px;
+    bottom: -33px;
+    width: 54px;
+    height: 41px;
+  }
+
+  .thought-bubble.sleep-thought-bubble { left: 12px !important; top: 7% !important; width: min(76%, 330px); min-height: 82px; padding: 14px 17px 27px; font-size: .95rem; }
+  .sleep-thought-bubble .thought-bubble-tail { left: calc(50% - 22px); bottom: -31px; }
+}
+
+/* Poteno arrival greeting: use the same warm rounded bubble language as Poteno. */
+.thought-bubble.poteno-welcome-bubble {
+  --bubble-border: #72503c;
+  --bubble-fill: rgba(255, 253, 244, .96);
+  top: auto;
+  right: auto;
+  left: 41%;
+  width: min(258px, 30vw);
+  min-height: 0;
+  padding: 14px 17px 17px;
+  border: 3px solid var(--bubble-border);
+  border-radius: 19px 22px 20px 17px;
+  color: #503b2d;
+  background: var(--bubble-fill);
+  box-shadow: 0 4px 0 rgba(89, 53, 35, .17);
+  font-family: "Yu Mincho", "Hiragino Maru Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  font-size: clamp(.88rem, 1.8vw, 1rem);
+  line-height: 1.55;
+  transform: translate(-10%, calc(-100% - 14px));
+}
+
+.poteno-welcome-bubble .thought-bubble-tail { display: none; }
+
+.poteno-welcome-bubble::after {
+  content: "";
+  position: absolute;
+  left: 35%;
+  bottom: -14px;
+  width: 24px;
+  height: 16px;
+  background: var(--bubble-border);
+  clip-path: polygon(0 0, 100% 0, 12% 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.poteno-welcome-bubble::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: calc(35% + 3px);
+  bottom: -9px;
+  width: 17px;
+  height: 12px;
+  background: var(--bubble-fill);
+  clip-path: polygon(0 0, 100% 0, 12% 100%);
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  .thought-bubble.poteno-welcome-bubble {
+    left: 41%;
+    width: min(236px, 64vw);
+    padding: 11px 13px 14px;
+    border-width: 2px;
+    transform: translate(-8%, calc(-100% - 10px));
+    font-size: .82rem;
+  }
+
+}

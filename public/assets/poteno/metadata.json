@@ -1,0 +1,36 @@
+{
+  "group_id": "6c5ff95d-e8af-4743-affb-c70168c63585",
+  "states": [
+    {
+      "character": {
+        "id": "7b1b814d-6cdc-4826-ac8a-7fad25ef08fa",
+        "name": "Idle",
+        "prompt": "Create a cute 64x64 pixel art chibi mascot character, front-facing and centered, with a small round pale yellow body and a slightly fluffy lower silhouette. The character has tiny half-closed black eyes, a tiny dot mouth, and a sleepy, unimpressed, slightly lazy expression. Add a small green sprout with two leaves growing from the top of the head. Tiny arms and tiny feet, simple clean outline, minimal shading, soft pastel colors, highly readable at small size, kawaii Japanese mascot style, retro game sprite look, transparent background.",
+        "size": {
+          "width": 64,
+          "height": 72
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-22T12:33:37.342523+00:00"
+      },
+      "folder": "Idle",
+      "frames": {
+        "rotations": {
+          "south": "Idle/rotations/south.png",
+          "south-east": "Idle/rotations/south-east.png",
+          "east": "Idle/rotations/east.png",
+          "north-east": "Idle/rotations/north-east.png",
+          "north": "Idle/rotations/north.png",
+          "north-west": "Idle/rotations/north-west.png",
+          "west": "Idle/rotations/west.png",
+          "south-west": "Idle/rotations/south-west.png"
+        },
+        "animations": {}
+      }
+    }
+  ],
+  "export_version": "3.1",
+  "export_date": "2026-09-22T12:37:12.870278"
+}
