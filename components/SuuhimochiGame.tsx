@@ -416,7 +416,12 @@ const INITIAL_ITEM_POSITIONS: Record<string, RoomItemPosition> = {
 };
 const ROOM_LAYOUT_STORAGE_KEY = 'suuhimochi_room_layout_v1';
 const RECENT_CATEGORY_STORAGE_KEY = 'suuhimochi_recent_categories_v1';
-const INITIAL_STORED_ITEM_IDS = ['bed-flower-red', 'bed-leaf-green'];
+// A brand-new room starts empty. Every furnishing, including the clocks,
+// remains available from the item drawer until the player places it.
+const INITIAL_STORED_ITEM_IDS = ['clock', ...ROOM_ITEMS.map((item) => item.id)];
+// Preserve rooms saved before all three bed variants existed. This is kept
+// separate from the blank-room defaults so existing layouts stay untouched.
+const LEGACY_BED_STORED_ITEM_IDS = ['bed-flower-red', 'bed-leaf-green'];
 const BED_ITEM_IDS = new Set(['bed-flower-red', 'bed-leaf-green', 'bed-check-yellow']);
 // Only furniture that occupies floor space blocks the character. Wall decor
 // and the leaf rug are intentionally omitted; the rug is a walkable floor.
@@ -510,7 +515,7 @@ export function SuuhimochiGame() {
   const [clockPosition, setClockPosition] = useState({ x: 74, y: 49 });
   const [itemPositions, setItemPositions] = useState<Record<string, RoomItemPosition>>(INITIAL_ITEM_POSITIONS);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [storedItemIds, setStoredItemIds] = useState<string[]>([]);
+  const [storedItemIds, setStoredItemIds] = useState<string[]>(INITIAL_STORED_ITEM_IDS);
   const [sleepingBedId, setSleepingBedId] = useState<string | null>(null);
   const [sleepPose, setSleepPose] = useState<{ left: number; top: number } | null>(null);
   const [bedPromptId, setBedPromptId] = useState<string | null>(null);
@@ -1140,13 +1145,13 @@ export function SuuhimochiGame() {
           // Migrate layouts saved before the three bed variants were added:
           // keep the yellow bed placed and offer the red/green variants in
           // storage instead of stacking all three in the room.
-          if (!stored.some((id) => id.startsWith('bed-'))) stored.push(...INITIAL_STORED_ITEM_IDS);
+          if (!stored.some((id) => id.startsWith('bed-'))) stored.push(...LEGACY_BED_STORED_ITEM_IDS);
           setStoredItemIds(stored);
         }
       } else {
-        // Show one bed variant in the room initially and keep the other two
-        // available from the storage tab until the user places them.
-        setStoredItemIds(INITIAL_STORED_ITEM_IDS);
+        // Existing saves from before room-layout persistence retain the
+        // historical room. Only a genuinely new room begins with no items.
+        setStoredItemIds(found.introComplete ? LEGACY_BED_STORED_ITEM_IDS : INITIAL_STORED_ITEM_IDS);
       }
       if (found.introComplete) setPhase('home');
       setHydrated(true);
