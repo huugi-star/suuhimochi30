@@ -14,7 +14,8 @@ export type DailyProgressRecord = {
   /** The user chose to fill in yesterday's note later from the journal. */
   noteDeferred?: boolean;
   wasHard: boolean;
-  todayTarget: DailyProgressLevel;
+  /** Kept for older records; new check-ins no longer ask for today's target. */
+  todayTarget?: DailyProgressLevel;
   recordedAt: string;
 };
 

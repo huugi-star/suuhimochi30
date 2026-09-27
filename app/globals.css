@@ -289,13 +289,20 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .item-card-mini-clock .pixel-clock-digits { width: 80%; height: 68%; gap: 2px; background: #bcd0b8; box-shadow: -1px 0 0 #58614f, 1px 0 0 #58614f, 0 -1px 0 #58614f, 0 1px 0 #58614f; font-size: .62rem; }
 .item-card-wall-clock { display: grid; place-items: center; width: 58px; height: 58px; }
 .item-card-wall-clock .room-wall-clock { width: 47px; height: 47px; }
-.settings-note { position: absolute; right: 7%; bottom: 13%; z-index: 20; width: min(84%, 340px); padding: 20px 18px 18px; border: 1px solid rgba(119, 89, 62, .28); border-radius: 18px; color: #4a382d; background: rgba(255,248,231,.97); box-shadow: 0 12px 28px rgba(44,27,16,.3); }
+.settings-note { position: absolute; right: 7%; bottom: 13%; z-index: 20; width: min(84%, 340px); max-height: 74%; padding: 20px 18px 18px; overflow-y: auto; border: 1px solid rgba(119, 89, 62, .28); border-radius: 18px; color: #4a382d; background: rgba(255,248,231,.97); box-shadow: 0 12px 28px rgba(44,27,16,.3); }
 .settings-note > strong { display: block; margin-bottom: 14px; font-family: "Yu Mincho", serif; font-size: 1.1rem; }
 .settings-form { display: grid; gap: 7px; }
 .settings-form label { margin-top: 3px; color: #765e4d; font-size: .88rem; font-weight: 700; }
 .settings-form input { width: 100%; min-height: 42px; border: 1px solid #c9b79e; border-radius: 9px; padding: 8px 11px; color: #44372e; background: #fffdf8; }
 .settings-form input::placeholder { color: #ab9a87; }
 .settings-form small { margin-top: 3px; color: #8b7765; font-size: .78rem; line-height: 1.45; }
+.settings-divination-profile { display: grid; gap: 7px; margin-top: 9px; padding: 12px; border: 1px solid rgba(137, 102, 66, .28); border-radius: 12px; background: linear-gradient(135deg, rgba(251, 239, 207, .76), rgba(255, 252, 243, .82)); }
+.settings-profile-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: #5c4837; }
+.settings-profile-heading b { font-family: "Yu Mincho", serif; font-size: .94rem; }
+.settings-profile-heading small { margin: 0; font-size: .7rem; text-align: right; }
+.settings-divination-profile label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.settings-divination-profile label em { padding: 2px 6px; border-radius: 99px; color: #9a523c; background: #f5dfc7; font-size: .68rem; font-style: normal; white-space: nowrap; }
+.settings-divination-profile input:disabled { cursor: not-allowed; color: #8b7765; background: #eee7da; opacity: 1; }
 .settings-save { min-height: 42px; margin-top: 5px; border: 1px solid #b85335; border-radius: 8px; color: #fffdf8; background: #cf6745; box-shadow: 0 3px 0 rgba(91,56,37,.3); font-weight: 700; }
 .settings-save:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(91,56,37,.3); }
 

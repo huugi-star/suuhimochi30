@@ -11,7 +11,15 @@
     "start": "node .output/server/index.mjs",
     "lint": "oxlint",
     "format": "oxfmt",
-    "test:conversation": "node scripts/test-conversation.mjs"
+    "test:conversation": "node scripts/test-conversation.mjs",
+    "test:poteno-link": "node scripts/test-poteno-link.mjs",
+    "test:poteno-divination": "node scripts/test-poteno-divination.mjs",
+    "test:taikobo-iching": "node scripts/test-taikobo-iching.mjs",
+    "test:tamamo-crossroads": "node scripts/test-tamamo-crossroads.mjs",
+    "test:saint-germain-tarot": "node scripts/test-saint-germain-tarot.mjs",
+    "test:seimei-calendar": "node scripts/test-seimei-calendar.mjs",
+    "test:asteria-lunar-solar": "node scripts/test-asteria-lunar-solar.mjs",
+    "test:davinci-structure": "node scripts/test-davinci-structure.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

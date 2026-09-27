@@ -2,11 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Coffee, Footprints, Sparkles, TrendingUp } from 'lucide-react';
-import type {
-  DailyProgressLevel,
-  DailyProgressRecord,
-  YesterdayProgressLevel,
-} from '@/lib/dailyProgress';
+import type { DailyProgressRecord, YesterdayProgressLevel } from '@/lib/dailyProgress';
 import { normalizeDoneItems } from '@/lib/dailyProgress';
 
 type DailyProgressCheckProps = {
@@ -52,30 +48,17 @@ const YESTERDAY_CHOICES = [
   Icon: typeof Footprints;
 }[];
 
-const TODAY_CHOICES: readonly {
-  value: DailyProgressLevel;
-  label: string;
-  note: string;
-}[] = [
-  { value: 'HOP', label: 'ホップ', note: '小さく一歩' },
-  { value: 'STEP', label: 'ステップ', note: 'しっかり前へ' },
-  { value: 'JUMP', label: 'ジャンプ', note: '思いきって進む' },
-];
-
 export function DailyProgressCheck({
   activityDate,
   reviewedDate,
   onComplete,
 }: DailyProgressCheckProps) {
-  const [stage, setStage] = useState<'yesterday' | 'details' | 'today'>(
-    'yesterday',
-  );
+  const [stage, setStage] = useState<'yesterday' | 'details'>('yesterday');
   const [evaluation, setEvaluation] = useState<YesterdayProgressLevel | null>(
     null,
   );
   const [doneItems, setDoneItems] = useState<string[]>(['']);
   const [wasHard, setWasHard] = useState(false);
-  const [noteDeferred, setNoteDeferred] = useState(false);
   const doneItemRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const chooseYesterday = (value: YesterdayProgressLevel) => {
@@ -83,34 +66,18 @@ export function DailyProgressCheck({
     setEvaluation(value);
     setDoneItems(['']);
     setWasHard(false);
-    setNoteDeferred(false);
     window.setTimeout(() => setStage('details'), 220);
   };
 
-  const continueToToday = (hard: boolean, keepNote: boolean) => {
-    setWasHard(hard);
-    setNoteDeferred(false);
-    if (!keepNote) setDoneItems(['']);
-    setStage('today');
-  };
-
-  const deferNote = () => {
-    setDoneItems(['']);
-    setWasHard(false);
-    setNoteDeferred(true);
-    setStage('today');
-  };
-
-  const finish = (todayTarget: DailyProgressLevel) => {
+  const finish = (deferred: boolean) => {
     if (!evaluation) return;
     onComplete({
       date: activityDate,
       reviewedDate,
       yesterdayEvaluation: evaluation,
-      doneItems: normalizeDoneItems(doneItems),
-      noteDeferred,
-      wasHard,
-      todayTarget,
+      doneItems: deferred ? [] : normalizeDoneItems(doneItems),
+      noteDeferred: deferred,
+      wasHard: evaluation === 'BREATH' || wasHard,
       recordedAt: new Date().toISOString(),
     });
   };
@@ -134,7 +101,7 @@ export function DailyProgressCheck({
   return (
     <section
       className="daily-progress-overlay"
-      aria-label="今日の進み方を決める"
+      aria-label="昨日の足あとを記録する"
     >
       <div className="daily-progress-card">
         {stage === 'yesterday' && (
@@ -213,70 +180,21 @@ export function DailyProgressCheck({
               </div>
               <button className="daily-progress-add-item" type="button" onClick={() => { const nextIndex = doneItems.length; setDoneItems((items) => [...items, '']); window.setTimeout(() => doneItemRefs.current[nextIndex]?.focus(), 0); }}>＋ やったことを追加</button>
             </div>
-            <div
-              className={`daily-progress-actions${evaluation !== 'BREATH' ? ' has-defer' : ''}`}
-            >
-              {evaluation === 'BREATH' ? (
-                <button
-                  className="daily-progress-primary"
-                  type="button"
-                  onClick={() => continueToToday(true, true)}
-                >
-                  大変だった
-                </button>
-              ) : (
-                <button
-                  className="daily-progress-primary"
-                  type="button"
-                  onClick={() => continueToToday(false, true)}
-                >
-                  記録する
-                </button>
-              )}
+            <div className="daily-progress-actions">
               <button
-                className="daily-progress-skip"
+                className="daily-progress-primary"
                 type="button"
-                onClick={() => continueToToday(false, false)}
+                onClick={() => finish(false)}
               >
-                スキップ
+                記録する
               </button>
-              {evaluation !== 'BREATH' && (
-                <button
-                  className="daily-progress-defer"
-                  type="button"
-                  onClick={deferNote}
-                >
-                  後で記帳する
-                </button>
-              )}
-            </div>
-          </>
-        )}
-
-        {stage === 'today' && (
-          <>
-            <header className="daily-progress-heading">
-              <strong>今日の一歩</strong>
-            </header>
-            <p className="daily-progress-question">
-              今日は、
-              <br />
-              目標までどれぐらい進んでみる？
-            </p>
-            <div
-              className="daily-progress-choices today"
-              aria-label="今日の進み方"
-            >
-              {TODAY_CHOICES.map((choice) => (
-                <button
-                  type="button"
-                  key={choice.value}
-                  onClick={() => finish(choice.value)}
-                >
-                  <b>{choice.label}</b>
-                  <small>{choice.note}</small>
-                </button>
-              ))}
+              <button
+                className="daily-progress-defer"
+                type="button"
+                onClick={() => finish(true)}
+              >
+                あとで記帳する
+              </button>
             </div>
           </>
         )}
@@ -302,9 +220,6 @@ export function DailyProgressCheck({
         .daily-progress-option-copy small { color: #796354; font-size: .73rem; font-weight: 750; line-height: 1.45; }
         .daily-progress-option.is-selected { border-color: var(--option-accent); background: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--option-accent) 22%, transparent), 0 2px 0 var(--option-accent); transform: translateY(2px) scale(.985); }
         .daily-progress-choices button b { font-size: .98rem; letter-spacing: .06em; }
-        .daily-progress-choices.today { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        .daily-progress-choices.today button { display: grid; place-items: center; align-content: center; gap: 4px; padding: 10px 5px; }
-        .daily-progress-choices.today small { color: #92725b; font-size: .65rem; font-weight: 700; }
         .daily-progress-note { position: relative; z-index: 1; display: grid; gap: 10px; margin: 20px 2px 15px; }
         .daily-progress-note > span { font-family: 'Yu Mincho', serif; font-size: 1.03rem; font-weight: 800; }
         .daily-progress-item-list { display: grid; gap: 7px; }
@@ -315,8 +230,6 @@ export function DailyProgressCheck({
         .daily-progress-actions { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
         .daily-progress-actions button { min-height: 46px; border-radius: 12px; font-weight: 900; letter-spacing: .07em; }
         .daily-progress-primary { border: 2px solid #a85d3e; color: #fffaf0; background: #ce7652; box-shadow: 0 3px 0 #84472f; }
-        .daily-progress-skip { border: 2px solid rgba(123,92,67,.38); color: #705744; background: rgba(255,255,255,.68); box-shadow: 0 3px 0 rgba(105,65,44,.15); }
-        .daily-progress-actions.has-defer { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .daily-progress-defer { border: 2px solid #789b91; color: #486b62; background: #edf7f2; box-shadow: 0 3px 0 #b9d4cb; }
         .daily-progress-actions button:active { transform: translateY(2px); box-shadow: none; }
         @media (max-width: 520px) {
@@ -325,9 +238,7 @@ export function DailyProgressCheck({
           .daily-progress-choices.yesterday { gap: 9px; }
           .daily-progress-choices.yesterday button { grid-template-columns: 1fr; justify-items: center; min-height: 112px; padding: 12px 7px; text-align: center; }
           .daily-progress-option-copy { gap: 3px; }
-          .daily-progress-choices.today { grid-template-columns: 1fr; }
-          .daily-progress-choices.today button { min-height: 52px; grid-template-columns: 1fr auto; justify-content: stretch; padding-inline: 17px; text-align: left; }
-          .daily-progress-actions.has-defer { grid-template-columns: 1fr; }
+          .daily-progress-actions { grid-template-columns: 1fr; }
           .daily-progress-question { margin-block: 16px; }
         }
       `}</style>

@@ -1,9 +1,13 @@
 import type { MochiState } from './characterData';
 import { splitDoneItems, type DailyProgressRecord } from './dailyProgress';
+import type { StrategistId, StrategyRecord } from './potenoLink';
+import type { SixDivinationRecord } from './potenoSixDivination';
 import type { TwoDayReviewGoalType, TwoDayReviewRecord } from './twoDayReview';
 
 export type GameSave = {
   birthday: string;
+  /** 初回登録後に設定から生年月日を修正したか。修正は一度だけ許可する。 */
+  birthdayCorrectionUsed: boolean;
   mochiType: number;
   introComplete: boolean;
   day: number;
@@ -14,11 +18,14 @@ export type GameSave = {
   journalNotes: Record<string, string[]>;
   goalType: TwoDayReviewGoalType | null;
   twoDayReviews: TwoDayReviewRecord[];
+  strategyRecords: StrategyRecord[];
+  divinationRecords: SixDivinationRecord[];
   lastDailyProgressActivityDate: string;
 };
 const SAVE_KEY = 'suuhimochi-30days-save-v1';
 export const EMPTY_SAVE: GameSave = {
   birthday: '',
+  birthdayCorrectionUsed: false,
   mochiType: 1,
   introComplete: false,
   day: 0,
@@ -29,6 +36,8 @@ export const EMPTY_SAVE: GameSave = {
   journalNotes: {},
   goalType: null,
   twoDayReviews: [],
+  strategyRecords: [],
+  divinationRecords: [],
   lastDailyProgressActivityDate: '',
 };
 
@@ -38,6 +47,8 @@ export function loadSave(): GameSave {
     const raw = window.localStorage.getItem(SAVE_KEY);
     if (!raw) return EMPTY_SAVE;
     const parsed = JSON.parse(raw) as Partial<GameSave> & {
+      /** 旧版の出生地は読み込み時に破棄する。 */
+      birthplace?: string;
       journalNotes?: Record<string, string | string[]>;
       dailyProgressRecords?: Array<DailyProgressRecord & { doneItems?: string[]; note?: string }>;
     };
@@ -53,14 +64,76 @@ export function loadSave(): GameSave {
           doneItems: splitDoneItems(record.doneItems ?? record.note),
         }))
       : [];
-    return { ...EMPTY_SAVE, ...parsed, journalNotes, dailyProgressRecords };
+    const strategyRecords = Array.isArray(parsed.strategyRecords)
+      ? (parsed.strategyRecords as Array<Partial<StrategyRecord> & { strategy?: string }>).map((record, index) => {
+          const strategist: StrategistId = record.strategist === 'komei'
+            || record.strategist === 'sunzi'
+            || record.strategist === 'hanbei'
+            ? record.strategist
+            : 'hanbei';
+          const legacyDetails = [
+            typeof record.summary === 'string' ? record.summary : '',
+            ...(Array.isArray(record.goodSigns) ? record.goodSigns.filter((item): item is string => typeof item === 'string').map((item) => `良い兆候：${item}`) : []),
+            ...(Array.isArray(record.concerns) ? record.concerns.filter((item): item is string => typeof item === 'string').map((item) => `気になる点：${item}`) : []),
+            ...(Array.isArray(record.unknowns) ? record.unknowns.filter((item): item is string => typeof item === 'string').map((item) => `まだ分からないこと：${item}`) : []),
+          ].filter(Boolean);
+          return {
+            id: typeof record.id === 'string' ? record.id : `legacy-strategy-${index}`,
+            strategist,
+            consultedDay: typeof record.consultedDay === 'number' ? record.consultedDay : 1,
+            savedAt: typeof record.savedAt === 'string' ? record.savedAt : '',
+            counsel: typeof record.counsel === 'string'
+              ? record.counsel
+              : typeof record.advice === 'string'
+                ? record.advice
+                : typeof record.strategy === 'string'
+                  ? record.strategy
+                  : typeof record.summary === 'string'
+                    ? record.summary
+                    : '',
+            potenoSummary: typeof record.potenoSummary === 'string'
+              ? record.potenoSummary
+              : legacyDetails.join('\n'),
+            nextMoves: Array.isArray(record.nextMoves)
+              ? record.nextMoves.filter((item): item is string => typeof item === 'string')
+              : Array.isArray(record.actions)
+                ? record.actions.filter((item): item is string => typeof item === 'string')
+                : [],
+            checkpoints: Array.isArray(record.checkpoints)
+              ? record.checkpoints.filter((item): item is string => typeof item === 'string')
+              : Array.isArray(record.observe)
+                ? record.observe.filter((item): item is string => typeof item === 'string')
+                : [],
+            ...(typeof record.summary === 'string' ? { summary: record.summary } : {}),
+            ...(typeof record.advice === 'string'
+              ? { advice: record.advice }
+              : typeof record.strategy === 'string'
+                ? { advice: record.strategy }
+                : {}),
+            ...(Array.isArray(record.actions) ? { actions: record.actions.filter((item): item is string => typeof item === 'string') } : {}),
+            ...(Array.isArray(record.observe) ? { observe: record.observe.filter((item): item is string => typeof item === 'string') } : {}),
+            ...(typeof record.strategy === 'string' ? { strategy: record.strategy } : {}),
+          } satisfies StrategyRecord;
+        })
+      : [];
+    const divinationRecords = Array.isArray(parsed.divinationRecords)
+      ? parsed.divinationRecords.filter((record): record is SixDivinationRecord => (
+          Boolean(record)
+          && typeof record === 'object'
+          && typeof (record as Partial<SixDivinationRecord>).id === 'string'
+          && (record as Partial<SixDivinationRecord>).type === 'SIX_DIVINATION_RESPONSE'
+        ))
+      : [];
+    const { birthplace: _legacyBirthplace, ...saveWithoutBirthplace } = parsed;
+    return { ...EMPTY_SAVE, ...saveWithoutBirthplace, journalNotes, dailyProgressRecords, strategyRecords, divinationRecords };
   } catch {
     return EMPTY_SAVE;
   }
 }
 
 export function storeSave(save: GameSave) {
-  window.localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  const { birthplace: _legacyBirthplace, ...saveWithoutBirthplace } = save as GameSave & { birthplace?: string };
+  window.localStorage.setItem(SAVE_KEY, JSON.stringify(saveWithoutBirthplace));
 }
 export function clearSave() {
   window.localStorage.removeItem(SAVE_KEY);

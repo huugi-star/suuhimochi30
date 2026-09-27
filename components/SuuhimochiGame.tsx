@@ -13,6 +13,8 @@ import { pickSleepDialogue } from '@/lib/sleepDialogueData';
 import { CATEGORY_LABELS } from '@/lib/conversationData';
 import { clearSave, EMPTY_SAVE, loadSave, storeSave, type GameSave } from '@/lib/storage';
 import { getActivityDateKey, getDoneItems, getPreviousActivityDateKey, isAfterActivityDayStart, normalizeDoneItems, type DailyProgressRecord } from '@/lib/dailyProgress';
+import type { StrategyRecord } from '@/lib/potenoLink';
+import type { SixDivinationRecord } from '@/lib/potenoSixDivination';
 import { TWO_DAY_REVIEW_GOAL_TYPES, type TwoDayReviewGoalType, type TwoDayReviewRecord } from '@/lib/twoDayReview';
 import { advanceDialogue, createDialogueRuntime, getDialogueNode, resolveDialogueText, type DialogueRuntime } from '@/lib/miniDialogueRunner';
 import { closetScare } from '@/lib/miniDialogueScripts';
@@ -512,6 +514,7 @@ export function SuuhimochiGame() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsUserName, setSettingsUserName] = useState('');
   const [settingsCallName, setSettingsCallName] = useState('');
+  const [settingsBirthday, setSettingsBirthday] = useState('');
   const [clockPosition, setClockPosition] = useState({ x: 74, y: 49 });
   const [itemPositions, setItemPositions] = useState<Record<string, RoomItemPosition>>(INITIAL_ITEM_POSITIONS);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -2406,6 +2409,24 @@ export function SuuhimochiGame() {
     if (!isInitialPreview) storeSave(next);
   }
 
+  function saveStrategyRecord(record: StrategyRecord) {
+    const next: GameSave = {
+      ...save,
+      strategyRecords: [...(save.strategyRecords ?? []), record].slice(-30),
+    };
+    setSave(next);
+    if (!isInitialPreview) storeSave(next);
+  }
+
+  function saveDivinationRecord(record: SixDivinationRecord) {
+    const next: GameSave = {
+      ...save,
+      divinationRecords: [...(save.divinationRecords ?? []), record].slice(-30),
+    };
+    setSave(next);
+    if (!isInitialPreview) storeSave(next);
+  }
+
   function saveGoalType(goalType: TwoDayReviewGoalType) {
     const next: GameSave = { ...save, goalType };
     setSave(next);
@@ -2421,6 +2442,7 @@ export function SuuhimochiGame() {
     setSelectedItemId(null);
     setSettingsUserName(save.userName);
     setSettingsCallName(save.callName);
+    setSettingsBirthday(save.birthday);
     setSettingsOpen(true);
   }
 
@@ -2493,11 +2515,22 @@ export function SuuhimochiGame() {
     event.preventDefault();
     const userName = settingsUserName.trim().slice(0, 30);
     const callName = settingsCallName.trim().slice(0, 20);
-    const next = { ...save, userName, callName };
+    const birthday = settingsBirthday.trim();
+    const birthdayChanged = Boolean(save.birthday && birthday && birthday !== save.birthday);
+    // 初回登録は修正回数に数えず、既存の生年月日を変更する時だけ一度の修正権を消費する。
+    if (birthdayChanged && save.birthdayCorrectionUsed) return;
+    const next: GameSave = {
+      ...save,
+      userName,
+      callName,
+      birthday: birthday || save.birthday,
+      birthdayCorrectionUsed: save.birthdayCorrectionUsed || birthdayChanged,
+    };
     setSave(next);
     if (!isInitialPreview) storeSave(next);
     setSettingsUserName(userName);
     setSettingsCallName(callName);
+    setSettingsBirthday(next.birthday);
     setSettingsOpen(false);
   }
 
@@ -3963,11 +3996,17 @@ export function SuuhimochiGame() {
             worldTarget={worldRef.current}
             currentDay={conversationDay}
             activityDate={getActivityDateKey()}
+            birthDate={save.birthday}
+            goalText={conversation.current?.getGoal() ?? ''}
             goalType={save.goalType ?? null}
             dailyProgressRecords={save.dailyProgressRecords ?? []}
             journalNotes={save.journalNotes ?? {}}
             twoDayReviews={save.twoDayReviews ?? []}
+            strategyRecords={save.strategyRecords ?? []}
+            divinationRecords={save.divinationRecords ?? []}
             onSaveTwoDayReview={saveTwoDayReview}
+            onSaveStrategy={saveStrategyRecord}
+            onSaveDivination={saveDivinationRecord}
           />}
           {twoDayReviewTalkOpen && <TwoDayReviewTalk
             onClose={() => setTwoDayReviewTalkOpen(false)}
@@ -3987,6 +4026,8 @@ export function SuuhimochiGame() {
             goalType={save.goalType ?? null}
             records={save.dailyProgressRecords ?? []}
             journalNotes={save.journalNotes ?? {}}
+            strategyRecords={save.strategyRecords ?? []}
+            divinationRecords={save.divinationRecords ?? []}
             memories={conversationMemories}
             words={dictionaryEntries}
             farewellLetter={farewellLetter ? replaceCallName(farewellLetter, getPreferredCallName(save)) : null}
@@ -4061,6 +4102,20 @@ export function SuuhimochiGame() {
               <label htmlFor="settings-call-name">呼ばれ方</label>
               <input id="settings-call-name" value={settingsCallName} onChange={(event) => setSettingsCallName(event.target.value)} maxLength={20} placeholder="呼び名を入力" />
               <small>呼ばれ方は、すうひもちのセリフに反映されます。</small>
+              <section className="settings-divination-profile" aria-label="占いの参照情報">
+                <div className="settings-profile-heading"><b>占いの参照情報</b><small>ポテノ六占で使います。</small></div>
+                <label htmlFor="settings-birthday">生年月日 <em>{save.birthdayCorrectionUsed ? '修正済み' : save.birthday ? '修正 一度だけ' : '登録する'}</em></label>
+                <input
+                  id="settings-birthday"
+                  type="date"
+                  value={settingsBirthday}
+                  onChange={(event) => setSettingsBirthday(event.target.value)}
+                  max={new Date().toISOString().slice(0, 10)}
+                  disabled={Boolean(save.birthday && save.birthdayCorrectionUsed)}
+                  aria-describedby="settings-birthday-help"
+                />
+                <small id="settings-birthday-help">{save.birthdayCorrectionUsed ? '生年月日の修正は使用済みです。' : save.birthday ? '生年月日の修正は一度だけ行えます。' : '生年月日を登録すると六占で使えます。'}</small>
+              </section>
               <button className="settings-save" type="submit">保存する</button>
             </form>
           </section>}

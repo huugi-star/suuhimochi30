@@ -5,10 +5,12 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  Compass,
   MessageCircle,
   PenLine,
   Tags,
   Trash2,
+  Sparkles,
   X,
 } from 'lucide-react';
 import type {
@@ -17,6 +19,8 @@ import type {
   YesterdayProgressLevel,
 } from '@/lib/dailyProgress';
 import { getDoneItems, normalizeDoneItems } from '@/lib/dailyProgress';
+import { STRATEGIST_PROFILES, type StrategyRecord } from '@/lib/potenoLink';
+import { DIVINATION_MASTER_PROFILES, type IChingResult, type LegacyTamamoResult, type SixDivinationRecord, type TaikoboResult, type TamamoResult } from '@/lib/potenoSixDivination';
 import type { ConversationMemory, WordEntry } from '@/lib/wordMemory';
 import {
   TWO_DAY_REVIEW_GOAL_TYPES,
@@ -32,6 +36,8 @@ type JournalPanelProps = {
   goalType: TwoDayReviewGoalType | null;
   records: DailyProgressRecord[];
   journalNotes: Record<string, string[]>;
+  strategyRecords: StrategyRecord[];
+  divinationRecords: SixDivinationRecord[];
   memories: ConversationMemory[];
   words: WordEntry[];
   farewellLetter: string | null;
@@ -39,6 +45,17 @@ type JournalPanelProps = {
   onSaveDoneItems: (date: string, doneItems: string[]) => void;
   onChangeGoalType: (goalType: TwoDayReviewGoalType) => void;
 };
+
+function taikoboJournalSummary(result: IChingResult) {
+  if (!('calculationVersion' in result) || result.calculationVersion !== 'taikobo-iching-v1') return result.baseHexagram as string;
+  const structured = result as TaikoboResult;
+  return `${structured.baseHexagram.fullName} → ${structured.resultingHexagram.fullName}`;
+}
+
+function tamamoJournalSummary(result: TamamoResult) {
+  if ('calculationVersion' in result && result.calculationVersion === 'tamamo-crossroads-v1') return `「${result.kotodama.word}」／${result.kotodama.themeLabel}`;
+  return (result as LegacyTamamoResult).phrase;
+}
 
 const PROGRESS_LABELS: Record<YesterdayProgressLevel, string> = {
   HOP: 'ホップ',
@@ -82,6 +99,8 @@ export function JournalPanel({
   goalType,
   records,
   journalNotes,
+  strategyRecords,
+  divinationRecords,
   memories,
   words,
   farewellLetter,
@@ -119,6 +138,8 @@ export function JournalPanel({
     () => words.filter((word) => wordDateKey(word.firstSeen) === selectedDate),
     [selectedDate, words],
   );
+  const dayStrategies = strategyRecords.filter((record) => record.consultedDay === selectedDay);
+  const dayDivinations = divinationRecords.filter((record) => record.consultedDay === selectedDay);
 
   // The left edge is the stack already turned over: the open page plus its
   // recent past.  The right edge only exists while looking back and leads
@@ -285,11 +306,11 @@ export function JournalPanel({
             </summary>
             <div className="journal-section-body journal-quote">
               「
-              {targetRecord
+              {targetRecord?.todayTarget
                 ? TARGET_LABELS[targetRecord.todayTarget]
                 : selectedDay === 1 && goalText
                   ? goalText
-                  : 'まだ決めていません'}
+                  : '今日は目標を決めずに進む'}
               」
             </div>
           </details>
@@ -392,6 +413,65 @@ export function JournalPanel({
                   </div>
                 </div>
               )}
+            </div>
+          </details>
+
+          <details className="journal-section">
+            <summary>
+              <Compass size={17} />
+              <span>ポテノ軍師との作戦</span>
+              <b>{dayStrategies.length}</b>
+            </summary>
+            <div className="journal-section-body">
+              {dayStrategies.length > 0 ? (
+                <div className="journal-strategy-list">
+                  {dayStrategies.map((strategy) => (
+                    <article key={strategy.id}>
+                      <small>今回の軍師</small>
+                      <b>{STRATEGIST_PROFILES[strategy.strategist]?.displayName ?? 'ポテノ軍師'}</b>
+                      <small>軍師の忠言</small>
+                      <p>{strategy.counsel}</p>
+                      <small>ポテノの要約</small>
+                      <p>{strategy.potenoSummary}</p>
+                      {strategy.nextMoves.length > 0 && <><small>次の一手</small><ul>{strategy.nextMoves.map((action, index) => <li key={`${action}-${index}`}>{action}</li>)}</ul></>}
+                      {strategy.checkpoints.length > 0 && <><small>確認すること</small><ul>{strategy.checkpoints.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></>}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="journal-empty">この日に保存した作戦はありません。</p>
+              )}
+            </div>
+          </details>
+
+          <details className="journal-section">
+            <summary>
+              <Sparkles size={17} />
+              <span>ポテノ六占</span>
+              <b>{dayDivinations.length}</b>
+            </summary>
+            <div className="journal-section-body">
+              {dayDivinations.length > 0 ? (
+                <div className="journal-divination-list">
+                  {dayDivinations.map((divination) => (
+                    <article key={divination.id}>
+                      <header><span>今回の術師</span><b>{DIVINATION_MASTER_PROFILES[divination.master]?.name ?? divination.master}</b></header>
+                      {divination.consultation && <><small>相談したこと</small><p>{divination.consultation}</p></>}
+                      <small>術師の統合解釈</small><p>{divination.integratedReading}</p>
+                      <small>ポテノの要約</small><p>{divination.potenoSummary}</p>
+                      {divination.focus.length > 0 && <><small>今回意識すること</small><ul>{divination.focus.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></>}
+                      <details><summary>六占の元結果</summary><dl>
+                        <div><dt>晴明</dt><dd>{divination.sixResults.seimei.calculationVersion === 'seimei-calendar-v1' ? `${divination.sixResults.seimei.direction.trigram}・${divination.sixResults.seimei.direction.label}／${divination.sixResults.seimei.calendar.label}／${divination.sixResults.seimei.direction.conditionLabel}` : `${divination.sixResults.seimei.direction}・${divination.sixResults.seimei.calendarMark}`}</dd></div>
+                        <div><dt>太公望</dt><dd>{taikoboJournalSummary(divination.sixResults.taikobo)}</dd></div>
+                        <div><dt>玉藻の前</dt><dd>{tamamoJournalSummary(divination.sixResults.tamamo)}</dd></div>
+                        <div><dt>伯爵</dt><dd>{divination.sixResults.saintGermain.cards.map((card) => `${card.role}:${card.name}`).join('／')}</dd></div>
+                        <div><dt>アステリア</dt><dd>{divination.sixResults.asteria.calculationVersion === 'asteria-lunar-solar-v1' ? `${divination.sixResults.asteria.moonPhase.label}／${divination.sixResults.asteria.moonSign.label}／${divination.sixResults.asteria.personalAspect.label}／${divination.sixResults.asteria.solarCycle.label}` : `${divination.sixResults.asteria.sunSign}・${divination.sixResults.asteria.starMarker}`}</dd></div>
+                        <div><dt>ダ・ヴィンチ</dt><dd>{divination.sixResults.davinci.calculationVersion === 'davinci-structure-v1' ? `CORE ${divination.sixResults.davinci.core.number}／STYLE ${divination.sixResults.davinci.style.number}／${divination.sixResults.davinci.relation.label}` : `${divination.sixResults.davinci.lifePathNumber}・${divination.sixResults.davinci.geometry}`}</dd></div>
+                      </dl></details>
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="journal-empty">この日に保存した六占はありません。</p>}
             </div>
           </details>
 
@@ -521,6 +601,23 @@ export function JournalPanel({
         .journal-memory-list { display: grid; gap: 7px; }
         .journal-memory-list > div { display: grid; gap: 2px; padding-left: 10px; border-left: 3px solid #dfbd90; }
         .journal-memory-list span { color: #806c5c; font-size: .77rem; }
+        .journal-strategy-list { display: grid; gap: 9px; }
+        .journal-strategy-list article { display: grid; gap: 5px; padding: 11px 12px; border: 1px solid #d0ad7d; border-radius: 10px; background: rgba(255,247,224,.68); }
+        .journal-strategy-list small { color: #a4684b; font-size: .66rem; font-weight: 900; letter-spacing: .05em; }
+        .journal-strategy-list p, .journal-strategy-list strong { margin: 0 0 3px; color: #574136; line-height: 1.55; white-space: pre-wrap; }
+        .journal-strategy-list ul { margin: 0 0 3px; padding-left: 20px; color: #654d40; line-height: 1.5; }
+        .journal-divination-list { display: grid; gap: 10px; }
+        .journal-divination-list > article { display: grid; gap: 6px; padding: 12px; border: 2px solid #ac86ad; border-radius: 12px; background: linear-gradient(135deg,rgba(248,237,251,.86),rgba(255,246,223,.82)); }
+        .journal-divination-list header { display: flex; align-items: center; justify-content: space-between; gap: 9px; padding-bottom: 5px; border-bottom: 1px dashed rgba(122,86,120,.3); }
+        .journal-divination-list header span, .journal-divination-list small { color: #8d6489; font-size: .65rem; font-weight: 900; letter-spacing: .06em; }
+        .journal-divination-list p, .journal-divination-list ul { margin: 0 0 4px; color: #59434f; line-height: 1.6; white-space: pre-wrap; }
+        .journal-divination-list ul { padding-left: 20px; }
+        .journal-divination-list details { border-top: 1px solid rgba(122,86,120,.22); padding-top: 5px; }
+        .journal-divination-list details summary { min-height: 30px; color: #72566f; font-size: .72rem; }
+        .journal-divination-list dl { display: grid; gap: 4px; margin: 5px 0 0; }
+        .journal-divination-list dl div { display: grid; grid-template-columns: 72px 1fr; gap: 7px; }
+        .journal-divination-list dt { color: #936b88; font-weight: 900; }
+        .journal-divination-list dd { margin: 0; overflow-wrap: anywhere; }
         .journal-letter { margin-top: 10px; padding: 13px; border: 1px solid #d0b28b; background: rgba(255,255,255,.48); white-space: pre-wrap; }
         .journal-word-list { display: flex; flex-wrap: wrap; gap: 6px; }
         .journal-word-list span { padding: 4px 9px; border: 1px solid #b7a07d; border-radius: 12px; background: #fff9e9; font-size: .75rem; }
