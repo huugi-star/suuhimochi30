@@ -49,7 +49,7 @@ export const DIVINATION_MASTER_PROFILES: Record<
     name: 'アステリア',
     shortName: 'アステリア',
     art: '占星術',
-    specialty: '星の配置と長い周期を見る',
+    specialty: '星座・月・太陽の巡りから、今の時期を見る',
     interpretation: '清廉で神秘的。星には詳しいが、地上の常識には少し疎い。',
   },
   davinci: {
