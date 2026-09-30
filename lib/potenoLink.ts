@@ -175,6 +175,7 @@ type BuildStrategyRequestOptions = {
 };
 
 const ANALYSIS_RULES = [
+  'このリクエストのtypeはSTRATEGY_REQUESTです。会話履歴に卒業査定や他のPOTENO-LINKが存在していても参照せず、今回のDATAだけを処理してください。STRATEGY_REQUESTに対してGRADUATION_HANDOFF_RESPONSEを返してはいけません。返答は必ずSTRATEGY_RESPONSEとし、JSONはstrategist、counsel、potenoSummary、nextMoves、checkpointsの5項目だけを使用してください。',
   '指定された軍師の思考傾向と個性を強く反映し、単なる要約ではなく、本人が気づいていない構造・原因・勘違いまで踏み込んだcounselを書く。',
   '軍師本人の口調を過剰に真似せず、軍師がポテノへ与えた洞察としてまとめる。',
   'potenoSummaryでは、counselが今回のどのDAY・行動・数字・未実行日を指すのか具体化する。',
@@ -193,6 +194,7 @@ const ANALYSIS_RULES = [
 ];
 
 const COMPACT_ANALYSIS_RULES = [
+  'このリクエストのtypeはSTRATEGY_REQUEST。会話履歴に卒業査定や他のPOTENO-LINKがあっても参照せず、今回のDATAだけを処理する。STRATEGY_REQUESTにGRADUATION_HANDOFF_RESPONSEを返してはいけない。返答は必ずSTRATEGY_RESPONSEとし、JSONはstrategist、counsel、potenoSummary、nextMoves、checkpointsの5項目だけを使う。',
   'strategist.focusの個性を強く反映する。軍師本人の口調を過剰に真似せず、ポテノへの洞察としてまとめる。',
   'counselは要約で終わらず、本人が気づかない構造・原因・勘違いまで一段深く分析する。',
   'potenoSummaryはcounselを、実際のDAY・行動・数字・未実行日を根拠に具体化する。軍師=洞察、ポテノ=具体化を分ける。',
@@ -298,7 +300,7 @@ export function buildStrategyRequestData({
       name: 'POTENO-RETURN',
       version: POTENO_LINK_VERSION,
       encoding: 'UTF-8 JSON encoded as Base64',
-      template: `📡 POTENO-RETURN v1\n(｀・ω・´)ゞ ｸﾞﾝｼﾉﾃﾞﾝｺﾞﾝ ｼﾞｭｼﾝ……\n\n今回の軍師：${STRATEGIST_PROFILES[strategist].displayName}\n\nDATA[\n<Base64>\n]\n\n🍠 通信完了……`,
+      template: `📡 POTENO-RETURN v1\nTYPE: STRATEGY_RESPONSE\n(｀・ω・´)ゞ ｸﾞﾝｼﾉﾃﾞﾝｺﾞﾝ ｼﾞｭｼﾝ……\n\n今回の軍師：${STRATEGIST_PROFILES[strategist].displayName}\n\nDATA[\n<Base64>\n]\n\n🍠 通信完了……`,
     },
     requiredResponseShape: responseShape(strategist),
   };
@@ -378,7 +380,7 @@ function createStrategyRequestEnvelope(
   payload: unknown,
 ) {
   const strategist = data.strategist;
-  return `📡 POTENO-LINK v${POTENO_LINK_VERSION}  ( •̀ω•́ )✧\n🍠 ﾎﾟﾃﾎﾟﾃ……軍師のところへ通信準備中……\n(ง ˙ω˙)ว ～📶～\n\n今回の軍師：${strategist.displayName}\n\n軍師：${strategist.name}\n「${strategistAside}」\n\nDATA[\n${wrapBase64(encodeUtf8(payload))}\n]\n\n✨ﾋﾟｺｰﾝ！✨\n※このいもに特に意味はありません 🍠`;
+  return `📡 POTENO-LINK v${POTENO_LINK_VERSION}  ( •̀ω•́ )✧\nTYPE: STRATEGY_REQUEST\n🍠 ﾎﾟﾃﾎﾟﾃ……軍師のところへ通信準備中……\n(ง ˙ω˙)ว ～📶～\n\n今回の軍師：${strategist.displayName}\n\n軍師：${strategist.name}\n「${strategistAside}」\n\nDATA[\n${wrapBase64(encodeUtf8(payload))}\n]\n\n✨ﾋﾟｺｰﾝ！✨\n※このいもに特に意味はありません 🍠`;
 }
 
 export function createStrategyRequestLink(
@@ -433,7 +435,7 @@ export function parseStrategyRequestLink(
 /** Used for protocol tests and for showing ChatGPT the required return shell. */
 export function createPotenoReturn(data: StrategyAdvice) {
   const strategist = STRATEGIST_PROFILES[data.strategist];
-  return `📡 POTENO-RETURN v${POTENO_LINK_VERSION}\n(｀・ω・´)ゞ ｸﾞﾝｼﾉﾃﾞﾝｺﾞﾝ ｼﾞｭｼﾝ……\n\n今回の軍師：${strategist.displayName}\n\nDATA[\n${wrapBase64(encodeUtf8(data))}\n]\n\n🍠 通信完了……`;
+  return `📡 POTENO-RETURN v${POTENO_LINK_VERSION}\nTYPE: STRATEGY_RESPONSE\n(｀・ω・´)ゞ ｸﾞﾝｼﾉﾃﾞﾝｺﾞﾝ ｼﾞｭｼﾝ……\n\n今回の軍師：${strategist.displayName}\n\nDATA[\n${wrapBase64(encodeUtf8(data))}\n]\n\n🍠 通信完了……`;
 }
 
 function asStringArray(value: unknown) {
@@ -453,6 +455,9 @@ export function parseStrategyResponse(
 ): StrategyAdvice {
   if (!/POTENO-RETURN\s+v1/i.test(communication)) {
     throw new Error('POTENO-RETURN v1が見つかりません。');
+  }
+  if (!/TYPE:\s*STRATEGY_RESPONSE\b/i.test(communication)) {
+    throw new Error('TYPE: STRATEGY_RESPONSEが見つかりません。');
   }
   const match = communication.match(/DATA\[\s*([A-Za-z0-9+/=\s]+?)\s*\]/i);
   if (!match) throw new Error('DATA欄を読み取れません。');

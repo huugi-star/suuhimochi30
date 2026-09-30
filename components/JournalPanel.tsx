@@ -22,6 +22,7 @@ import { getDoneItems, normalizeDoneItems } from '@/lib/dailyProgress';
 import { STRATEGIST_PROFILES, type StrategyRecord } from '@/lib/potenoLink';
 import { DIVINATION_MASTER_PROFILES, type IChingResult, type LegacyTamamoResult, type SixDivinationRecord, type TaikoboResult, type TamamoResult } from '@/lib/potenoSixDivination';
 import type { ConversationMemory, WordEntry } from '@/lib/wordMemory';
+import type { ThirtyDayCycleArchive } from '@/lib/graduation';
 import {
   TWO_DAY_REVIEW_GOAL_TYPES,
   TWO_DAY_REVIEW_GOAL_TYPE_LABELS,
@@ -41,6 +42,7 @@ type JournalPanelProps = {
   memories: ConversationMemory[];
   words: WordEntry[];
   farewellLetter: string | null;
+  cycleArchives: ThirtyDayCycleArchive[];
   onClose: () => void;
   onSaveDoneItems: (date: string, doneItems: string[]) => void;
   onChangeGoalType: (goalType: TwoDayReviewGoalType) => void;
@@ -104,6 +106,7 @@ export function JournalPanel({
   memories,
   words,
   farewellLetter,
+  cycleArchives,
   onClose,
   onSaveDoneItems,
   onChangeGoalType,
@@ -117,6 +120,7 @@ export function JournalPanel({
   const [draftItems, setDraftItems] = useState<string[]>(['']);
   const itemInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [editingGoalType, setEditingGoalType] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const selectedDate = moveDate(
     currentActivityDate,
@@ -230,6 +234,42 @@ export function JournalPanel({
         >
           <X size={21} />
         </button>
+        {cycleArchives.length > 0 && <button className="journal-archive-open" type="button" onClick={() => setArchiveOpen(true)}><ScrollText size={16} />過去の30日</button>}
+
+        {archiveOpen && <section className="journal-archive-sheet" aria-label="過去の30日記録">
+          <header><div><small>SUUHIMOCHI HISTORY</small><h2>過去の30日</h2></div><button type="button" onClick={() => setArchiveOpen(false)} aria-label="過去の30日を閉じる"><X size={19} /></button></header>
+          <p className="journal-archive-intro">卒業したすうひもちと歩いた道を、一区切りごとに残しています。</p>
+          <div className="journal-archive-list">
+            {[...cycleArchives].reverse().map((archive) => <article key={archive.id}>
+              <header><div><small>第{archive.cycleNumber}期のすうひもち</small><strong>「{archive.goalText}」</strong></div><time>{archive.startedAt} 〜 {archive.completedAt.slice(0, 10)}</time></header>
+              <div className="journal-archive-summary"><span>{archive.footprint.recordedDays}日分の記帳</span><span>{archive.footprint.reviewedItems}件の振り返り</span><span>覚えた言葉 {archive.learnedWords.length}個</span></div>
+              <details open><summary>足跡</summary>
+                <h3>実際に進んだこと</h3>{archive.footprint.progressed.length > 0 ? <ul>{archive.footprint.progressed.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>記帳された足跡はありません。</p>}
+                <h3>続けられたこと</h3>{archive.footprint.continued.length > 0 ? <ul>{archive.footprint.continued.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>繰り返しを確認できる記録はありません。</p>}
+                <h3>止まったこと・未実行</h3>{archive.footprint.stopped.length > 0 ? <ul>{archive.footprint.stopped.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>止まったと判断できる記録はありません。</p>}
+              </details>
+              <details><summary>30日の日誌</summary>
+                {Object.entries(archive.journalNotes).filter(([, items]) => items.length > 0).length > 0
+                  ? <div className="journal-archive-notes">{Object.entries(archive.journalNotes).filter(([, items]) => items.length > 0).sort(([left], [right]) => left.localeCompare(right)).map(([date, items]) => <section key={date}><time>{date}</time><ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul></section>)}</div>
+                  : <p>この30日には、日誌の本文が残っていません。</p>}
+              </details>
+              <details><summary>軍師の引き継ぎ忠言</summary>
+                <b>{STRATEGIST_PROFILES[archive.handoffAdvice.strategist].displayName}</b>
+                {archive.handoffAdvice.assessment && <p>{archive.handoffAdvice.assessment}</p>}
+                {archive.handoffAdvice.reachabilityReason && <p>{archive.handoffAdvice.reachabilityReason}</p>}
+                <h3>次に変えること</h3><p>{archive.handoffAdvice.changeNext}</p>
+                <h3>次の到達点</h3><p>{archive.handoffAdvice.nextDestination}</p>
+                {archive.handoffAdvice.suggestedGoal && <><h3>次の30日の目標案</h3><p>「{archive.handoffAdvice.suggestedGoal}」</p></>}
+              </details>
+              <details><summary>軍師・術師との相談履歴（{archive.strategyRecords.length + archive.divinationRecords.length}件）</summary>
+                {archive.strategyRecords.length > 0 && <div className="journal-archive-consults"><h3>軍師相談</h3>{archive.strategyRecords.map((record) => <section key={record.id}><b>{STRATEGIST_PROFILES[record.strategist].displayName}</b><p>{record.counsel}</p></section>)}</div>}
+                {archive.divinationRecords.length > 0 && <div className="journal-archive-consults"><h3>ポテノ六占</h3>{archive.divinationRecords.map((record) => <section key={record.id}><b>{DIVINATION_MASTER_PROFILES[record.master]?.name ?? record.master}</b><p>{record.integratedReading}</p></section>)}</div>}
+                {archive.strategyRecords.length === 0 && archive.divinationRecords.length === 0 && <p>この30日には、保存した相談履歴がありません。</p>}
+              </details>
+              {archive.farewellLetter && <details><summary>卒業の手紙</summary><div className="journal-letter">{archive.farewellLetter}</div></details>}
+            </article>)}
+          </div>
+        </section>}
 
         <aside
           className="journal-tabs journal-tabs-left"
@@ -554,6 +594,33 @@ export function JournalPanel({
         @keyframes journal-turn-next { from { opacity: .65; transform: perspective(900px) rotateY(-8deg) translateX(10px); } to { opacity: 1; transform: none; } }
         @keyframes journal-turn-previous { from { opacity: .65; transform: perspective(900px) rotateY(8deg) translateX(-10px); } to { opacity: 1; transform: none; } }
         .journal-close { position: absolute; z-index: 8; top: 10px; right: 11px; display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid #b79a78; border-radius: 50%; color: #644d3b; background: #fffaf0; box-shadow: 0 3px 8px rgba(57,37,23,.18); }
+        .journal-archive-open { position: absolute; z-index: 7; top: 12px; right: 58px; display: inline-flex; min-height: 34px; align-items: center; gap: 5px; padding: 6px 11px; border: 1px solid #a88666; border-radius: 999px; color: #674a38; background: #fff6df; font-size: .7rem; font-weight: 900; box-shadow: 0 2px 5px rgba(57,37,23,.14); }
+        .journal-archive-sheet { position: absolute; z-index: 12; inset: 0; max-height: calc(100vh - 158px); overflow-y: auto; padding: 24px 28px; border: 2px solid #917050; border-radius: 12px 18px 18px 12px; color: #49372c; background: linear-gradient(90deg,#ead3aa 0 16px,#fffaf0 16px 100%); box-shadow: 0 18px 50px rgba(31,19,11,.42); }
+        .journal-archive-sheet > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .journal-archive-sheet > header small { color: #a06e4d; font-size: .62rem; font-weight: 900; letter-spacing: .14em; }
+        .journal-archive-sheet > header h2 { margin: 2px 0 0; font: 900 1.5rem 'Yu Mincho',serif; }
+        .journal-archive-sheet > header button { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid #b79a78; border-radius: 50%; color: #644d3b; background: #fffaf0; }
+        .journal-archive-intro { margin: 10px 0 15px; color: #806b59; font-size: .78rem; font-weight: 700; }
+        .journal-archive-list { display: grid; gap: 13px; }
+        .journal-archive-list > article { padding: 15px; border: 2px solid #c2a27b; border-radius: 14px; background: rgba(255,250,235,.88); box-shadow: 0 4px 0 rgba(102,68,45,.1); }
+        .journal-archive-list > article > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; padding-bottom: 9px; border-bottom: 1px dashed rgba(125,88,59,.32); }
+        .journal-archive-list > article > header div { display: grid; gap: 3px; }
+        .journal-archive-list > article > header small { color: #a06649; font-weight: 900; }
+        .journal-archive-list > article > header strong { font: 900 1rem/1.45 'Yu Mincho',serif; }
+        .journal-archive-list time { color: #927763; font-size: .67rem; font-weight: 750; white-space: nowrap; }
+        .journal-archive-summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+        .journal-archive-summary span { padding: 4px 8px; border-radius: 999px; color: #755744; background: #efe0c6; font-size: .65rem; font-weight: 850; }
+        .journal-archive-list details { padding-top: 7px; border-top: 1px solid rgba(127,91,63,.18); }
+        .journal-archive-list details + details { margin-top: 7px; }
+        .journal-archive-list summary { cursor: pointer; color: #79523d; font-weight: 900; }
+        .journal-archive-list h3 { margin: 9px 0 4px; color: #936048; font-size: .72rem; }
+        .journal-archive-list ul { display: grid; gap: 3px; margin: 0; padding-left: 20px; color: #5b4639; font-size: .75rem; line-height: 1.55; }
+        .journal-archive-list details p { margin: 7px 0 0; color: #5e493d; font-size: .75rem; line-height: 1.6; }
+        .journal-archive-notes,.journal-archive-consults { display: grid; gap: 7px; margin-top: 8px; }
+        .journal-archive-notes section,.journal-archive-consults section { padding: 8px 10px; border-left: 3px solid #c49a72; background: rgba(255,255,255,.46); }
+        .journal-archive-notes time { color: #99694e; font-size: .67rem; font-weight: 900; }
+        .journal-archive-notes ul { margin-top: 4px; }
+        .journal-archive-consults section b { color: #80543f; font-size: .72rem; }
         .journal-page-header { display: grid; grid-template-columns: auto minmax(150px, 1fr) auto; align-items: end; gap: 18px; padding-right: 45px; }
         .journal-page-header > div:first-child { display: grid; gap: 2px; }
         .journal-page-header small { color: #a06e4d; font-size: .61rem; font-weight: 900; letter-spacing: .14em; }
@@ -646,6 +713,9 @@ export function JournalPanel({
           .journal-goal-type-row { justify-content: flex-start; }
           .journal-date { grid-column: 2; grid-row: 1; font-size: .79rem; }
           .journal-close { top: 7px; right: 7px; width: 34px; height: 34px; }
+          .journal-archive-open { top: 8px; right: 48px; min-height: 32px; padding-inline: 9px; }
+          .journal-archive-sheet { max-height: calc(100vh - 145px); padding: 18px 15px 20px 23px; }
+          .journal-archive-list > article > header { align-items: start; flex-direction: column; }
           .journal-section-body { padding-left: 8px; }
           .journal-tabs { top: 80px; gap: 4px; }
           .journal-tab { width: 36px; min-height: 39px; }

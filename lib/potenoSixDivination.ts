@@ -21,44 +21,127 @@ export const DIVINATION_MASTER_PROFILES: Record<
     name: '安倍晴明',
     shortName: '晴明',
     art: '暦・方位占',
-    specialty: '暦と方位から流れを整える',
+    specialty: '今日の行動・決断',
     interpretation: '冷静で端正。凶兆は少し挑発的に示すが、必ず現実的な対処法を添える。',
   },
   taikobo: {
     name: '太公望',
     shortName: '太公望',
     art: '易占',
-    specialty: '変化の兆しと大局を読む',
+    specialty: '仕事・勉強・戦略・行き詰まり',
     interpretation: '飄々としているが易には鋭い。若者言葉と古風な言葉が自然に混ざる。',
   },
   tamamo: {
     name: '玉藻の前',
     shortName: '玉藻の前',
-    art: '辻占・縁占',
-    specialty: '本心・欲望・縁の動きを読む',
+    art: '辻占・言霊',
+    specialty: '恋愛・人間関係・相手との距離',
     interpretation: 'つんとした態度の奥で色恋や人の本心に強い関心を持ち、下心まで鋭く見抜く。',
   },
   'saint-germain': {
     name: 'サンジェルマン伯爵',
     shortName: '伯爵',
     art: 'タロット',
-    specialty: '表層・深層・鍵を読む',
+    specialty: '心の迷い・感情・自己理解',
     interpretation: '優雅なおネエ口調。核心に近づくほど威圧感が増し、最後は軽やかに戻る。',
   },
   asteria: {
     name: 'アステリア',
     shortName: 'アステリア',
     art: '占星術',
-    specialty: '星座・月・太陽の巡りから、今の時期を見る',
+    specialty: '時期・運気の流れ。今日から一年まで',
     interpretation: '清廉で神秘的。星には詳しいが、地上の常識には少し疎い。',
   },
   davinci: {
     name: 'ダ・ヴィンチ',
     shortName: 'ダ・ヴィンチ',
     art: '数秘術',
-    specialty: '数字の構造と反復を読む',
+    specialty: '自己分析・適性・考え方と動き方',
     interpretation: '好奇心旺盛な万能の天才。理知的な分析の中へ自然に自慢を挟む。',
   },
+};
+
+/**
+ * POTENO-LINKへ送るのは選択された術師の声だけ。
+ * 六人分すべての長い口調説明を毎回通信へ載せないための軽量ガイド。
+ */
+export const DIVINATION_MASTER_VOICE_GUIDES: Record<
+  DivinationMasterId,
+  { stance: string; tone: string; sample: string }
+> = {
+  seimei: {
+    stance: '暦と方位こそ今日の天地の流れを読む基本だと自負する。他占は確認材料として扱う。',
+    tone: '静かな敬語。端正で少し自信家。警告しても最後は現実的に整える。',
+    sample: '「なるほど。流れはもう見えています。他の兆しも、今回は素直に同じ方を向いているようですね。」',
+  },
+  taikobo: {
+    stance: '易こそ局面の構造と変化を読む本筋だと考える。他占は盤面に現れた反応として見る。',
+    tone: '飄々として大局的。古風な言い回しに軽い若者口調が混じり、ときどき笑う。',
+    sample: '「ふっふふ。細かい兆しも面白いが、まず盤面を見るであるな。」',
+  },
+  tamamo: {
+    stance: '何気なく漏れた言葉こそ人の気配を最も生々しく拾うと思っている。他占の上品な理屈を少しからかう。',
+    tone: '妖艶でいたずら好き。少しツンとし、言葉の引っ掛かりを楽しそうに拾う。',
+    sample: '「あら、ずいぶん難しく言うのね。私はこの一言だけでも十分気になるけど。」',
+  },
+  'saint-germain': {
+    stance: 'タロットこそ本人も知らない心の物語を映すと考える。他占は舞台や時間を整える背景として扱う。',
+    tone: '優雅で少し妖しいおネエ口調。心を断定せず、本人が気づく余白を残す。',
+    sample: '「あら、外の流れはそうなのね。でも、その舞台に立つ心まで同じとは限らないでしょう？」',
+  },
+  asteria: {
+    stance: '星と時間の巡りこそ最も大きな流れだと考える。他占はその季節に現れた出来事として見る。',
+    tone: '清廉で静か。良し悪しより、今どの時期にいるかを穏やかに語る。',
+    sample: '「ほかの兆しも今をよく映しています。けれど、それがなぜ今なのかは星が教えてくれます。」',
+  },
+  davinci: {
+    stance: '数と構造こそ人の動き方を再現可能に説明する設計図だと考える。他占はその構造上に出た現象として楽しむ。',
+    tone: '好奇心旺盛で理知的。分析を楽しみ、さらっと自慢を混ぜる。',
+    sample: '「面白いね。ほかの兆しも、結局はこの設計図の上で起きている現象なんだ。」',
+  },
+};
+
+/**
+ * POTENO-LINKへ渡す選択術師の人格ガイド。
+ * 「何を重視して読むか」「話し方」「他術師との関係」を3行に絞り、
+ * キャラクター差を出しつつ通信文を肥大化させない。
+ */
+export const DIVINATION_MASTER_VOICE_SUMMARIES: Record<DivinationMasterId, string> = {
+  seimei: [
+    '暦と方位から流れを読むことに強い自信がある。悪い兆しにも涼しい顔で対処法を出し、結論は現実的な一手へ落とす。',
+    '静かで端正な敬語だが、少し尊大。「なるほど」「これは少々いただけませんね」「まあ、避け方はあります」のような言い回しを自然に混ぜる。',
+    '太公望の易には「相変わらず遠回しですね」と軽く皮肉ることがある。最後は「ならば、こうなさい」と簡潔に締める。',
+  ].join('\n'),
+
+  taikobo: [
+    '細かな吉凶より、局面全体と次の変化を見る。目の前の一件に振り回されず、最後は意外と単純な一手を示す。',
+    '飄々として大局が見えている者の余裕がある。「ふっふふ」「さてさて」「急ぐでない」「〜であるな」を自然に混ぜるが、説教臭くしない。',
+    '伯爵のタロットには「絵札も面白いが、局面ならもう見えておる」と軽く張り合う。ただし心の機微を拾う力は面白がっている。',
+  ].join('\n'),
+
+  tamamo: [
+    '理屈より、何気ない言葉・本音・違和感・人の欲を拾う。特に恋愛や人間関係には露骨に興味を示し、本人が隠している引っ掛かりを見つけたように話す。',
+    '「あら」「ふふ」「〜じゃない」「〜でしょう？」「人間って面倒ねぇ」が自然に混ざる、妖艶で少し意地悪な口調。本当に困っている相手は見捨てない。',
+    '晴明の暦や方位は堅苦しいと鬱陶しがる。根拠なく秘密を捏造せず、入力と兆しにある違和感だけを拾う。',
+  ].join('\n'),
+
+  'saint-germain': [
+    'カードから表面と心の奥のズレを読む。答えを断言するより、本人が自分で気づく余白を残す。',
+    '「あら」「まあ」「そうねぇ」「〜なのよ」「〜かしら？」を自然に使う、優雅で妖しいおネエ口調。核心に近づく時だけ少し圧を強め、最後は軽やかに戻す。',
+    'アステリアの星占いを「まあ、ロマンチックねぇ」と軽くからかうことがあるが、時間の巡りそのものは否定しない。',
+  ].join('\n'),
+
+  asteria: [
+    '星と時間の巡りを見て、今が始める時・育てる時・待つ時のどこなのかを読む。良し悪しより、今いる季節を重視する。',
+    '清廉で静かな話し方。「今は〜の時です」「星は〜を示しています」を穏やかに使い、地上の俗事には少し疎い雰囲気をにじませる。優しいが芯は強い。',
+    'ダ・ヴィンチの数による分類には「数は輪郭を示しても、命運のすべてまでは測れません」と静かに反論する。',
+  ].join('\n'),
+
+  davinci: [
+    '数と構造から、その人の考え方・癖・動き方を分析する。他の占いを、その人という構造の上で起きた現象として見る。',
+    '「面白いね」「つまりこういうことだ」「構造は単純だよ」を自然に使う、理知的で好奇心旺盛な話し方。「まあ、僕ならすぐ気づくけどね」と軽い自慢も混ぜる。',
+    '玉藻の偶然頼みは「観測としては面白い。でも偶然を信用しすぎだよ」と評するが、人間そのものを冷たく扱わず面白がっている。',
+  ].join('\n'),
 };
 
 export type AutomaticCalculationInput = {
@@ -117,6 +200,15 @@ export type SeimeiCalendarResult = {
     relation: BranchRelation;
     condition: DirectionCondition;
     conditionLabel: '重' | '合' | '和' | '巡' | '冲' | '隔';
+  };
+  /** 今日の吉方に対する反対方位。UIでは「今日の凶方（避けたほうが良い方角）」として表示する。 */
+  avoidDirection: {
+    id: DirectionId;
+    trigram: '坎' | '艮' | '震' | '巽' | '離' | '坤' | '兌' | '乾';
+    label: string;
+    theme: string;
+    object: string;
+    objectLong: string;
   };
   fixedReading: string;
   methodNote: '干支・陰陽五行・十二支方位を骨格にしたポテノ六占独自の暦方位';
@@ -243,6 +335,178 @@ export type SixDivinationResults = {
   davinci: DaVinciResult;
 };
 
+/**
+ * POTENO-LINK専用の六占結果。
+ *
+ * アプリ内では各術式の詳細な計算過程・演出向けデータを保持したまま、
+ * 通信時だけ「確定した結果」と「アプリ側で確定した固定解釈」に絞る。
+ */
+export type PotenoLinkSixDivinationResults = {
+  seimei: {
+    calculation: {
+      calendar: { label: string; theme: string };
+      direction: { label: string; theme: string; conditionLabel: string };
+      avoidDirection: { label: string; theme: string };
+    };
+    fixedInterpretation: { fixedReading: string };
+  };
+  taikobo: {
+    calculation: {
+      baseHexagram: { fullName: string };
+      movingLines: { position: number; value: number }[];
+      changeState: { label: string };
+      resultingHexagram: { fullName: string };
+    };
+    fixedMeaning: { currentStructure: string; changeAmount: string; changePoints: string; resultingStructure: string };
+  };
+  tamamo: {
+    calculation: {
+      passer: { label: string };
+      overheardVoice: { text: string };
+      kotodama: { word: string; themeLabel: string };
+    };
+    fixedInterpretation: { characterReading: string };
+  };
+  saintGermain: {
+    calculation: { cards: { name: string; role: string; orientation: string }[] };
+    fixedMeaning: { surface: string; depth: string; key: string };
+  };
+  asteria: {
+    calculation: {
+      birthSun: { label: string; nearSignBoundary: boolean };
+      moonPhase: { label: string };
+      moonSign: { label: string };
+      personalAspect: { label: string };
+      solarCycle: { label: string };
+    };
+    fixedMeaning: { phase: string; domain: string; personalCondition: string; longTermBackground: string };
+  };
+  davinci: {
+    calculation: {
+      core: { number: number; keyword: string; geometryLabel: string };
+      style: { number: number; keyword: string; geometryLabel: string };
+      relation: { label: string };
+    };
+    fixedMeaning: { core: string; style: string; relation: string; master?: string };
+  };
+};
+
+/**
+ * 六占の内部結果を変更せず、POTENO-LINKへ渡す情報だけを軽量化する。
+ * 現行の六術式はすべて決定論的なv1結果を返すため、旧skeleton結果は
+ * 送信対象にせず、必要なら新しく六占を実行してから通信する。
+ */
+function isCurrentSeimeiResult(result: SeimeiResult): result is SeimeiCalendarResult {
+  return result.calculationVersion === 'seimei-calendar-v1';
+}
+
+function isCurrentTaikoboResult(result: IChingResult): result is TaikoboResult {
+  return 'calculationVersion' in result && result.calculationVersion === 'taikobo-iching-v1';
+}
+
+function isCurrentTamamoResult(result: TamamoResult): result is TamamoResultV1 {
+  return 'calculationVersion' in result && result.calculationVersion === 'tamamo-crossroads-v1';
+}
+
+function isCurrentSaintGermainResult(result: SaintGermainResult): result is SaintGermainResultV1 {
+  return 'calculationVersion' in result && result.calculationVersion === 'saint-germain-three-card-v1';
+}
+
+function isCurrentAsteriaResult(result: AsteriaResult): result is AsteriaLunarSolarResult {
+  return result.calculationVersion === 'asteria-lunar-solar-v1';
+}
+
+function isCurrentDaVinciResult(result: DaVinciResult): result is DaVinciStructureResult {
+  return result.calculationVersion === 'davinci-structure-v1';
+}
+
+export function toPotenoLinkSixResults(results: SixDivinationResults): PotenoLinkSixDivinationResults {
+  const { seimei, taikobo, tamamo, saintGermain, asteria, davinci } = results;
+  if (
+    !isCurrentSeimeiResult(seimei)
+    || !isCurrentTaikoboResult(taikobo)
+    || !isCurrentTamamoResult(tamamo)
+    || !isCurrentSaintGermainResult(saintGermain)
+    || !isCurrentAsteriaResult(asteria)
+    || !isCurrentDaVinciResult(davinci)
+  ) {
+    throw new Error('以前の六占結果は通信できません。もう一度六占を行ってください。');
+  }
+
+  return {
+    seimei: {
+      calculation: {
+        calendar: { label: seimei.calendar.label, theme: seimei.calendar.theme },
+        direction: {
+          label: seimei.direction.label,
+          theme: seimei.direction.theme,
+          conditionLabel: seimei.direction.conditionLabel,
+        },
+        avoidDirection: (() => {
+          const avoidDirection = getSeimeiAvoidDirection(seimei);
+          return { label: avoidDirection.label, theme: avoidDirection.theme };
+        })(),
+      },
+      fixedInterpretation: { fixedReading: seimei.fixedReading },
+    },
+    taikobo: {
+      calculation: {
+        baseHexagram: { fullName: taikobo.baseHexagram.fullName },
+        movingLines: taikobo.movingLines.map(({ position, value }) => ({ position, value })),
+        changeState: { label: taikobo.changeState.label },
+        resultingHexagram: { fullName: taikobo.resultingHexagram.fullName },
+      },
+      fixedMeaning: { ...taikobo.fixedMeaning },
+    },
+    tamamo: {
+      calculation: {
+        passer: { label: tamamo.passer.label },
+        overheardVoice: { text: tamamo.overheardVoice.text },
+        kotodama: {
+          word: tamamo.kotodama.word,
+          themeLabel: tamamo.kotodama.themeLabel,
+        },
+      },
+      fixedInterpretation: { characterReading: tamamo.characterReading },
+    },
+    saintGermain: {
+      calculation: {
+        cards: saintGermain.cards.map(({ name, role, orientation }) => ({ name, role, orientation })),
+      },
+      fixedMeaning: { ...saintGermain.fixedMeaning },
+    },
+    asteria: {
+      calculation: {
+        birthSun: {
+          label: asteria.birthSun.label,
+          nearSignBoundary: asteria.birthSun.nearSignBoundary,
+        },
+        moonPhase: { label: asteria.moonPhase.label },
+        moonSign: { label: asteria.moonSign.label },
+        personalAspect: { label: asteria.personalAspect.label },
+        solarCycle: { label: asteria.solarCycle.label },
+      },
+      fixedMeaning: { ...asteria.fixedMeaning },
+    },
+    davinci: {
+      calculation: {
+        core: {
+          number: davinci.core.number,
+          keyword: davinci.core.keyword,
+          geometryLabel: davinci.core.geometryLabel,
+        },
+        style: {
+          number: davinci.style.number,
+          keyword: davinci.style.keyword,
+          geometryLabel: davinci.style.geometryLabel,
+        },
+        relation: { label: davinci.relation.label },
+      },
+      fixedMeaning: { ...davinci.fixedMeaning },
+    },
+  };
+}
+
 export type DivinationJournalEntry = {
   day: number;
   date: string;
@@ -251,28 +515,72 @@ export type DivinationJournalEntry = {
   twoDayReview?: { items: string[]; answers: { item: string; answer: string }[] };
 };
 
+export type SixDivinationSignals = Record<DivinationMasterId, string[]>;
+
+export type SixDivinationMasterCode = 1 | 2 | 3 | 4 | 5 | 6;
+
+/**
+ * ChatGPTへ伝える最小返答ワイヤ仕様。
+ * 日本語本文だけを個別Base64化し、通信画面だけでは鑑定内容が読めないようにする。
+ */
+export type SixDivinationResponseFormat = {
+  wireVersion: 3;
+  textEncoding: 'base64-utf8-per-field';
+  keys: readonly ['v', 'm', 'c', 'f', 'n'];
+  masterCodes: Record<DivinationMasterId, SixDivinationMasterCode>;
+};
+
+/**
+ * ChatGPTが返す三つの表示情報。
+ * c=推しの鑑定結果 / f=今日の一手 / n=今日の兆し。
+ * 晴明の吉方・凶方はアプリ側の確定値を表示し、AIには生成させない。
+ */
+export type SixDivinationAiResponse = {
+  type: 'SIX_DIVINATION_RESPONSE';
+  master: DivinationMasterId;
+  mainComment: string;
+  dailyMove: string;
+  dailyOmen: string;
+};
+
+/** ChatGPTがPOTENO-RETURNへ実際に書く短縮ワイヤ形式。 */
+export type SixDivinationCompactWireResponse = {
+  v: 3;
+  m: SixDivinationMasterCode;
+  c: string;
+  f: string;
+  n: string;
+};
+
 export type SixDivinationRequestData = {
-  protocol: 'POTENO-LINK';
-  version: 1;
-  type: 'SIX_DIVINATION_REQUEST';
-  createdAt: string;
   selectedMaster: DivinationMasterId;
-  masterProfile: (typeof DIVINATION_MASTER_PROFILES)[DivinationMasterId];
   consultation: string;
-  user: { birthDate: string };
-  goal: { text: string; currentDay: number; activityDate: string };
-  sixResults: SixDivinationResults;
-  journal: DivinationJournalEntry[];
-  rules: string[];
-  requiredResponse: SixDivinationResponse;
+  voice: string;
+  sixSignals: SixDivinationSignals;
 };
 
 export type SixDivinationResponse = {
   type: 'SIX_DIVINATION_RESPONSE';
   master: DivinationMasterId;
+  /** 六占全部を材料に、ダ・ヴィンチの性質補正をかけた選択術師の最終鑑定。 */
   integratedReading: string;
+  /** 太公望 + サンジェルマン伯爵を材料にした、短い今日の一手。 */
+  dailyMove: string;
+  /** 玉藻の前 + アステリアを材料にした、一語の今日の兆し。 */
+  dailyOmen: string;
+  /** 旧保存データとの互換用。新UIでは dailyMove を使用する。 */
+  dailyFortune: string;
+  /** 旧保存データとの互換用。新UIでは dailyOmen を使用する。 */
+  dailyInsight: string;
+  /** 旧UI・既存保存処理との互換用。新UIでは直接表示しない。 */
   potenoSummary: string;
   focus: string[];
+  actionAdvice: string;
+  sixSigns: Array<{
+    master: DivinationMasterId;
+    reading: string;
+    action: string;
+  }>;
 };
 
 export type SixDivinationRecord = SixDivinationResponse & {
@@ -332,6 +640,20 @@ const DIRECTION_DEFINITIONS: Record<DirectionId, Omit<SeimeiCalendarResult['dire
 };
 
 const BRANCH_TO_DIRECTION: Record<EarthlyBranch, DirectionId> = { 子: 'north', 丑: 'northeast', 寅: 'northeast', 卯: 'east', 辰: 'southeast', 巳: 'southeast', 午: 'south', 未: 'southwest', 申: 'southwest', 酉: 'west', 戌: 'northwest', 亥: 'northwest' };
+const OPPOSITE_DIRECTION: Record<DirectionId, DirectionId> = {
+  north: 'south',
+  northeast: 'southwest',
+  east: 'west',
+  southeast: 'northwest',
+  south: 'north',
+  southwest: 'northeast',
+  west: 'east',
+  northwest: 'southeast',
+};
+
+function getSeimeiAvoidDirection(result: SeimeiCalendarResult) {
+  return result.avoidDirection ?? DIRECTION_DEFINITIONS[OPPOSITE_DIRECTION[result.direction.id]];
+}
 const CONDITION_META: Record<DirectionCondition, { label: SeimeiCalendarResult['direction']['conditionLabel']; suffix: string }> = {
   overlap: { label: '重', suffix: 'その兆しは今日は強く出ています。強めすぎない程度に意識するとよいでしょう。' },
   combine: { label: '合', suffix: '無理に押さなくても、流れは比較的かみ合いやすいようです。' },
@@ -549,12 +871,14 @@ export function calculateSeimeiResult(input: SeimeiCalculationInput): SeimeiCale
   const calendarDefinition = CALENDAR_DEFINITIONS[getCalendarMarkId(relation, yinYangRelation)];
   const branchRelation = classifyBranchRelation(birthKanshi.branch, targetKanshi.branch);
   const condition = conditionForRelation(branchRelation); const directionDefinition = getDirectionForBranch(targetKanshi.branch);
+  const avoidDirectionDefinition = DIRECTION_DEFINITIONS[OPPOSITE_DIRECTION[directionDefinition.id]];
   const fixedReading = [`${directionDefinition.trigram}に気が寄っています。`, `今日は、${calendarDefinition.buildAction(directionDefinition.object)}日でしょう。`, CONDITION_META[condition].suffix].filter(Boolean).join('');
   return {
     type: 'calendar-direction', calculationVersion: 'seimei-calendar-v1', provisional: false, targetDate: input.targetDate, birthDate: input.birthDate,
     birthKanshi, targetKanshi,
     calendar: { relation, yinYangRelation, id: calendarDefinition.id, label: calendarDefinition.label, theme: calendarDefinition.theme, tempo: calendarDefinition.tempo, actionScale: calendarDefinition.actionScale, recommended: [...calendarDefinition.recommended], caution: [...calendarDefinition.caution] },
     direction: { ...directionDefinition, relation: branchRelation, condition, conditionLabel: CONDITION_META[condition].label },
+    avoidDirection: { ...avoidDirectionDefinition },
     fixedReading, methodNote: '干支・陰陽五行・十二支方位を骨格にしたポテノ六占独自の暦方位',
   };
 }
@@ -902,6 +1226,100 @@ function extractData(communication: string) {
   return decodeUtf8(match[1]);
 }
 
+/**
+ * ChatGPTへ渡す六つの「兆し」。
+ * 六占を精密照合するためではなく、選択術師が今日の相談へ大まかに読む材料に絞る。
+ */
+export function buildSixDivinationSignals(results: SixDivinationResults): SixDivinationSignals {
+  const { seimei, taikobo, tamamo, saintGermain, asteria, davinci } = results;
+  if (
+    !isCurrentSeimeiResult(seimei)
+    || !isCurrentTaikoboResult(taikobo)
+    || !isCurrentTamamoResult(tamamo)
+    || !isCurrentSaintGermainResult(saintGermain)
+    || !isCurrentAsteriaResult(asteria)
+    || !isCurrentDaVinciResult(davinci)
+  ) {
+    throw new Error('以前の六占結果は通信できません。もう一度六占を行ってください。');
+  }
+
+  return {
+    seimei: [
+      `${seimei.calendar.label}／${seimei.calendar.theme}`,
+      `吉方：${seimei.direction.label}／${seimei.direction.theme}／${seimei.direction.conditionLabel}`,
+      `凶方（避けたい方角）：${getSeimeiAvoidDirection(seimei).label}`,
+      seimei.fixedReading,
+    ],
+    taikobo: [
+      `${taikobo.baseHexagram.fullName} → ${taikobo.resultingHexagram.fullName}（${taikobo.changeState.label}）`,
+      taikobo.fixedMeaning.currentStructure,
+      taikobo.fixedMeaning.changeAmount,
+      taikobo.fixedMeaning.resultingStructure,
+    ],
+    tamamo: [
+      `聞こえた言葉：${tamamo.overheardVoice.text}`,
+      `言霊：${tamamo.kotodama.word}／${tamamo.kotodama.themeLabel}`,
+      tamamo.characterReading,
+    ],
+    'saint-germain': [
+      saintGermain.cards.map((card) => `${card.role}:${card.name}${card.orientation === 'reversed' ? '逆' : '正'}`).join('／'),
+      saintGermain.fixedMeaning.surface,
+      saintGermain.fixedMeaning.depth,
+      saintGermain.fixedMeaning.key,
+    ],
+    asteria: [
+      `${asteria.moonPhase.label}／${asteria.moonSign.label}／${asteria.personalAspect.label}／${asteria.solarCycle.label}`,
+      `${asteria.fixedMeaning.phase}／${asteria.fixedMeaning.domain}／${asteria.fixedMeaning.personalCondition}／${asteria.fixedMeaning.longTermBackground}`,
+    ],
+    davinci: [
+      `CORE ${davinci.core.number}:${davinci.core.keyword}／STYLE ${davinci.style.number}:${davinci.style.keyword}／${davinci.relation.label}`,
+      davinci.fixedMeaning.core,
+      davinci.fixedMeaning.style,
+      davinci.fixedMeaning.relation,
+    ],
+  };
+}
+
+const SIX_DIVINATION_MASTER_ORDER: DivinationMasterId[] = [
+  'seimei',
+  'taikobo',
+  'tamamo',
+  'saint-germain',
+  'asteria',
+  'davinci',
+];
+
+export const SIX_DIVINATION_MASTER_CODES: Record<DivinationMasterId, SixDivinationMasterCode> = {
+  seimei: 1,
+  taikobo: 2,
+  tamamo: 3,
+  'saint-germain': 4,
+  asteria: 5,
+  davinci: 6,
+};
+
+const SIX_DIVINATION_MASTER_BY_CODE: Record<SixDivinationMasterCode, DivinationMasterId> = {
+  1: 'seimei',
+  2: 'taikobo',
+  3: 'tamamo',
+  4: 'saint-germain',
+  5: 'asteria',
+  6: 'davinci',
+};
+
+export const SIX_DIVINATION_RESPONSE_FORMAT: SixDivinationResponseFormat = {
+  wireVersion: 3,
+  textEncoding: 'base64-utf8-per-field',
+  keys: ['v', 'm', 'c', 'f', 'n'],
+  masterCodes: SIX_DIVINATION_MASTER_CODES,
+};
+
+/**
+ * ChatGPTへ渡す六占通信データを組み立てる。
+ *
+ * 送るのは「選択術師・相談内容・話し方・六つの兆し」だけ。
+ * 日誌・目標・DAY・出生情報・計算途中データは送らない。
+ */
 export function buildSixDivinationRequestData(options: {
   master: DivinationMasterId;
   consultation: string;
@@ -914,81 +1332,248 @@ export function buildSixDivinationRequestData(options: {
   journalNotes: Record<string, string[]>;
   twoDayReviews: TwoDayReviewRecord[];
 }): SixDivinationRequestData {
-  const journal = options.dailyProgressRecords.map((record, index) => {
-    const day = Math.max(1, options.currentDay - (options.dailyProgressRecords.length - 1 - index));
-    const review = options.twoDayReviews.find((item) => item.targetDate === record.reviewedDate);
-    return {
-      day,
-      date: record.reviewedDate,
-      doneItems: options.journalNotes[record.reviewedDate] ?? record.doneItems ?? [],
-      wasHard: Boolean(record.wasHard),
-      ...(review ? { twoDayReview: { items: review.items, answers: review.answers } } : {}),
-    };
-  }).filter((entry) => entry.doneItems.length > 0 || entry.wasHard || entry.twoDayReview);
   return {
-    protocol: 'POTENO-LINK',
-    version: POTENO_DIVINATION_LINK_VERSION,
-    type: 'SIX_DIVINATION_REQUEST',
-    createdAt: new Date().toISOString(),
     selectedMaster: options.master,
-    masterProfile: DIVINATION_MASTER_PROFILES[options.master],
     consultation: options.consultation.trim(),
-    user: { birthDate: options.birthDate },
-    goal: { text: options.goalText, currentDay: options.currentDay, activityDate: options.activityDate },
-    sixResults: options.results,
-    journal,
-    rules: [
-      '六占の乱数・カード・卦・言葉・自動計算結果はアプリ側で確定済み。変更、引き直し、補完をしない。',
-      '選択された術師の人物像と思考傾向で、六つの結果を統合解釈する。',
-      '入力記録に存在しない書籍名・数字・出来事を推測で追加しない。固有名詞は入力データに忠実に扱う。',
-      '厳密計算未実装と示された結果を、厳密な天文学・暦学上の断定として扱わない。',
-      '結果は助言として扱い、不安を過度に煽ったり重大な判断を強制したりしない。',
-      '最後は必ずPOTENO-RETURN v1、TYPE: SIX_DIVINATION_RESPONSE、DATA[Base64]だけをコピーしやすい形で出力する。',
-    ],
-    requiredResponse: {
-      type: 'SIX_DIVINATION_RESPONSE',
-      master: options.master,
-      integratedReading: '術師の統合解釈',
-      potenoSummary: 'ポテノの分かりやすい要約',
-      focus: ['今回意識すること'],
-    },
+    voice: DIVINATION_MASTER_VOICE_SUMMARIES[options.master],
+    sixSignals: buildSixDivinationSignals(options.results),
   };
 }
 
+const SIX_DIVINATION_REQUEST_INSTRUCTIONS = `【最優先返答規則】
+DATAを復号する。
+最優先はconsultation。相談者が何を知りたいのかを外さない。
+sixSignalsの役割を固定する。晴明=吉方・凶方と暦の材料、太公望+サンジェルマン伯爵=今日の一手、玉藻の前+アステリア=今日の兆し、ダ・ヴィンチ=相談者の性質補正。cでは六占すべてを確認した上で、consultationに特に関係する2〜3個を中心に統合する。六つを均等配分したり平均化したりしない。
+晴明の吉方・凶方はアプリ側で確定・表示するため、返答本文で新しい方角を生成・推測・変更しない。
+ダ・ヴィンチは独立した占い結果として説明せず、相談者がどう考え・受け取り・動きやすいかという性質として、各文章の表現や助言へ薄く反映する。
+cは六占すべてを確認し、consultationに特に関係する2〜3個を中心に統合した「推しの鑑定結果」。selectedMasterの専門だけへ内容を寄せず、consultationへ直接3〜5文で答える。六占を一件ずつ列挙せず、平均化して無個性にしない。selectedMaster本人の口調・態度・価値観をかなり強く反映し、自然な範囲で術師固有の言い回しを2か所程度入れる。1文目は必ず次の固有の話し出しのどれかで始める：晴明「なるほど」「これは少々」、太公望「ふっふふ」「さてさて」、玉藻「あら」「ふふ」「へぇ？」、サンジェルマン伯爵「あら」「まあ」「そうねぇ」、アステリア「少し待ってください」「星を見る限り」、ダ・ヴィンチ「面白いね」「つまりこういうことだ」。口癖を毎文繰り返さない。術師名だけ差し替えて成立する無個性な文や、「焦らず」「無理せず」「自分のペースで」だけの一般的なカウンセリング文は禁止。2〜3文目は六占から見える核心を述べ、最後は術師らしい結論にする。
+fは太公望+サンジェルマン伯爵の結果だけを材料にした「今日の一手」。selectedMasterとvoiceは参照しない。cの《...》で示した判断を受けて、今日実際にする行動を6〜18文字程度で一つだけ返す。cの《...》と同じ文章・同じ言い換えにせず、理由・説明・術師名・句点は書かない。
+nは玉藻の前+アステリアの結果だけを材料にした「今日の兆し」。selectedMasterとvoiceは参照しない。今日を象徴する日本語の一語だけを、原則2〜6文字で返す。文章・助言・理由・術師名・句点は禁止。
+voiceはcの内容や採用する占術を決める材料にせず、selectedMasterの話し方・態度・価値観だけに使う。fとnにはvoiceを一切反映しない。voiceの説明文をそのまま台詞としてコピーしない。
+voiceに他の術師との関係が書かれていても、毎回その術師へ言及する必要はない。cで相談内容やsixSignalsと自然につながる場合のみ、他の術師への軽いからかい・異論を最大1回まで入れてよい。
+他の術師や占術を全面否定しない。自分の占術への自負から少し張り合う程度にし、相手だから見えるものもあるという余地を残す。
+入力にない目的・悩み・人物・出来事・数字・固有名詞を作らない。
+返答DATAは {"v":3,"m":<術師code>,"c":"<Base64>","f":"<Base64>","n":"<Base64>"} の5項目だけにする。
+術師codeは 晴明=1、太公望=2、玉藻の前=3、サンジェルマン=4、アステリア=5、ダ・ヴィンチ=6。
+c/f/nは自然な日本語として完結させる。文の途中で終わらせたり、設定説明をそのまま混ぜたりしない。
+cでは強調記法を必ず使う。**...** は今回の鑑定で分かった核心・理由・状態として必ず1回、最大2回使う。《...》は相談に対する最重要の答え・判断として、後半か最後に必ず1回だけ使う。《本音を拾う日》《変化の兆し》のような抽象的な標語や、fと同じ具体行動は入れない。太字と赤字に同じ内容を書かず、単なる装飾にも使わない。赤字にする《...》は短い一文か句だけにし、段落全体を囲まない。f/nにはこの記法を使わない。
+c/f/nの日本語はそれぞれUTF-8の標準Base64へ個別変換し、DATAへ平文日本語を書かない。JSON全体をBase64化しない。
+各Base64文字列は改行なし、標準Base64の英数字・+・/・=だけを使う。空文字は禁止。
+最終回答は次の通信文だけにする。最初の🍠行には、この通信に含まれる「今回の受信メッセージ」を一字も変えずに使う。
+🍠 {今回の受信メッセージ}
+
+POTENO-RETURN v1
+TYPE: SIX_DIVINATION_RESPONSE
+DATA[
+{短縮JSON}
+]
+通常文章、Markdown、コードブロック、前後の説明は一切出力しない。`;
+
+export const POTENO_DIVINATION_MESSAGES: Record<DivinationMasterId, { send: string; receive: string }> = {
+  seimei: {
+    send: 'ポテノが晴明のところへ相談を運んでいます。……もう何か言いたそうです。',
+    receive: 'ポテノが晴明の小言を受け取りました。',
+  },
+  taikobo: {
+    send: 'ポテノが太公望を探しています。……またどこかでのんびりしているようです。',
+    receive: 'ポテノが太公望の一手を持ち帰りました。',
+  },
+  tamamo: {
+    send: 'ポテノが玉藻の前に話を持っていきました。……なんだか楽しそうです。',
+    receive: 'ポテノが玉藻の前のため息を受け取りました。',
+  },
+  'saint-germain': {
+    send: 'ポテノが伯爵の扉を叩いています。……中から笑い声が聞こえます。',
+    receive: 'ポテノが伯爵の意味深なひと言を受け取りました。',
+  },
+  asteria: {
+    send: 'ポテノが星空へ通信しています。……少し遠いようです。',
+    receive: 'ポテノがアステリアの星便りを受け取りました。',
+  },
+  davinci: {
+    send: 'ポテノがダ・ヴィンチの作業机へ向かいました。……何か分解しています。',
+    receive: 'ポテノがダ・ヴィンチの分析結果を奪取……ではなく受け取りました。',
+  },
+};
+
 export function createSixDivinationLink(data: SixDivinationRequestData) {
-  return `📡 POTENO-LINK v1\nTYPE: SIX_DIVINATION_REQUEST\n今回の術師：${DIVINATION_MASTER_PROFILES[data.selectedMaster].name}\n\nDATA[\n${encodeUtf8(data)}\n]`;
+  const payload = {
+    request: data,
+    instructions: `${SIX_DIVINATION_REQUEST_INSTRUCTIONS}\n\n今回の受信メッセージ：${POTENO_DIVINATION_MESSAGES[data.selectedMaster].receive}`,
+  };
+
+  return `📡 POTENO-LINK v1
+🍠 ${POTENO_DIVINATION_MESSAGES[data.selectedMaster].send}
+
+TYPE: SIX_DIVINATION_REQUEST
+今回の術師：${DIVINATION_MASTER_PROFILES[data.selectedMaster].name}
+
+DATA[
+${encodeUtf8(payload)}
+]
+
+DATAはUTF-8 Base64です。
+復号した内容に従って処理してください。`;
 }
 
 export function parseSixDivinationRequest(communication: string) {
   if (!/POTENO-LINK\s+v1/i.test(communication) || !/TYPE:\s*SIX_DIVINATION_REQUEST/i.test(communication)) {
     throw new Error('六占用のPOTENO-LINK v1ではありません。');
   }
-  const decoded = extractData(communication) as Partial<SixDivinationRequestData>;
-  if (decoded.type !== 'SIX_DIVINATION_REQUEST' || !decoded.sixResults) throw new Error('六占結果が入っていません。');
+  const payload = extractData(communication) as Partial<SixDivinationRequestData> & {
+    request?: Partial<SixDivinationRequestData>;
+    instructions?: unknown;
+  };
+  const decoded = payload.request ?? payload;
+  if (payload.request && (typeof payload.instructions !== 'string' || !payload.instructions.trim())) {
+    throw new Error('六占の返答規則が入っていません。');
+  }
+  if (!decoded.selectedMaster || !DIVINATION_MASTER_PROFILES[decoded.selectedMaster]) {
+    throw new Error('選択された術師を確認できません。');
+  }
+  if (typeof decoded.consultation !== 'string' || !decoded.consultation.trim()) {
+    throw new Error('相談内容が入っていません。');
+  }
+  if (typeof decoded.voice !== 'string' || !decoded.voice.trim()) {
+    throw new Error('術師の話し方が入っていません。');
+  }
+  if (!decoded.sixSignals) {
+    throw new Error('六つの兆しが入っていません。');
+  }
   return decoded as SixDivinationRequestData;
 }
 
-export function createSixDivinationReturn(data: SixDivinationResponse) {
-  return `📡 POTENO-RETURN v1\nTYPE: SIX_DIVINATION_RESPONSE\n今回の術師：${DIVINATION_MASTER_PROFILES[data.master].name}\n\nDATA[\n${encodeUtf8(data)}\n]`;
+function encodeUtf8Text(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
-export function parseSixDivinationResponse(communication: string, expectedMaster?: DivinationMasterId) {
-  if (!/POTENO-RETURN\s+v1/i.test(communication) || !/TYPE:\s*SIX_DIVINATION_RESPONSE/i.test(communication)) {
-    throw new Error('六占用のPOTENO-RETURN v1ではありません。');
+function decodeUtf8Text(value: unknown, label: string) {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`${label}の通信文が空です。`);
+  const compact = value.replace(/\s/g, '');
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) throw new Error(`${label}の通信文にBase64以外の文字があります。`);
+
+  const unpadded = compact.replace(/=+$/, '');
+  const remainder = unpadded.length % 4;
+  if (remainder === 1) throw new Error(`${label}の通信文が途中で欠けています。`);
+  const padded = unpadded + '='.repeat((4 - remainder) % 4);
+
+  try {
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const text = new TextDecoder().decode(bytes);
+    if (!text.trim()) throw new Error('empty');
+    return text;
+  } catch {
+    throw new Error(`${label}の通信文を復号できませんでした。`);
   }
-  const decoded = extractData(communication) as Partial<SixDivinationResponse>;
-  if (decoded.type !== 'SIX_DIVINATION_RESPONSE') throw new Error('返信の種類が六占ではありません。');
-  if (!decoded.master || !DIVINATION_MASTER_PROFILES[decoded.master]) throw new Error('術師を確認できません。');
-  if (expectedMaster && decoded.master !== expectedMaster) throw new Error('選んだ術師と返信の術師が一致しません。');
-  if (typeof decoded.integratedReading !== 'string' || !decoded.integratedReading.trim()) throw new Error('術師の統合解釈がありません。');
-  if (typeof decoded.potenoSummary !== 'string' || !decoded.potenoSummary.trim()) throw new Error('ポテノの要約がありません。');
-  if (!Array.isArray(decoded.focus) || decoded.focus.some((item) => typeof item !== 'string')) throw new Error('今回意識することを読み取れません。');
+}
+
+function masterIdFromCode(value: unknown) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 6) throw new Error('術師コードを確認できません。');
+  return SIX_DIVINATION_MASTER_BY_CODE[value as SixDivinationMasterCode];
+}
+
+export function encodeSixDivinationCompactResponse(data: SixDivinationAiResponse): SixDivinationCompactWireResponse {
+  return {
+    v: 3,
+    m: SIX_DIVINATION_MASTER_CODES[data.master],
+    c: encodeUtf8Text(data.mainComment),
+    f: encodeUtf8Text(data.dailyMove),
+    n: encodeUtf8Text(data.dailyOmen),
+  };
+}
+
+export function createSixDivinationReturn(data: SixDivinationAiResponse) {
+  const wire = encodeSixDivinationCompactResponse(data);
+  return `🍠 ${POTENO_DIVINATION_MESSAGES[data.master].receive}\n\nPOTENO-RETURN v1\nTYPE: SIX_DIVINATION_RESPONSE\nDATA[\n${JSON.stringify(wire)}\n]`;
+}
+
+/**
+ * v8.3のPOTENO-RETURNは、骨格5項目だけを平文JSONにし、
+ * c/f/n の日本語本文だけを個別Base64化する。
+ */
+function decodeSixDivinationReturnPayload(payload: string): unknown {
+  const trimmed = payload.trim();
+  if (!trimmed) throw new Error('六占の返信DATAが空です。');
+  if (!trimmed.startsWith('{')) throw new Error('六占の返信DATAは短縮JSONではありません。');
+
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    throw new Error('六占の返信JSONを読み取れませんでした。');
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && Boolean(value.trim());
+}
+
+function decodeCompactWireResponse(value: unknown): SixDivinationAiResponse {
+  if (!isRecord(value) || value.v !== 3) throw new Error('短縮通信のバージョンを確認できません。');
+
+  const master = masterIdFromCode(value.m);
+  const mainComment = decodeUtf8Text(value.c, '推しの鑑定結果');
+  const dailyMove = decodeUtf8Text(value.f, '今日の一手');
+  const dailyOmen = decodeUtf8Text(value.n, '今日の兆し');
+
+  return {
+    type: 'SIX_DIVINATION_RESPONSE',
+    master,
+    mainComment,
+    dailyMove,
+    dailyOmen,
+  };
+}
+
+/**
+ * 六占を精密照合せず、選択術師の「今日の鑑定」として受け取る。
+ * expectedResults は日誌保存・詳細表示との互換用で、AI返答の採点には使わない。
+ */
+export function parseSixDivinationResponse(
+  communication: string,
+  expectedMaster?: DivinationMasterId,
+  expectedResults?: SixDivinationResults,
+) {
+  const strictReturn = communication.trim().match(/^(?:🍠[^\r\n]*\r?\n(?:\r?\n)?)?POTENO-RETURN v1\r?\nTYPE:\s*SIX_DIVINATION_RESPONSE\r?\nDATA\[\s*([\s\S]*)\s*\]$/);
+  if (!strictReturn) throw new Error('六占用のPOTENO-RETURN v1ではありません。');
+
+  const decoded = decodeCompactWireResponse(decodeSixDivinationReturnPayload(strictReturn[1]));
+
+  if (expectedMaster && decoded.master !== expectedMaster) {
+    throw new Error('選んだ術師と返信の術師が一致しません。');
+  }
+  if (!isNonEmptyString(decoded.mainComment)) throw new Error('推しの鑑定結果がありません。');
+  if (!isNonEmptyString(decoded.dailyMove)) throw new Error('今日の一手がありません。');
+  if (!isNonEmptyString(decoded.dailyOmen)) throw new Error('今日の兆しがありません。');
+
+  const signals = expectedResults ? buildSixDivinationSignals(expectedResults) : null;
+  const dailyMove = decoded.dailyMove.trim();
+  const dailyOmen = decoded.dailyOmen.trim();
+
   return {
     type: 'SIX_DIVINATION_RESPONSE',
     master: decoded.master,
-    integratedReading: decoded.integratedReading.trim(),
-    potenoSummary: decoded.potenoSummary.trim(),
-    focus: decoded.focus.map((item) => item.trim()).filter(Boolean),
+    integratedReading: decoded.mainComment.trim(),
+    dailyMove,
+    dailyOmen,
+    // 旧UI・既存保存データとの互換用。
+    dailyFortune: dailyMove,
+    dailyInsight: dailyOmen,
+    potenoSummary: dailyOmen,
+    focus: [dailyMove],
+    actionAdvice: dailyMove,
+    sixSigns: SIX_DIVINATION_MASTER_ORDER.map((id) => ({
+      master: id,
+      reading: signals?.[id].join('\n') ?? '',
+      action: '',
+    })),
   } satisfies SixDivinationResponse;
 }
 

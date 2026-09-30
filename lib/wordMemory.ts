@@ -645,6 +645,23 @@ export class SuuhimochiConversation {
     this.ensureStartDate();
   }
 
+  /**
+   * Starts a genuinely new 30-day companion cycle. The completed child's
+   * memories are archived by GameSave before this is called, so the new child
+   * receives the footprint but not a copy of the former conversation state.
+   */
+  beginNextCycle(goalText: string) {
+    const goal = cleanText(goalText).slice(0, MAX_GOAL_LENGTH);
+    this.state = emptyState();
+    this.session = this.blankSession();
+    this.debug = this.blankDebug();
+    this.farewellQueue = [];
+    this.state.startDate = this.dateKey();
+    this.state.goalText = goal || UNDECIDED_GOAL;
+    this.state.goalSetAt = this.dateKey();
+    this.save();
+  }
+
   getLearnedWords(): LearnedWord[] {
     return Object.values(this.state.words)
       .filter((entry) => !INTERNAL_TOPICS.has(entry.surface) && !SYSTEM_WORDS.has(entry.surface))

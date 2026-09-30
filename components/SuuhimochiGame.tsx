@@ -6,6 +6,7 @@ import { MiniGamePanel } from '@/components/minigames/MiniGamePanel';
 import { PotenoPanel } from '@/components/PotenoPanel';
 import { TwoDayReviewTalk } from '@/components/TwoDayReviewTalk';
 import { DailyProgressCheck } from '@/components/DailyProgressCheck';
+import { GraduationFlow } from '@/components/GraduationFlow';
 import { JournalPanel } from '@/components/JournalPanel';
 import { MOCHI_STATES, TYPE_ACCENTS, type MochiState } from '@/lib/characterData';
 import { INTRO_LINES, pickRoomMonologue } from '@/lib/dialogueData';
@@ -15,6 +16,7 @@ import { clearSave, EMPTY_SAVE, loadSave, storeSave, type GameSave } from '@/lib
 import { getActivityDateKey, getDoneItems, getPreviousActivityDateKey, isAfterActivityDayStart, normalizeDoneItems, type DailyProgressRecord } from '@/lib/dailyProgress';
 import type { StrategyRecord } from '@/lib/potenoLink';
 import type { SixDivinationRecord } from '@/lib/potenoSixDivination';
+import { createThirtyDayCycleArchive, type GraduationFootprint, type GraduationHandoffAdvice, type NextGoalChoice } from '@/lib/graduation';
 import { TWO_DAY_REVIEW_GOAL_TYPES, type TwoDayReviewGoalType, type TwoDayReviewRecord } from '@/lib/twoDayReview';
 import { advanceDialogue, createDialogueRuntime, getDialogueNode, resolveDialogueText, type DialogueRuntime } from '@/lib/miniDialogueRunner';
 import { closetScare } from '@/lib/miniDialogueScripts';
@@ -172,7 +174,7 @@ function getAutoTime(): Exclude<TimeMode, 'auto'> {
   if (hour < 6 || hour >= 22) return 'midnight';
   if (hour < 11) return 'morning';
   if (hour < 17) return 'day';
-  if (hour < 20) return 'evening';
+  if (hour < 19) return 'evening';
   return 'night';
 }
 
@@ -364,6 +366,17 @@ function splitBubblePages(text: string): string[] {
   return splitReadableText(text, BUBBLE_PAGE_LENGTH);
 }
 
+// A room monologue can deliberately contain a line break for a small pause.
+// Keep those beats as separate bubble pages, rather than squeezing them into
+// one thought bubble.
+function splitRoomMonologuePages(text: string): string[] {
+  return text
+    .trim()
+    .split(/\n+/u)
+    .flatMap((line) => splitReadableText(line, BUBBLE_PAGE_LENGTH))
+    .filter(Boolean);
+}
+
 function splitTalkPages(text: string): string[] {
   // 会話は「。」などの文末でいったん区切り、吹き出し内でも一文ずつ読みやすく見せる。
   // 長い一文だけは既存の文字数制限で補助的に分割する。
@@ -460,7 +473,10 @@ const WALK_VECTORS: Record<SpriteDirection, { x: number; y: number }> = {
   south: { x: 0, y: 1 }, 'south-east': { x: 0.707, y: 0.707 }, east: { x: 1, y: 0 }, 'north-east': { x: 0.707, y: -0.707 },
   north: { x: 0, y: -1 }, 'north-west': { x: -0.707, y: -0.707 }, west: { x: -1, y: 0 }, 'south-west': { x: -0.707, y: 0.707 },
 };
-const WALK_BOUNDS = { minX: -34, maxX: 34, minY: -15, maxY: 18 };
+// The floor begins noticeably in front of the rear wall/baseboard.  Keep the
+// foot collider on that usable floor area so Suuhimochi cannot appear to walk
+// into the back wall, especially against the clearer evening lighting.
+const WALK_BOUNDS = { minX: -34, maxX: 34, minY: -8, maxY: 18 };
 const WALK_STEP = { x: 6.2, y: 4.6 };
 const WALK_DURATION_MS = 1700;
 // Waiting behaviour is intentionally walk-heavy: the room should feel lived
@@ -506,6 +522,8 @@ export function SuuhimochiGame() {
   const [potenoOpen, setPotenoOpen] = useState(false);
   const [dailyProgressOpen, setDailyProgressOpen] = useState(false);
   const [dailyProgressActivityDate, setDailyProgressActivityDate] = useState('');
+  const [graduationOpen, setGraduationOpen] = useState(false);
+  const [graduationPreview, setGraduationPreview] = useState(false);
   const [mobileRoomMode, setMobileRoomMode] = useState(false);
   const [roomPanX, setRoomPanX] = useState(0);
   const [roomOverview, setRoomOverview] = useState(false);
@@ -597,6 +615,7 @@ export function SuuhimochiGame() {
   const storedItemIdsRef = useRef(storedItemIds);
   const clockPositionRef = useRef(clockPosition);
   const bubbleRef = useRef<string | null>(null);
+  const roomMonologueBubbleRef = useRef<string | null>(null);
   const sleepBubbleLineRef = useRef<string | null>(null);
   const miniDialogueRef = useRef<DialogueRuntime | null>(null);
 
@@ -1166,7 +1185,7 @@ export function SuuhimochiGame() {
   }, [isInitialPreview, save, mochiState, hydrated]);
 
   useEffect(() => {
-    if (!hydrated || isInitialPreview || phase !== 'home' || !save.introComplete || dailyProgressOpen) return;
+    if (!hydrated || isInitialPreview || phase !== 'home' || !save.introComplete || dailyProgressOpen || graduationOpen) return;
     const now = new Date();
     if (!isAfterActivityDayStart(now)) return;
     const currentDay = conversation.current?.getCurrentDay() ?? conversationDay;
@@ -1179,7 +1198,7 @@ export function SuuhimochiGame() {
     if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
     walkStepTimer.current = null;
     setMochiState((current) => current === 'sleep' ? current : 'idle');
-  }, [conversationDay, dailyProgressOpen, hydrated, isInitialPreview, phase, save.introComplete, save.lastDailyProgressActivityDate]);
+  }, [conversationDay, dailyProgressOpen, graduationOpen, hydrated, isInitialPreview, phase, save.introComplete, save.lastDailyProgressActivityDate]);
 
   useEffect(() => {
     if (!hydrated || isInitialPreview) return;
@@ -1246,6 +1265,29 @@ export function SuuhimochiGame() {
     bubbleRef.current = bubble;
   }, [bubble]);
 
+  // Room monologues are meant to feel like something Suuhimochi mutters to
+  // themself. When one needs a second line/page, let it continue on its own
+  // after a short reading pause; clicking can still advance it sooner.
+  useEffect(() => {
+    if (!bubble || bubble !== roomMonologueBubbleRef.current) return;
+    const pages = splitRoomMonologuePages(bubble);
+    if (pages.length <= 1) return;
+    const page = pages[bubblePageIndex] ?? '';
+    const delay = Math.max(2_200, Math.min(4_700, Array.from(page).length * 95 + 1_100));
+    const timer = window.setTimeout(() => {
+      if (bubbleRef.current !== bubble || roomMonologueBubbleRef.current !== bubble) return;
+      if (bubblePageIndex < pages.length - 1) {
+        setBubblePageIndex((index) => index + 1);
+        return;
+      }
+      roomMonologueBubbleRef.current = null;
+      bubbleRef.current = null;
+      setBubblePageIndex(0);
+      setBubble(null);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [bubble, bubblePageIndex]);
+
   useEffect(() => {
     if (phase !== 'reveal') return;
     if (revealBeat === -1) {
@@ -1292,13 +1334,15 @@ export function SuuhimochiGame() {
       walkRun.current += 1;
       if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
       walkStepTimer.current = null;
+      roomMonologueBubbleRef.current = line;
       bubbleRef.current = line;
       setBubblePageIndex(0);
       setBubble(line);
       setMochiState('idle');
-      if (splitBubblePages(line).length > 1) return;
+      if (splitRoomMonologuePages(line).length > 1) return;
       window.setTimeout(() => {
         if (bubbleRef.current !== line) return;
+        roomMonologueBubbleRef.current = null;
         bubbleRef.current = null;
         setBubblePageIndex(0);
         setBubble(null);
@@ -1428,11 +1472,12 @@ export function SuuhimochiGame() {
   }, []);
 
   const isMonologue = Boolean(bubble && phase === 'home' && !talkOpen);
-  // A plain thought bubble stays in the room.  Only a monologue that has
-  // response choices uses the conversation camera treatment; regular talk
-  // remains zoomed through `talkOpen` as before.
+  // A plain thought bubble stays in the room.  A question offered directly
+  // to the user, or a monologue that has response choices, uses the
+  // conversation camera treatment; regular talk remains zoomed through
+  // `talkOpen` as before.
   const isMonologueZoom = isMonologue && (
-    talkChoices.length > 0 || categoryChoices.length > 0 || subCategoryChoices.length > 0
+    promptedQuestionOffer || talkChoices.length > 0 || categoryChoices.length > 0 || subCategoryChoices.length > 0
   );
   const activeMiniDialogueMotion = useMemo(() => {
     const script = miniDialogue ? getMiniDialogueScript(miniDialogue.scriptId) : null;
@@ -1554,7 +1599,12 @@ export function SuuhimochiGame() {
       : 'up';
   const revealFinished = revealBeat >= REVEAL_BEATS.length - 1;
   const accent = TYPE_ACCENTS[save.mochiType];
-  const bubblePages = useMemo(() => bubble ? splitBubblePages(bubble) : [], [bubble]);
+  const bubblePages = useMemo(() => {
+    if (!bubble) return [];
+    return bubble === roomMonologueBubbleRef.current
+      ? splitRoomMonologuePages(bubble)
+      : splitBubblePages(bubble);
+  }, [bubble]);
   const currentBubblePage = bubblePages[bubblePageIndex] ?? '';
   const bubbleHasNextPage = bubblePageIndex < bubblePages.length - 1;
   const isSleepBubble = mochiState === 'sleep' && bubble === sleepBubbleLineRef.current;
@@ -1653,6 +1703,7 @@ export function SuuhimochiGame() {
       return;
     }
     const wasPotenoWelcome = potenoOpen && bubble === 'ポテノが来たよ。';
+    if (bubble === roomMonologueBubbleRef.current) roomMonologueBubbleRef.current = null;
     bubbleRef.current = null;
     setPromptedQuestionOffer(false);
     setTwoDayReviewOffer(false);
@@ -2433,6 +2484,109 @@ export function SuuhimochiGame() {
     if (!isInitialPreview) storeSave(next);
   }
 
+  function showGraduationFlow(preview: boolean) {
+    stopTalkSpeech();
+    setPhase('home');
+    setTalkOpen(false);
+    setTalkCommandOpen(false);
+    setTalkReturning(false);
+    setMemoryOpen(false);
+    setDictionaryOpen(false);
+    setItemOpen(false);
+    setMinigameOpen(false);
+    setPotenoOpen(false);
+    setSettingsOpen(false);
+    setDailyProgressOpen(false);
+    setTwoDayReviewTalkOpen(false);
+    setGraduationPreview(preview);
+    setGraduationOpen(true);
+    setMochiState('idle');
+  }
+
+  function openGraduationFlow() {
+    showGraduationFlow(false);
+  }
+
+  function openGraduationPreview() {
+    showGraduationFlow(true);
+  }
+
+  function closeGraduationPreview() {
+    setGraduationOpen(false);
+    setGraduationPreview(false);
+  }
+
+  function completeGraduation(result: {
+    choice: NextGoalChoice;
+    goalText: string;
+    goalType: TwoDayReviewGoalType;
+    footprint: GraduationFootprint;
+    handoffAdvice: GraduationHandoffAdvice;
+  }) {
+    if (!conversation.current) return;
+    if (graduationPreview) {
+      closeGraduationPreview();
+      return;
+    }
+    const previousGoal = conversation.current.getGoal() ?? 'まだ決まっていない';
+    const archive = createThirtyDayCycleArchive({
+      cycleNumber: save.cycleNumber,
+      mochiId: save.currentMochiId,
+      activityDate: getActivityDateKey(),
+      goalText: previousGoal,
+      goalType: save.goalType ?? null,
+      footprint: result.footprint,
+      handoffAdvice: result.handoffAdvice,
+      dailyProgressRecords: save.dailyProgressRecords ?? [],
+      journalNotes: save.journalNotes ?? {},
+      twoDayReviews: save.twoDayReviews ?? [],
+      strategyRecords: save.strategyRecords ?? [],
+      divinationRecords: save.divinationRecords ?? [],
+      learnedWords,
+      farewellLetter,
+    });
+    conversation.current.beginNextCycle(result.goalText);
+    const nextCycleNumber = save.cycleNumber + 1;
+    const next: GameSave = {
+      ...save,
+      day: 1,
+      state: 'idle',
+      goalType: result.goalType,
+      dailyProgressRecords: [],
+      journalNotes: {},
+      twoDayReviews: [],
+      strategyRecords: [],
+      divinationRecords: [],
+      lastDailyProgressActivityDate: getActivityDateKey(),
+      cycleNumber: nextCycleNumber,
+      currentMochiId: `suuhimochi-cycle-${nextCycleNumber}-${Date.now()}`,
+      cycleArchives: [...(save.cycleArchives ?? []), archive],
+    };
+    setSave(next);
+    if (!isInitialPreview) storeSave(next);
+    setGraduationOpen(false);
+    setGraduationPreview(false);
+    setConversationDay(1);
+    setConversationPhase('であい');
+    setLearnedWords([]);
+    setDictionaryEntries([]);
+    setConversationMemories([]);
+    setFarewellLetter(null);
+    setTalkDebug(conversation.current.getDebugSnapshot());
+    setRecentCategories([]);
+    setDailyProgressActivityDate('');
+    setTwoDayReviewOffer(false);
+    twoDayReviewOfferDateRef.current = '';
+    bubbleRef.current = null;
+    setBubble(null);
+    setBubblePageIndex(0);
+    walkOffsetRef.current = { x: 0, y: 0 };
+    setWalkOffset({ x: 0, y: 0 });
+    setWalkDirection('south');
+    setMochiState('idle');
+    setPhase('home');
+  }
+
   function openSettings() {
     setMemoryOpen(false);
     setDictionaryOpen(false);
@@ -2610,7 +2764,7 @@ export function SuuhimochiGame() {
     setConversationDay(1); setConversationPhase('であい'); setCurrentTalkLine(''); setCategoryChoices([]); setSubCategoryChoices([]); setTalkChoices([]); setTalkInputMode('none'); setTalkDebug(null);
     setTalkStage('topic'); setTalkOpen(false); setTalkCommandOpen(false); setTalkReturning(false); setTalkText(''); setIntroLine(0);
     setDismissedPromptedSuggestions([]); promptedSuggestionQuestionKeyRef.current = '';
-    setDailyProgressOpen(false); setDailyProgressActivityDate(''); setTwoDayReviewOffer(false); setTwoDayReviewTalkOpen(false); twoDayReviewOfferDateRef.current = '';
+    setDailyProgressOpen(false); setDailyProgressActivityDate(''); setGraduationOpen(false); setGraduationPreview(false); setTwoDayReviewOffer(false); setTwoDayReviewTalkOpen(false); twoDayReviewOfferDateRef.current = '';
     setSleepingBedId(null); setSleepPose(null); setBedPromptId(null); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSettingsUserName(''); setSettingsCallName(''); setClockPosition({ x: 74, y: 49 }); setLightsOut(false); setSelectedItemId(null); setItemPositions(INITIAL_ITEM_POSITIONS); setStoredItemIds(INITIAL_STORED_ITEM_IDS); setItemTab('placed'); setItemPanelCollapsed(false); setItemPanelX(3); setShowCollisionDebug(false);
     walkOffsetRef.current = { x: 0, y: 0 };
     setPermissionStep(0); setInitialCallName(''); setInitialGoalText(''); initialGoalReplyRef.current = null; initialGoalReplyLineRef.current = ''; setMochiState('idle'); setWalkDirection('south'); setWalkOffset({ x: 0, y: 0 }); setPhase('title');
@@ -3809,6 +3963,19 @@ export function SuuhimochiGame() {
         {phase === 'home' && <>
           <header className="game-status"><div><strong>DAY {conversationDay}</strong><span>{conversationPhase}</span></div><div className="game-status-actions">{mobileRoomMode && !dailyProgressOpen && !talkOpen && !potenoOpen && <button className="room-overview-toggle" type="button" onClick={() => { const next = !roomOverview; roomPanRef.current = 0; setRoomPanX(0); setRoomOverview(next); }} aria-pressed={roomOverview}>{roomOverview ? '近くに戻る' : '部屋を見る'}</button>}<button className="room-light-toggle" type="button" onClick={() => setLightsOut((value) => !value)} disabled={dailyProgressOpen || !isDarkPeriod} aria-pressed={isDarkPeriod && lightsOut}>{isDarkPeriod && lightsOut ? '点灯' : '消灯'}</button><span className="time-label">{TIME_LABELS[currentTime]}</span></div></header>
           {dailyProgressOpen && dailyProgressActivityDate && <DailyProgressCheck activityDate={dailyProgressActivityDate} reviewedDate={getPreviousActivityDateKey(dailyProgressActivityDate)} onComplete={completeDailyProgress} />}
+          {graduationOpen && <GraduationFlow
+            preview={graduationPreview}
+            callName={getPreferredCallName(save)}
+            cycleNumber={save.cycleNumber}
+            previousGoal={conversation.current?.getGoal() ?? 'まだ決まっていない'}
+            previousGoalType={save.goalType ?? null}
+            dailyProgressRecords={save.dailyProgressRecords ?? []}
+            journalNotes={save.journalNotes ?? {}}
+            twoDayReviews={save.twoDayReviews ?? []}
+            strategyRecords={save.strategyRecords ?? []}
+            onClose={graduationPreview ? closeGraduationPreview : undefined}
+            onComplete={completeGraduation}
+          />}
           {talkOpen && (
             <section
               className={`face-talk${isMochiSpeaking ? ' face-talk-speaking' : ''}${talkUiOnLeft ? ' face-talk-ui-left' : ''}`}
@@ -3977,7 +4144,7 @@ export function SuuhimochiGame() {
 
               {!isMochiSpeaking && !talkCommandOpen && talkStage === 'farewell' && <div className="face-talk-right"><button className="face-talk-action" onClick={() => conversation.current && applyTalkResponse(conversation.current.continueFarewell())}>……</button></div>}
               {!isMochiSpeaking && !talkCommandOpen && talkStage === 'complete' && <div className="face-talk-right face-talk-complete"><button className="face-talk-action" onClick={startAnotherTalk}>もう一度はなす</button><button className="face-talk-action face-talk-secondary" onClick={closeTalk}>部屋にもどる</button></div>}
-              {!isMochiSpeaking && !talkCommandOpen && talkStage === 'ended' && <div className="face-talk-right"><button className="face-talk-action face-talk-secondary" onClick={() => { closeTalk(); setMemoryOpen(true); }}>手紙を読む</button></div>}
+              {!isMochiSpeaking && !talkCommandOpen && talkStage === 'ended' && <div className="face-talk-right face-talk-complete"><button className="face-talk-action" onClick={openGraduationFlow}>卒業と引き継ぎへ</button><button className="face-talk-action face-talk-secondary" onClick={() => { closeTalk(); setMemoryOpen(true); }}>手紙を読む</button></div>}
             </section>
           )}
           {!dailyProgressOpen && !talkOpen && !potenoOpen && !twoDayReviewTalkOpen && <nav className="room-nav" aria-label="部屋のメニュー">
@@ -4002,8 +4169,9 @@ export function SuuhimochiGame() {
             dailyProgressRecords={save.dailyProgressRecords ?? []}
             journalNotes={save.journalNotes ?? {}}
             twoDayReviews={save.twoDayReviews ?? []}
-            strategyRecords={save.strategyRecords ?? []}
-            divinationRecords={save.divinationRecords ?? []}
+            strategyRecords={[...(save.cycleArchives ?? []).flatMap((archive) => archive.strategyRecords), ...(save.strategyRecords ?? [])]}
+            divinationRecords={[...(save.cycleArchives ?? []).flatMap((archive) => archive.divinationRecords), ...(save.divinationRecords ?? [])]}
+            cycleArchives={save.cycleArchives ?? []}
             onSaveTwoDayReview={saveTwoDayReview}
             onSaveStrategy={saveStrategyRecord}
             onSaveDivination={saveDivinationRecord}
@@ -4031,6 +4199,7 @@ export function SuuhimochiGame() {
             memories={conversationMemories}
             words={dictionaryEntries}
             farewellLetter={farewellLetter ? replaceCallName(farewellLetter, getPreferredCallName(save)) : null}
+            cycleArchives={save.cycleArchives ?? []}
             onClose={() => setMemoryOpen(false)}
             onSaveDoneItems={saveJournalDoneItems}
             onChangeGoalType={saveGoalType}
@@ -4136,6 +4305,11 @@ export function SuuhimochiGame() {
               </>}
             </section>
             {!isInitialPreview && <>
+            <section className="dev-initial-preview">
+              <b>最終日テスト</b>
+              <button type="button" onClick={openGraduationPreview}>最終日の卒業を確認</button>
+              <span>現在の記録を使って卒業導線を開きます。プレビュー中は保存データを変更しません。</span>
+            </section>
             <button onClick={resetAll}><RotateCcw size={14} /> 初期化</button>
             <button onClick={() => { setPhase('birthday'); setBirthday(save.birthday); }}>生年月日変更</button>
             <label>タイプ<select value={save.mochiType} onChange={(event) => setSave((current) => ({ ...current, mochiType: Number(event.target.value) }))}>{Array.from({ length: 9 }, (_, index) => index + 1).map((type) => <option key={type}>{type}</option>)}</select></label>

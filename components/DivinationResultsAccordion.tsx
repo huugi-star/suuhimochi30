@@ -147,7 +147,7 @@ export function DivinationResultsAccordion({ results, divinerArt, asteriaDetail,
 
   return <section className="six-results-accordion" aria-label="六占の計算結果">
     <button className="six-results-toggle" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls={contentId}>
-      <span aria-hidden="true">{open ? '▼' : '▶'}</span> 六占の計算結果を見る（占いの答えではありません）
+      <span aria-hidden="true">{open ? '▼' : '▶'}</span> 六占の計算結果を見る
     </button>
     {open && <div className="divination-summary-list" id={contentId}>{items.map((item) => <AccordionItem key={item.id} item={item} />)}</div>}
   </section>;

@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Clipboard, ExternalLink, Radio, ScrollText, X } from 
 import { PotenoStrategyReview } from '@/components/PotenoStrategyReview';
 import { PotenoSixDivination } from '@/components/PotenoSixDivination';
 import type { DailyProgressRecord } from '@/lib/dailyProgress';
+import type { ThirtyDayCycleArchive } from '@/lib/graduation';
 import {
   buildStrategyRequestData,
   createStrategyRequestLink,
@@ -43,6 +44,7 @@ type PotenoPanelProps = {
   twoDayReviews: TwoDayReviewRecord[];
   strategyRecords: StrategyRecord[];
   divinationRecords: SixDivinationRecord[];
+  cycleArchives: ThirtyDayCycleArchive[];
   onSaveTwoDayReview: (record: TwoDayReviewRecord) => void;
   onSaveStrategy: (record: StrategyRecord) => void;
   onSaveDivination: (record: SixDivinationRecord) => void;
@@ -69,12 +71,52 @@ type StrategyView =
   | 'menu'
   | 'pending'
   | 'history'
+  | 'handoff'
   | 'meeting'
   | 'meeting-request'
   | 'meeting-response';
 
 const POTENO_SPRITE_ROOT = '/assets/poteno/Idle/rotations';
 const POTENO_IDLE_ROOT = '/assets/poteno/animations/Breathing_Idle/south';
+const STRATEGIST_ART: Record<StrategistId, { neutral: string; serious: string; advice: string }> = {
+  komei: {
+    neutral: '/assets/strategists/koumei/koumei_neutral.png',
+    serious: '/assets/strategists/koumei/koumei_serious.png',
+    advice: '/assets/strategists/koumei/koumei_advice.png',
+  },
+  sunzi: {
+    neutral: '/assets/strategists/sunzi/sunzi_neutral.png',
+    serious: '/assets/strategists/sunzi/sunzi_confident.png',
+    advice: '/assets/strategists/sunzi/sunzi_advice.png',
+  },
+  hanbei: {
+    neutral: '/assets/strategists/hanbei/hanbei_neutral.png',
+    serious: '/assets/strategists/hanbei/hanbei_serious.png',
+    advice: '/assets/strategists/hanbei/hanbei_advice.png',
+  },
+};
+
+const STRATEGIST_SELECTION_COPY: Record<StrategistId, { catchphrase: string; specialty: string }> = {
+  komei: {
+    catchphrase: '三十日の先まで、道筋を整えましょう。',
+    specialty: '大局・長期計画・優先順位',
+  },
+  sunzi: {
+    catchphrase: '勝ち筋は、頑張る前に盤面から見つける。',
+    specialty: '現実性・費用対効果・戦う場所',
+  },
+  hanbei: {
+    catchphrase: '少ない手数で、一番効くところを探そう。',
+    specialty: '無駄の削減・省力化・ボトルネック',
+  },
+};
+
+const HANDOFF_REACHABILITY_LABELS = {
+  REACHABLE: '次の30日で到達を目指せる',
+  MILESTONE_RECOMMENDED: '中継地点を作るのがおすすめ',
+  GOAL_CHANGE_RECOMMENDED: '目標の組み直しがおすすめ',
+  INSUFFICIENT_DATA: '判断材料を増やす必要がある',
+} as const;
 
 const STRATEGIST_ASIDES: Record<StrategistId, readonly string[]> = {
   komei: [
@@ -237,6 +279,7 @@ export function PotenoPanel({
   twoDayReviews,
   strategyRecords,
   divinationRecords,
+  cycleArchives,
   onSaveTwoDayReview,
   onSaveStrategy,
   onSaveDivination,
@@ -254,6 +297,8 @@ export function PotenoPanel({
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [strategySaved, setStrategySaved] = useState(false);
   const [selectedStrategist, setSelectedStrategist] = useState<StrategistId | null>(null);
+  const [strategistCandidate, setStrategistCandidate] = useState<StrategistId | null>(null);
+  const [isStrategistPickerOpen, setIsStrategistPickerOpen] = useState(false);
   const [strategistAside, setStrategistAside] = useState('');
   const summonSide = useState<'right' | 'left'>(() =>
     Math.random() < 0.5 ? 'right' : 'left',
@@ -346,6 +391,31 @@ export function PotenoPanel({
     setCopyState('idle');
   }, []);
 
+  const openStrategistPicker = useCallback(() => {
+    setStrategistCandidate(selectedStrategist);
+    setIsStrategistPickerOpen(true);
+  }, [selectedStrategist]);
+
+  const confirmStrategist = useCallback(() => {
+    if (!strategistCandidate) return;
+    chooseStrategist(strategistCandidate);
+    setIsStrategistPickerOpen(false);
+  }, [chooseStrategist, strategistCandidate]);
+
+  const leaveStrategistChoiceToPoteno = useCallback(() => {
+    const candidates = ['komei', 'sunzi', 'hanbei'] as const;
+    setStrategistCandidate(candidates[Math.floor(Math.random() * candidates.length)]);
+  }, []);
+
+  useEffect(() => {
+    if (!isStrategistPickerOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsStrategistPickerOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isStrategistPickerOpen]);
+
   const copyText = useCallback(async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
@@ -378,6 +448,7 @@ export function PotenoPanel({
         menu: '戦略を見直す',
         pending: '未確認の足あとを見る',
         history: '足あとを見返す',
+        handoff: '軍師の引き継ぎ忠言',
         meeting: 'ポテノ軍師と作戦会議',
         'meeting-request': '軍師にアドバイスを求める',
         'meeting-response': '軍師のアドバイスを受け取る',
@@ -416,7 +487,10 @@ export function PotenoPanel({
       {worldTarget ? createPortal(arrival, worldTarget) : arrival}
 
       {!isSummoning && (
-        <aside className="poteno-actions" aria-label="ポテノのメニュー">
+        <aside
+          className={`poteno-actions${mode === 'strategy' && strategyView === 'meeting-response' && responseAdvice ? ' poteno-actions-advice-result' : ''}`}
+          aria-label="ポテノのメニュー"
+        >
           {currentPage ? (
             <div className="poteno-page">
               <header>
@@ -442,6 +516,11 @@ export function PotenoPanel({
                       <span><strong>ポテノ軍師と作戦会議</strong><small>これまでの記録をもとに、これからの進め方を相談する</small></span>
                       <i aria-hidden="true">›</i>
                     </button>
+                    <button className="poteno-strategy-handoff" type="button" disabled={cycleArchives.length === 0} onClick={() => setStrategyView('handoff')}>
+                      <span aria-hidden="true">📜</span>
+                      <span><strong>軍師の引き継ぎ忠言</strong><small>{cycleArchives.length === 0 ? '一周目の卒業後に開きます' : '前の30日から受け取った査定と次の到達点を振り返る'}</small></span>
+                      <i aria-hidden="true">{cycleArchives.length === 0 ? '🔒' : '›'}</i>
+                    </button>
                     <button type="button" onClick={() => setStrategyView('pending')}>
                       <span aria-hidden="true">📝</span>
                       <span><strong>未確認の足あとを見る</strong><small>漏れている2日後の振り返りを確認する</small></span>
@@ -452,6 +531,35 @@ export function PotenoPanel({
                       <span><strong>足あとを見返す</strong><small>これまで振り返った内容を確認する</small></span>
                       <i aria-hidden="true">›</i>
                     </button>
+                  </div>
+                ) : strategyView === 'handoff' ? (
+                  <div className="poteno-strategy-section">
+                    <p className="poteno-handoff-intro">卒業したすうひもちから受け取った足跡と、軍師が次の30日に向けて残した忠言です。</p>
+                    <div className="poteno-handoff-history" aria-label="軍師の引き継ぎ忠言の履歴">
+                      {[...cycleArchives].reverse().map((archive) => {
+                        const advice = archive.handoffAdvice;
+                        const strategist = advice?.strategist ?? 'hanbei';
+                        const reachability = advice?.reachability
+                          ? HANDOFF_REACHABILITY_LABELS[advice.reachability]
+                          : '次の30日へ向けた引き継ぎ';
+                        return <article key={archive.id}>
+                          <header>
+                            <img src={STRATEGIST_ART[strategist].advice} alt="" />
+                            <div><small>第{archive.cycleNumber}期の引き継ぎ</small><strong>{STRATEGIST_PROFILES[strategist].displayName}</strong></div>
+                            <time>{archive.completedAt.slice(0, 10)}</time>
+                          </header>
+                          <div className="poteno-handoff-goal"><small>前回の目標</small><b>「{archive.goalText}」</b></div>
+                          <section className="poteno-handoff-outlook"><small>次の30日の見立て</small><strong>{reachability}</strong>{advice?.reachabilityReason && <p>{advice.reachabilityReason}</p>}</section>
+                          {advice?.assessment && <section><h3>軍師の査定</h3><p>{advice.assessment}</p></section>}
+                          <div className="poteno-handoff-points">
+                            <section><h3>次に変えること</h3><p>{advice?.changeNext ?? '記録されていません。'}</p></section>
+                            <section><h3>次の到達点</h3><p>{advice?.nextDestination ?? '記録されていません。'}</p></section>
+                          </div>
+                          {advice?.suggestedGoal && <div className="poteno-handoff-suggestion"><small>次の30日の目標案</small><strong>「{advice.suggestedGoal}」</strong></div>}
+                        </article>;
+                      })}
+                    </div>
+                    <button className="poteno-strategy-section-back" type="button" onClick={() => setStrategyView('menu')}>戦略メニューへ戻る</button>
                   </div>
                 ) : strategyView === 'pending' ? (
                   <div className="poteno-strategy-section">
@@ -485,7 +593,7 @@ export function PotenoPanel({
                 ) : strategyView === 'meeting' ? (
                   <div className="poteno-strategy-section">
                     <div className="poteno-meeting-menu">
-                      <button type="button" onClick={() => setStrategyView('meeting-request')}>
+                      <button type="button" onClick={() => { setStrategyView('meeting-request'); setStrategistCandidate(selectedStrategist); setIsStrategistPickerOpen(true); }}>
                         <Radio size={22} aria-hidden="true" />
                         <span><strong>軍師にアドバイスを求める</strong><small>日誌をPOTENO-LINKにしてChatGPTへ渡す</small></span>
                       </button>
@@ -498,22 +606,23 @@ export function PotenoPanel({
                   </div>
                 ) : strategyView === 'meeting-request' ? (
                   <div className="poteno-strategy-section poteno-link-panel">
-                    <div className="poteno-strategist-picker">
-                      <p>今日は、だれに相談する？</p>
-                      <button className={selectedStrategist === 'komei' ? 'is-selected' : ''} type="button" aria-pressed={selectedStrategist === 'komei'} onClick={() => chooseStrategist('komei')}><strong>孔明さん</strong><small>30日全体と、先の道筋を見る</small></button>
-                      <button className={selectedStrategist === 'sunzi' ? 'is-selected' : ''} type="button" aria-pressed={selectedStrategist === 'sunzi'} onClick={() => chooseStrategist('sunzi')}><strong>孫子さん</strong><small>戦う場所と、現実的な勝ち方を見る</small></button>
-                      <button className={selectedStrategist === 'hanbei' ? 'is-selected' : ''} type="button" aria-pressed={selectedStrategist === 'hanbei'} onClick={() => chooseStrategist('hanbei')}><strong>竹中半兵衛さん</strong><small>無駄を減らして、一番効く手を見る</small></button>
-                      <button type="button" className="is-random" onClick={() => chooseStrategist('random')}><strong>ポテノに任せる</strong><small>3人の中からポテノが決める</small></button>
-                    </div>
                     {selectedStrategist ? (
                       <>
-                        <div className="poteno-selected-strategist"><span>今回の軍師</span><strong>{STRATEGIST_PROFILES[selectedStrategist].displayName}</strong></div>
+                        <div className="poteno-selected-strategist">
+                          <img src={STRATEGIST_ART[selectedStrategist].serious} alt="" />
+                          <span>今回の軍師</span>
+                          <strong>{STRATEGIST_PROFILES[selectedStrategist].displayName}</strong>
+                          <small>{STRATEGIST_SELECTION_COPY[selectedStrategist].specialty}</small>
+                          <button type="button" onClick={openStrategistPicker}>軍師を選び直す</button>
+                        </div>
                         <label className="poteno-consultation">
                           <span>今回相談したいこと <small>任意</small></span>
+                          <p>何も書かなければ、軍師がこれまでの足跡を見て、<br />今いちばん必要な一手を考えます。</p>
                           <textarea value={consultation} onChange={(event) => setConsultation(event.target.value)} maxLength={800} placeholder="例：今の進め方を続けていいか知りたい" />
                         </label>
                         <div className="poteno-link-preview" aria-label="POTENO-LINK通信準備中">
                           <p>📡 POTENO-LINK v1&nbsp; ( •̀ω•́ )✧</p>
+                          <p>TYPE: STRATEGY_REQUEST</p>
                           <p>🍠 ﾎﾟﾃﾎﾟﾃ……軍師のところへ通信準備中……</p>
                           <p>(ง ˙ω˙)ว ～📶～</p>
                         </div>
@@ -525,7 +634,10 @@ export function PotenoPanel({
                         {copyState === 'failed' && <p className="poteno-link-status is-error">コピーできませんでした。枠内を選択してコピーしてください。</p>}
                       </>
                     ) : (
-                      <p className="poteno-strategist-await">軍師を選ぶと、この下に通信文が出るよ。</p>
+                      <div className="poteno-strategist-await">
+                        <p>まず、相談する軍師を選んでね。</p>
+                        <button type="button" onClick={openStrategistPicker}>軍師と対面する</button>
+                      </div>
                     )}
                     {selectedStrategist && (
                       <div className="poteno-link-guide">
@@ -545,14 +657,14 @@ export function PotenoPanel({
                       <>
                         <label className="poteno-response-input">
                           <span>ChatGPTから返ってきた通信文を貼り付けてね</span>
-                          <textarea value={responseLink} onChange={(event) => { setResponseLink(event.target.value); setResponseError(''); }} placeholder={'📡 POTENO-RETURN v1\n(｀・ω・´)ゞ ｸﾞﾝｼﾉﾃﾞﾝｺﾞﾝ ｼﾞｭｼﾝ……\n\nDATA[ ... ]'} />
+                          <textarea value={responseLink} onChange={(event) => { setResponseLink(event.target.value); setResponseError(''); }} placeholder={'📡 POTENO-RETURN v1\nTYPE: STRATEGY_RESPONSE\n(｀・ω・´)ゞ ｸﾞﾝｼﾉﾃﾞﾝｺﾞﾝ ｼﾞｭｼﾝ……\n\nDATA[ ... ]'} />
                         </label>
                         {responseError && <p className="poteno-link-status is-error">{responseError}</p>}
                         <button className="poteno-link-read" type="button" onClick={readStrategyResponse} disabled={!responseLink.trim()}>受信する</button>
                       </>
                     ) : (
                       <div className="poteno-advice" aria-label="軍師のアドバイス">
-                        <div className="poteno-return-heading"><small>今回の軍師</small><strong>{STRATEGIST_PROFILES[responseAdvice.strategist].displayName}</strong></div>
+                        <div className="poteno-return-heading"><img src={STRATEGIST_ART[responseAdvice.strategist].advice} alt="" /><div><small>今回の軍師</small><strong>{STRATEGIST_PROFILES[responseAdvice.strategist].displayName}</strong></div></div>
                         <section className="poteno-advice-block is-counsel">
                           <header><b>1</b><strong>軍師の忠言</strong></header>
                           <p>{responseAdvice.counsel}</p>
@@ -621,6 +733,40 @@ export function PotenoPanel({
           )}
         </aside>
       )}
+
+      {isStrategistPickerOpen && createPortal(
+        <div className="poteno-strategist-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsStrategistPickerOpen(false); }}>
+          <section className="poteno-strategist-modal" role="dialog" aria-modal="true" aria-labelledby="poteno-strategist-title">
+            <button className="poteno-strategist-modal-close" type="button" aria-label="軍師選択を閉じる" onClick={() => setIsStrategistPickerOpen(false)}><X size={22} /></button>
+            <header>
+              <small>ポテノ軍師と作戦会議</small>
+              <h2 id="poteno-strategist-title">今日は、だれに相談する？</h2>
+              <p>三人の顔を見て、今の悩みに合う軍師を選んでね。</p>
+            </header>
+            <div className="poteno-strategist-cards">
+              {(['komei', 'sunzi', 'hanbei'] as const).map((strategist) => {
+                const isSelected = strategistCandidate === strategist;
+                return (
+                  <button key={strategist} className={isSelected ? `is-selected is-${strategist}` : `is-${strategist}`} type="button" aria-pressed={isSelected} onClick={() => setStrategistCandidate(strategist)}>
+                    <img src={isSelected ? STRATEGIST_ART[strategist].serious : STRATEGIST_ART[strategist].neutral} alt="" />
+                    <span className="poteno-strategist-card-copy">
+                      <strong>{STRATEGIST_PROFILES[strategist].displayName}</strong>
+                      <em>{STRATEGIST_SELECTION_COPY[strategist].catchphrase}</em>
+                      <small>{STRATEGIST_SELECTION_COPY[strategist].specialty}</small>
+                    </span>
+                    {isSelected && <b>選択中</b>}
+                  </button>
+                );
+              })}
+            </div>
+            <footer>
+              <button className="poteno-strategist-random" type="button" onClick={leaveStrategistChoiceToPoteno}>ポテノに選んでもらう</button>
+              <button className="poteno-strategist-confirm" type="button" disabled={!strategistCandidate} onClick={confirmStrategist}>この軍師に相談する</button>
+            </footer>
+          </section>
+        </div>,
+        document.body,
+      )}
       <button
         className="poteno-close"
         type="button"
@@ -668,6 +814,8 @@ export function PotenoPanel({
         .poteno-strategy-menu button { display: grid; grid-template-columns: 37px minmax(0, 1fr) 16px; align-items: center; gap: 9px; width: 100%; min-height: 66px; padding: 9px 10px; border: 2px solid rgba(119,78,54,.48); border-radius: 15px 12px 16px 13px; color: #553b2c; background: rgba(255,253,243,.92); box-shadow: 0 3px 0 rgba(105,65,44,.18); text-align: left; }
         .poteno-strategy-menu button:hover { background: #fff7df; transform: translateY(-1px); }
         .poteno-strategy-menu button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(105,65,44,.18); }
+        .poteno-strategy-menu button:disabled { cursor: default; filter: grayscale(.35); opacity: .54; box-shadow: none; transform: none; }
+        .poteno-strategy-menu button:disabled:hover { background: rgba(255,253,243,.92); transform: none; }
         .poteno-strategy-menu button > span:first-child { display: grid; place-items: center; width: 33px; height: 33px; border-radius: 10px; background: #f0d7a8; font-size: 1.03rem; }
         .poteno-strategy-menu strong, .poteno-strategy-menu small { display: block; }
         .poteno-strategy-menu strong { font-size: .86rem; letter-spacing: .02em; }
@@ -680,6 +828,8 @@ export function PotenoPanel({
         .poteno-strategy-menu .poteno-strategy-meeting strong { color: #563c75; font-size: .96rem; letter-spacing: .04em; }
         .poteno-strategy-menu .poteno-strategy-meeting small { color: #725b7d; font-size: .7rem; }
         .poteno-strategy-menu .poteno-strategy-meeting i { color: #7651a7; font-size: 1.9rem; }
+        .poteno-strategy-menu .poteno-strategy-handoff:not(:disabled) { border-color: #8b7652; background: linear-gradient(135deg, rgba(255,250,225,.96), rgba(240,229,201,.94)); }
+        .poteno-strategy-menu .poteno-strategy-handoff > span:first-child { background: #e6d2a1; }
         .poteno-strategy-section { display: grid; gap: 9px; }
         .poteno-strategy-section-back { justify-self: start; min-height: 35px; padding: 6px 11px; border: 1px solid #9c806b; border-radius: 999px; color: #725743; background: rgba(255,255,255,.7); font-size: .74rem; font-weight: 850; }
         .poteno-review-history { display: grid; gap: 8px; max-height: 260px; overflow-y: auto; padding-right: 2px; }
@@ -690,6 +840,25 @@ export function PotenoPanel({
         .poteno-review-history p { display: flex; justify-content: space-between; gap: 10px; margin: 6px 0 0; color: #715646; font-size: .72rem; font-weight: 700; }
         .poteno-review-history p span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .poteno-review-history p b { flex: none; color: #a45f45; }
+        .poteno-handoff-intro { margin: 0; padding: 10px 12px; border-left: 4px solid #8d7251; border-radius: 5px 11px 11px 5px; color: #69533f; background: rgba(244,233,207,.76); font-size: .7rem; font-weight: 750; line-height: 1.55; }
+        .poteno-handoff-history { display: grid; gap: 11px; max-height: 430px; overflow-y: auto; padding-right: 3px; }
+        .poteno-handoff-history > article { padding: 12px; border: 2px solid rgba(125,91,59,.38); border-radius: 15px 12px 16px 13px; color: #594234; background: rgba(255,252,239,.9); box-shadow: 0 3px 0 rgba(99,67,44,.12); }
+        .poteno-handoff-history > article > header { display: grid; grid-template-columns: 52px minmax(0,1fr) auto; align-items: center; gap: 9px; padding-bottom: 9px; border-bottom: 1px dashed rgba(113,78,53,.3); }
+        .poteno-handoff-history header img { width: 52px; height: 58px; object-fit: cover; object-position: center 18%; border-radius: 9px; background: #e8dbc7; }
+        .poteno-handoff-history header div { display: grid; gap: 2px; }
+        .poteno-handoff-history header small,.poteno-handoff-history header time { color: #92755e; font-size: .59rem; font-weight: 800; }
+        .poteno-handoff-history header strong { color: #553929; font: 900 .82rem 'Yu Mincho',serif; }
+        .poteno-handoff-goal { display: grid; gap: 3px; margin: 9px 0; padding: 8px 10px; border-radius: 9px; background: #f0e5cf; }
+        .poteno-handoff-goal small,.poteno-handoff-suggestion small,.poteno-handoff-outlook small { color: #8b6e57; font-size: .59rem; font-weight: 900; letter-spacing: .05em; }
+        .poteno-handoff-goal b { font-size: .7rem; line-height: 1.45; }
+        .poteno-handoff-outlook { display: grid; gap: 4px; padding: 9px 10px; border: 1px solid rgba(91,134,120,.38); border-radius: 10px; background: #edf6ef; }
+        .poteno-handoff-outlook strong { color: #426c5e; font-size: .76rem; }
+        .poteno-handoff-history section h3 { margin: 9px 0 3px; color: #82563e; font-size: .66rem; }
+        .poteno-handoff-history section p { margin: 0; color: #624b3d; font-size: .67rem; font-weight: 700; line-height: 1.55; }
+        .poteno-handoff-points { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .poteno-handoff-points section { padding: 0 8px 8px; border: 1px solid rgba(123,85,57,.24); border-radius: 9px; background: rgba(255,255,255,.52); }
+        .poteno-handoff-suggestion { display: grid; gap: 4px; margin-top: 9px; padding: 9px 10px; border-radius: 10px; color: #4b685e; background: #e5f1ea; }
+        .poteno-handoff-suggestion strong { font: 850 .7rem/1.5 'Yu Mincho',serif; }
         .poteno-meeting-menu { display: grid; gap: 9px; }
         .poteno-meeting-menu > button { display: grid; grid-template-columns: 32px minmax(0,1fr); align-items: center; gap: 10px; min-height: 72px; padding: 10px 12px; border: 2px solid rgba(119,78,54,.46); border-radius: 14px; color: #5b4030; background: rgba(255,253,243,.94); box-shadow: 0 3px 0 rgba(105,65,44,.17); text-align: left; }
         .poteno-meeting-menu > button:hover { background: #fff5da; transform: translateY(-1px); }
@@ -698,24 +867,54 @@ export function PotenoPanel({
         .poteno-meeting-menu strong { font-size: .83rem; }
         .poteno-meeting-menu small { margin-top: 3px; color: #90715e; font-size: .65rem; font-weight: 700; line-height: 1.35; }
         .poteno-link-panel { font-size: .75rem; }
-        .poteno-strategist-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .poteno-strategist-picker > p { grid-column: 1 / -1; margin: 0 0 2px; color: #5a4031; font-family: 'Yu Mincho', serif; font-size: .92rem; font-weight: 900; text-align: center; }
-        .poteno-strategist-picker button { display: grid; gap: 4px; min-height: 68px; padding: 9px 10px; border: 2px solid rgba(111,79,56,.45); border-radius: 13px; color: #584031; background: rgba(255,253,243,.95); box-shadow: 0 3px 0 rgba(101,64,42,.17); text-align: left; }
-        .poteno-strategist-picker button:hover { border-color: #b66b4d; background: #fff4d8; transform: translateY(-1px); }
-        .poteno-strategist-picker button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(101,64,42,.17); }
-        .poteno-strategist-picker button.is-selected { border-color: #5f9486; background: #e9f6ef; box-shadow: 0 3px 0 rgba(66,111,98,.24), inset 0 0 0 1px rgba(95,148,134,.22); }
-        .poteno-strategist-picker button.is-selected strong::after { content: ' 選択中'; color: #4f8375; font-size: .58rem; }
-        .poteno-strategist-picker button.is-random { border-color: #c28750; background: #fff0cf; }
-        .poteno-strategist-picker strong, .poteno-strategist-picker small { display: block; }
-        .poteno-strategist-picker strong { font-size: .82rem; }
-        .poteno-strategist-picker small { color: #8b705e; font-size: .63rem; font-weight: 750; line-height: 1.35; }
         .poteno-selected-strategist, .poteno-return-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 11px; border: 1px solid rgba(93,126,117,.45); border-radius: 11px; color: #46665e; background: #eaf5ef; }
+        .poteno-selected-strategist { display: grid; grid-template-columns: 62px minmax(0,1fr) auto; grid-template-rows: auto auto auto; justify-content: initial; padding: 10px 11px; }
+        .poteno-selected-strategist img { grid-row: 1 / span 3; width: 62px; height: 76px; object-fit: cover; object-position: center 16%; border-radius: 10px; background: #dcebe2; }
+        .poteno-selected-strategist span, .poteno-selected-strategist strong, .poteno-selected-strategist small { grid-column: 2; }
+        .poteno-selected-strategist small { color: #627b74; font-size: .62rem; font-weight: 750; line-height: 1.35; }
+        .poteno-selected-strategist button { grid-column: 3; grid-row: 1 / span 3; align-self: center; min-height: 32px; padding: 5px 8px; border: 1px solid #719a8e; border-radius: 999px; color: #456d62; background: rgba(255,255,255,.74); font-size: .61rem; font-weight: 900; white-space: nowrap; }
+        .poteno-selected-strategist button:hover { background: #fff; }
+        .poteno-return-heading { justify-content: initial; }
+        .poteno-return-heading img { width: 52px; height: 62px; object-fit: cover; object-position: center 16%; border-radius: 8px; background: #f2dfca; }
+        .poteno-return-heading > div { display: grid; gap: 2px; min-width: 0; }
         .poteno-selected-strategist span, .poteno-return-heading small { margin: 0; color: #68847c; font-size: .62rem; font-weight: 900; letter-spacing: .07em; }
         .poteno-selected-strategist strong, .poteno-return-heading strong { color: #365a50; font-size: .86rem; }
-        .poteno-strategist-await { margin: 0; padding: 12px; border: 2px dashed rgba(104,132,124,.38); border-radius: 11px; color: #6d817b; background: rgba(240,248,244,.68); font-weight: 800; text-align: center; }
+        .poteno-strategist-await { display: grid; justify-items: center; gap: 9px; margin: 0; padding: 16px 12px; border: 2px dashed rgba(104,132,124,.38); border-radius: 11px; color: #6d817b; background: rgba(240,248,244,.68); font-weight: 800; text-align: center; }
+        .poteno-strategist-await p { margin: 0; }
+        .poteno-strategist-await button { min-height: 38px; padding: 7px 15px; border: 2px solid #6d968a; border-radius: 999px; color: #fff; background: #628e82; font-size: .72rem; font-weight: 900; box-shadow: 0 3px 0 #41695e; }
+        .poteno-strategist-modal-backdrop { position: fixed; z-index: 10020; inset: 0; display: grid; place-items: center; padding: 22px; overflow-y: auto; background: rgba(39,27,25,.62); backdrop-filter: blur(4px); animation: poteno-fade-in .18s ease both; }
+        .poteno-strategist-modal { position: relative; width: min(920px, 96vw); max-height: min(820px, calc(100dvh - 36px)); overflow-y: auto; padding: 24px 26px 22px; border: 3px solid #785841; border-radius: 24px 18px 25px 19px; color: #50392d; background: radial-gradient(circle at 50% 0%, rgba(255,250,220,.92), transparent 38%), linear-gradient(145deg, #fffaf0, #eee0c8); box-shadow: 0 24px 70px rgba(24,13,10,.42), inset 0 0 0 2px rgba(255,255,255,.58); }
+        .poteno-strategist-modal::before { content: ''; position: absolute; inset: 8px; pointer-events: none; border: 1px solid rgba(126,83,54,.23); border-radius: 17px 12px 18px 13px; }
+        .poteno-strategist-modal > header { position: relative; z-index: 1; text-align: center; }
+        .poteno-strategist-modal > header small { color: #a06649; font-size: .72rem; font-weight: 900; letter-spacing: .16em; }
+        .poteno-strategist-modal > header h2 { margin: 4px 40px 5px; color: #523725; font-family: 'Yu Mincho', serif; font-size: clamp(1.28rem, 3vw, 1.75rem); letter-spacing: .06em; }
+        .poteno-strategist-modal > header p { margin: 0; color: #806552; font-size: .78rem; font-weight: 750; }
+        .poteno-strategist-modal-close { position: absolute; z-index: 3; top: 13px; right: 14px; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid rgba(105,72,50,.42); border-radius: 50%; color: #72523f; background: rgba(255,252,241,.86); }
+        .poteno-strategist-cards { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 16px; margin-top: 18px; }
+        .poteno-strategist-cards > button { position: relative; display: grid; grid-template-rows: 220px auto; min-width: 0; overflow: hidden; padding: 0; border: 3px solid #b9a28c; border-radius: 19px 14px 21px 15px; color: #543c30; background: #fffaf0; box-shadow: 0 7px 0 rgba(91,60,43,.18), 0 13px 24px rgba(72,45,32,.12); text-align: left; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+        .poteno-strategist-cards > button:hover { transform: translateY(-4px); border-color: #9c765a; box-shadow: 0 10px 0 rgba(91,60,43,.16), 0 18px 30px rgba(72,45,32,.18); }
+        .poteno-strategist-cards > button > img { display: block; width: 100%; height: 220px; object-fit: contain; object-position: center bottom; background: linear-gradient(180deg, #efe5d5, #d6c2aa); }
+        .poteno-strategist-card-copy { display: grid; align-content: start; gap: 7px; min-height: 142px; padding: 14px 15px 16px; }
+        .poteno-strategist-card-copy strong { color: #4e3324; font-family: 'Yu Mincho', serif; font-size: 1.05rem; line-height: 1.25; }
+        .poteno-strategist-card-copy em { color: #6b4c3a; font-size: .74rem; font-style: normal; font-weight: 850; line-height: 1.5; }
+        .poteno-strategist-card-copy small { align-self: end; padding-top: 7px; border-top: 1px dashed rgba(106,75,52,.3); color: #8c6e58; font-size: .66rem; font-weight: 750; line-height: 1.35; }
+        .poteno-strategist-cards > button > b { position: absolute; top: 10px; right: 10px; padding: 5px 9px; border-radius: 999px; color: #fff; background: #5e887d; box-shadow: 0 2px 7px rgba(40,35,30,.25); font-size: .65rem; letter-spacing: .05em; }
+        .poteno-strategist-cards > button.is-selected { transform: translateY(-5px); border-color: #6e8f87; background: #f0faf5; box-shadow: 0 0 0 3px rgba(99,145,132,.2), 0 11px 0 rgba(69,112,100,.2), 0 20px 34px rgba(46,76,68,.19); }
+        .poteno-strategist-cards > button.is-komei.is-selected { border-color: #727caf; background: #f0f1fc; box-shadow: 0 0 0 3px rgba(106,116,170,.2), 0 11px 0 rgba(82,91,142,.2), 0 20px 34px rgba(56,61,105,.18); }
+        .poteno-strategist-cards > button.is-komei.is-selected > b { background: #6d76aa; }
+        .poteno-strategist-cards > button.is-sunzi.is-selected { border-color: #a4674c; background: #fff2e8; box-shadow: 0 0 0 3px rgba(167,101,72,.18), 0 11px 0 rgba(140,76,50,.2), 0 20px 34px rgba(100,56,39,.18); }
+        .poteno-strategist-cards > button.is-sunzi.is-selected > b { background: #a45f44; }
+        .poteno-strategist-cards > button.is-hanbei.is-selected { border-color: #648d78; background: #eef8ef; box-shadow: 0 0 0 3px rgba(91,137,113,.18), 0 11px 0 rgba(68,112,89,.2), 0 20px 34px rgba(48,87,67,.17); }
+        .poteno-strategist-cards > button.is-hanbei.is-selected > b { background: #5d8a72; }
+        .poteno-strategist-modal > footer { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 21px; }
+        .poteno-strategist-modal > footer button { min-height: 44px; padding: 9px 18px; border-radius: 999px; font-weight: 900; }
+        .poteno-strategist-random { border: 1px solid #a4846d; color: #745641; background: rgba(255,252,241,.82); }
+        .poteno-strategist-confirm { min-width: 220px; border: 2px solid #4e7a6d; color: #fff; background: linear-gradient(180deg, #719d90, #527f72); box-shadow: 0 4px 0 #385f54; }
+        .poteno-strategist-confirm:disabled { cursor: default; filter: grayscale(.5); opacity: .45; box-shadow: none; }
         .poteno-consultation, .poteno-response-input { display: grid; gap: 5px; color: #604637; font-weight: 850; }
         .poteno-consultation > span, .poteno-response-input > span { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
         .poteno-consultation small { color: #a18775; font-size: .62rem; }
+        .poteno-consultation p { margin: 0; color: #8b715e; font-size: .67rem; font-weight: 700; line-height: 1.55; }
         .poteno-consultation textarea, .poteno-response-input textarea, .poteno-link-output { width: 100%; resize: vertical; border: 2px solid #c6a681; border-radius: 10px; padding: 9px 10px; color: #4d3a2f; background: rgba(255,255,255,.88); font: .73rem/1.5 'Yu Gothic', sans-serif; }
         .poteno-consultation textarea { min-height: 68px; }
         .poteno-response-input textarea { min-height: 170px; font-family: ui-monospace, 'Cascadia Mono', monospace; }
@@ -755,6 +954,23 @@ export function PotenoPanel({
         .poteno-advice-block.is-checks { border-color: #7296bd; background: #edf5fc; box-shadow: inset 4px 0 0 #7296bd; }
         .poteno-advice-block.is-checks header b { background: #5d82aa; }
         .poteno-advice-actions { grid-template-columns: 1.4fr 1fr .8fr; }
+        .poteno-actions.poteno-actions-advice-result { width: min(460px, 40vw); max-height: min(480px, calc(100dvh - 168px)); padding: 14px; }
+        .poteno-actions-advice-result .poteno-page { padding: 10px 8px 7px; }
+        .poteno-actions-advice-result .poteno-page h2 { margin-bottom: 14px; font-size: 1.24rem; }
+        .poteno-actions-advice-result .poteno-advice { gap: 12px; }
+        .poteno-actions-advice-result .poteno-return-heading { gap: 13px; padding: 12px 14px; }
+        .poteno-actions-advice-result .poteno-return-heading img { width: 60px; height: 68px; }
+        .poteno-actions-advice-result .poteno-return-heading strong { font-size: 1rem; }
+        .poteno-actions-advice-result .poteno-advice-block { padding: 15px 16px; border-radius: 14px; }
+        .poteno-actions-advice-result .poteno-advice-block header { margin-bottom: 9px; }
+        .poteno-actions-advice-result .poteno-advice-block header b { width: 27px; height: 27px; font-size: .76rem; }
+        .poteno-actions-advice-result .poteno-advice-block header strong { font-size: 1.08rem; }
+        .poteno-actions-advice-result .poteno-advice-block p,
+        .poteno-actions-advice-result .poteno-advice-block li { font-size: .95rem; line-height: 1.7; }
+        .poteno-actions-advice-result .poteno-advice-block ul { gap: 8px; padding-left: 22px; line-height: 1.7; }
+        .poteno-actions-advice-result .poteno-advice-block.is-counsel { padding: 17px 18px; }
+        .poteno-actions-advice-result .poteno-advice-block.is-counsel header strong { font-size: 1.18rem; }
+        .poteno-actions-advice-result .poteno-advice-block.is-counsel p { font-size: 1rem; line-height: 1.75; }
         .poteno-placeholder { display: grid; place-items: center; min-height: 112px; padding: 17px; border: 2px dashed rgba(126,85,59,.38); border-radius: 14px; color: #896d58; background: rgba(255,251,235,.5); text-align: center; }
         .poteno-placeholder svg { color: #c57b56; }
         .poteno-placeholder p { max-width: 235px; margin: 8px 0 0; font-family: 'Yu Mincho', serif; font-size: .86rem; font-weight: 700; line-height: 1.6; }
@@ -773,10 +989,32 @@ export function PotenoPanel({
           .poteno-strategy-menu small { display: none; }
           .poteno-strategy-menu .poteno-strategy-meeting { min-height: 74px; padding: 9px 10px; }
           .poteno-strategy-menu .poteno-strategy-meeting small { display: block; }
+          .poteno-handoff-points { grid-template-columns: 1fr; }
+          .poteno-handoff-history > article > header { grid-template-columns: 48px minmax(0,1fr); }
+          .poteno-handoff-history header time { grid-column: 2; }
           .poteno-meeting-menu small { display: block; }
-          .poteno-strategist-picker { grid-template-columns: 1fr; }
-          .poteno-strategist-picker > p { grid-column: auto; }
+          .poteno-selected-strategist { grid-template-columns: 54px minmax(0,1fr); }
+          .poteno-selected-strategist img { width: 54px; height: 68px; }
+          .poteno-selected-strategist button { grid-column: 1 / -1; grid-row: auto; justify-self: stretch; }
+          .poteno-strategist-modal-backdrop { align-items: start; padding: 10px; }
+          .poteno-strategist-modal { width: min(520px, 96vw); max-height: calc(100dvh - 20px); padding: 20px 15px 17px; border-radius: 19px 14px 20px 15px; }
+          .poteno-strategist-modal > header h2 { margin-inline: 34px; }
+          .poteno-strategist-modal > header p { padding-inline: 10px; line-height: 1.5; }
+          .poteno-strategist-cards { grid-template-columns: 1fr; gap: 11px; }
+          .poteno-strategist-cards > button { grid-template-columns: 126px minmax(0,1fr); grid-template-rows: minmax(154px, auto); }
+          .poteno-strategist-cards > button > img { width: 126px; height: 100%; min-height: 154px; object-position: center bottom; }
+          .poteno-strategist-card-copy { min-height: 154px; padding: 13px 12px; }
+          .poteno-strategist-card-copy strong { padding-right: 48px; font-size: .98rem; }
+          .poteno-strategist-card-copy em { font-size: .71rem; }
+          .poteno-strategist-modal > footer { display: grid; grid-template-columns: 1fr; gap: 9px; }
+          .poteno-strategist-confirm { grid-row: 1; min-width: 0; }
           .poteno-advice-actions { grid-template-columns: 1fr; }
+          .poteno-actions.poteno-actions-advice-result { left: 8px; right: 8px; bottom: 142px; width: auto; max-height: min(58dvh, 520px); padding: 11px; }
+          .poteno-actions-advice-result .poteno-page { padding-inline: 5px; }
+          .poteno-actions-advice-result .poteno-advice-block { padding: 14px; }
+          .poteno-actions-advice-result .poteno-advice-block.is-counsel { padding: 15px; }
+          .poteno-actions-advice-result .poteno-advice-block p,
+          .poteno-actions-advice-result .poteno-advice-block li { font-size: .94rem; }
           .poteno-close { top: 10px; right: 10px; width: 34px; height: 34px; }
         }
       `}</style>

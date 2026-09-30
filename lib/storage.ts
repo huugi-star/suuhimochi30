@@ -2,6 +2,7 @@ import type { MochiState } from './characterData';
 import { splitDoneItems, type DailyProgressRecord } from './dailyProgress';
 import type { StrategistId, StrategyRecord } from './potenoLink';
 import type { SixDivinationRecord } from './potenoSixDivination';
+import type { ThirtyDayCycleArchive } from './graduation';
 import type { TwoDayReviewGoalType, TwoDayReviewRecord } from './twoDayReview';
 
 export type GameSave = {
@@ -21,6 +22,12 @@ export type GameSave = {
   strategyRecords: StrategyRecord[];
   divinationRecords: SixDivinationRecord[];
   lastDailyProgressActivityDate: string;
+  /** 1から始まる30日サイクル番号。 */
+  cycleNumber: number;
+  /** 同じ見た目でも、代替わりした子を履歴上で区別するID。 */
+  currentMochiId: string;
+  /** 完了済みの30日を、現行データとは分けて保存する。 */
+  cycleArchives: ThirtyDayCycleArchive[];
 };
 const SAVE_KEY = 'suuhimochi-30days-save-v1';
 export const EMPTY_SAVE: GameSave = {
@@ -39,6 +46,9 @@ export const EMPTY_SAVE: GameSave = {
   strategyRecords: [],
   divinationRecords: [],
   lastDailyProgressActivityDate: '',
+  cycleNumber: 1,
+  currentMochiId: 'suuhimochi-cycle-1',
+  cycleArchives: [],
 };
 
 export function loadSave(): GameSave {
@@ -125,7 +135,27 @@ export function loadSave(): GameSave {
         ))
       : [];
     const { birthplace: _legacyBirthplace, ...saveWithoutBirthplace } = parsed;
-    return { ...EMPTY_SAVE, ...saveWithoutBirthplace, journalNotes, dailyProgressRecords, strategyRecords, divinationRecords };
+    const cycleArchives = Array.isArray(parsed.cycleArchives)
+      ? parsed.cycleArchives.filter((archive): archive is ThirtyDayCycleArchive => (
+          Boolean(archive)
+          && typeof archive === 'object'
+          && typeof (archive as Partial<ThirtyDayCycleArchive>).id === 'string'
+          && typeof (archive as Partial<ThirtyDayCycleArchive>).cycleNumber === 'number'
+        ))
+      : [];
+    return {
+      ...EMPTY_SAVE,
+      ...saveWithoutBirthplace,
+      cycleNumber: Math.max(1, Number(parsed.cycleNumber) || 1),
+      currentMochiId: typeof parsed.currentMochiId === 'string' && parsed.currentMochiId
+        ? parsed.currentMochiId
+        : 'suuhimochi-cycle-1',
+      cycleArchives,
+      journalNotes,
+      dailyProgressRecords,
+      strategyRecords,
+      divinationRecords,
+    };
   } catch {
     return EMPTY_SAVE;
   }

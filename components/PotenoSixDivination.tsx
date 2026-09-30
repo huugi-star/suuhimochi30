@@ -43,12 +43,20 @@ type PotenoSixDivinationProps = {
 
 const MASTER_IDS = Object.keys(DIVINATION_MASTER_PROFILES) as DivinationMasterId[];
 const MASTER_COPIES: Record<DivinationMasterId, string> = {
-  seimei: '凶もまた、避け方を知れば兆しに過ぎません',
-  taikobo: 'ふっふふ。まあ、大局を見ようではないか',
-  tamamo: '恋だのなんだの、本当に人間は暇ねぇ',
-  'saint-germain': 'あら、ずいぶん面白いカードを引きそうね',
-  asteria: '星は静かに動いています',
-  davinci: '万能の天才が少し見てあげよう',
+  seimei: '迷うなら、まず今日の流れを見ましょう。動くべき時は、逃しませんよ',
+  taikobo: 'ふっふふ。詰まっておるなら、頑張る前に盤面を見直すであるな',
+  tamamo: '恋だの本音だの……隠したところで、そう簡単には誤魔化せないわよ？',
+  'saint-germain': 'あら、自分でも分からないの？ なら三枚くらい、心の奥を覗いてみましょうか',
+  asteria: '星は静かに巡っています。今日から一年まで、あなたの今いる場所を見ましょう',
+  davinci: '君の考え方には形があるんだよ。ふふ、僕なら図面にして見せられるけどね',
+};
+const MASTER_CONSULTING_SPECIALTIES: Record<DivinationMasterId, string> = {
+  seimei: '今日の行動・決断',
+  taikobo: '仕事・勉強・戦略',
+  tamamo: '恋愛・人間関係',
+  'saint-germain': '心の迷い・感情',
+  asteria: '時期・運気の流れ',
+  davinci: '自己分析・適性',
 };
 type DivinerPose = 'neutral' | 'serious' | 'accent';
 const DIVINER_ART: Record<DivinationMasterId, Record<DivinerPose, string>> = {
@@ -84,13 +92,21 @@ const DIVINER_ART: Record<DivinationMasterId, Record<DivinerPose, string>> = {
   },
 };
 const QUICK_QUESTIONS = [
-  { label: '今日の運勢', value: '今日の運勢を知りたい' },
+  { label: '今日の流れ', value: '今日の流れを知りたい' },
   { label: '恋愛', value: '恋愛について占いたい' },
   { label: '人間関係', value: '人間関係について占いたい' },
   { label: '仕事・勉強', value: '仕事や勉強について占いたい' },
   { label: '迷いごと', value: '今抱えている迷いについて占いたい' },
   { label: 'なんとなく占う', value: '今の自分に必要な兆しを知りたい' },
 ] as const;
+const QUICK_QUESTION_RECOMMENDATIONS: Record<(typeof QUICK_QUESTIONS)[number]['label'], DivinationMasterId | null> = {
+  '今日の流れ': 'asteria',
+  恋愛: 'tamamo',
+  人間関係: 'tamamo',
+  '仕事・勉強': 'taikobo',
+  迷いごと: 'saint-germain',
+  なんとなく占う: null,
+};
 const DEFAULT_CONSULTATION = QUICK_QUESTIONS[0].value;
 const TAROT_ROLES: TarotCardResult['role'][] = ['表層', '深層', '鍵'];
 const ZODIAC_GLYPHS: Record<string, string> = { aries: '♈', taurus: '♉', gemini: '♊', cancer: '♋', leo: '♌', virgo: '♍', libra: '♎', scorpio: '♏', sagittarius: '♐', capricorn: '♑', aquarius: '♒', pisces: '♓' };
@@ -181,6 +197,33 @@ function saintGermainRevealLine(card: TarotCardResult | undefined, index: number
   const role = TAROT_ROLES[index] ?? '札';
   const lead = index === 0 ? 'まずは' : index === 1 ? '次は' : '最後の鍵は';
   return `${lead}${role}……${card.name}、${orientation}。`;
+}
+
+function renderReadingEmphasis(text: string) {
+  let boldCount = 0;
+  let criticalCount = 0;
+
+  return text.split(/(\*\*[^*\n]+\*\*|《[^《》\n]+》)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      const content = part.slice(2, -2);
+      if (boldCount < 2) {
+        boldCount += 1;
+        return <strong className="six-reading-emphasis" key={`bold-${index}`}>{content}</strong>;
+      }
+      return content;
+    }
+
+    if (part.startsWith('《') && part.endsWith('》')) {
+      const content = part.slice(1, -1);
+      if (criticalCount < 1) {
+        criticalCount += 1;
+        return <strong className="six-reading-critical" key={`critical-${index}`}>{content}</strong>;
+      }
+      return content;
+    }
+
+    return part;
+  });
 }
 
 function addCivilDays(value: string, offset: number) {
@@ -314,6 +357,9 @@ export function PotenoSixDivination({
       davinci: automatic.davinci,
     };
   }, [automatic, iching, tamamo, tarot]);
+  const seimeiDirections = results?.seimei.calculationVersion === 'seimei-calendar-v1'
+    ? { good: results.seimei.direction, avoid: results.seimei.avoidDirection }
+    : null;
 
   const asteriaWeek = useMemo(() => {
     if (!automatic || automatic.asteria.calculationVersion !== 'asteria-lunar-solar-v1') return [];
@@ -324,6 +370,8 @@ export function PotenoSixDivination({
   }, [activityDate, automatic, birthDate]);
 
   const resolvedConsultation = consultation.trim() || DEFAULT_CONSULTATION;
+  const selectedQuickQuestion = QUICK_QUESTIONS.find((question) => question.value === consultation);
+  const recommendedMaster = selectedQuickQuestion ? QUICK_QUESTION_RECOMMENDATIONS[selectedQuickQuestion.label] : null;
 
   const requestData = useMemo(() => results ? buildSixDivinationRequestData({
     master,
@@ -338,11 +386,41 @@ export function PotenoSixDivination({
     twoDayReviews,
   }) : null, [activityDate, birthDate, currentDay, dailyProgressRecords, goalText, journalNotes, master, resolvedConsultation, results, twoDayReviews]);
   const link = useMemo(() => requestData ? createSixDivinationLink(requestData) : '', [requestData]);
+  const divinationResultsAccordion = results && <DivinationResultsAccordion
+    results={results}
+    divinerArt={{
+      seimei: DIVINER_ART.seimei.accent,
+      taikobo: DIVINER_ART.taikobo.accent,
+      tamamo: DIVINER_ART.tamamo.accent,
+      'saint-germain': DIVINER_ART['saint-germain'].accent,
+      asteria: DIVINER_ART.asteria.accent,
+      davinci: DIVINER_ART.davinci.accent,
+    }}
+    davinciDetail={automatic?.davinci.calculationVersion === 'davinci-structure-v1' && <section className={`davinci-reading relation-${automatic.davinci.relation.id}`} aria-label="ダ・ヴィンチの数の設計図">
+    <header><img src={DIVINER_ART.davinci.accent} alt="" /><div><small>レオナルド・ダ・ヴィンチ・数の設計図</small><h3>あなたの設計図</h3></div></header>
+    <div className="davinci-main">
+      <div className="davinci-number-card"><small>CORE</small><b>{automatic.davinci.core.isMaster ? `${automatic.davinci.core.number} / ${automatic.davinci.core.baseNumber}` : automatic.davinci.core.number}</b><strong>{automatic.davinci.core.geometryLabel}</strong><em>「{automatic.davinci.core.keyword}」</em>{automatic.davinci.core.isMaster && <i>複層構造・基礎数 {automatic.davinci.core.baseNumber}</i>}</div>
+      <div className="davinci-blueprint" aria-hidden="true"><svg viewBox="0 0 200 200"><circle className="davinci-guide" cx="100" cy="100" r="84" /><DaVinciShape shape={automatic.davinci.style.geometry} className="davinci-shape is-style" /><DaVinciShape shape={automatic.davinci.core.geometry} className="davinci-shape is-core" /><circle className="davinci-center" cx="100" cy="100" r="3" /></svg><span>{automatic.davinci.relation.label}</span></div>
+      <div className="davinci-number-card"><small>STYLE</small><b>{automatic.davinci.style.number}</b><strong>{automatic.davinci.style.geometryLabel}</strong><em>「{automatic.davinci.style.keyword}」</em><i>{automatic.davinci.style.layer === 'generation' ? '発生層' : automatic.davinci.style.layer === 'formation' ? '形成層' : '統合層'}</i></div>
+    </div>
+    <div className="davinci-relation"><small>RELATION</small><b>{automatic.davinci.relation.label}</b><span>「{automatic.davinci.relation.theme}」</span></div>
+    <blockquote>「{automatic.davinci.characterReading}」</blockquote>
+    <details><summary>設計図の計算</summary><p>CORE：{automatic.davinci.core.reductionPath.join(' → ')} ／ STYLE：{automatic.davinci.style.rawValue} → {automatic.davinci.style.reductionPath.slice(1).join(' → ') || automatic.davinci.style.number}</p><p>CORE：{automatic.davinci.core.layer === 'generation' ? '発生層' : automatic.davinci.core.layer === 'formation' ? '形成層' : '統合層'} ／ STYLE：{automatic.davinci.style.layer === 'generation' ? '発生層' : automatic.davinci.style.layer === 'formation' ? '形成層' : '統合層'}</p><p>{automatic.davinci.methodNote}</p></details>
+    </section>}
+    asteriaDetail={automatic?.asteria.calculationVersion === 'asteria-lunar-solar-v1' && <section className="asteria-reading" aria-label="アステリアの月と太陽の巡り">
+    <header><img src={DIVINER_ART.asteria.accent} alt="" /><div><small>アステリア・月と太陽の巡り</small><h3>今日と一年、星の時計</h3></div></header>
+    <section className="asteria-birth-sign"><small>あなたの星座</small><b>{ZODIAC_GLYPHS[automatic.asteria.birthSun.sign]} {automatic.asteria.birthSun.label}</b><em>出生太陽を、あなた自身の基準点として見ています。</em></section>
+    <section className="asteria-today"><h4>今日の星運</h4><div className="asteria-pillars"><p><small>月</small><b>🌙 {automatic.asteria.moonSign.label}</b><em>{automatic.asteria.moonSign.theme}</em></p><p><small>月相</small><b>{automatic.asteria.moonPhase.label}</b><em>{automatic.asteria.moonPhase.theme}</em></p><p><small>星の響き</small><b>{automatic.asteria.personalAspect.id !== 'none' ? '✦ ' : ''}{automatic.asteria.personalAspect.label}</b><em>{automatic.asteria.personalAspect.theme}</em></p></div><p className="asteria-today-theme"><small>今日のテーマ</small><b>「{automatic.asteria.moonPhase.theme}」</b></p></section>
+    <section className="asteria-week"><h4>7日間の星巡り</h4><div>{asteriaWeek.map((day) => <p key={day.targetDate}><time>{monthDayLabel(day.targetDate)}</time><b>{day.moonSign.label}</b><span>{day.moonPhase.label}</span><em>{day.moonPhase.theme}</em>{day.personalAspect.id !== 'none' && <i title={`出生太陽との星の響き：${day.personalAspect.label}`}>✦</i>}</p>)}</div></section>
+    <section className="asteria-year"><small>☀ 一年の大きな巡り</small><b>{automatic.asteria.solarCycle.label}</b><em>{automatic.asteria.solarCycle.theme}</em><p>{automatic.asteria.fixedReading.split('。').filter(Boolean).at(-1)}。</p></section>
+    <details><summary>計算の詳細</summary><p>現在月黄経：{automatic.asteria.moonSign.longitude}°／現在太陽黄経：{Math.round(((automatic.asteria.moonSign.longitude - automatic.asteria.moonPhase.angle + 360) % 360) * 100) / 100}°／出生太陽黄経：{automatic.asteria.birthSun.longitude}°／月と出生太陽の角度差：{automatic.asteria.personalAspect.exactDifference}°</p>{automatic.asteria.birthSun.nearSignBoundary && <p className="asteria-boundary-note">出生太陽が星座境界付近です。出生時刻を使用しない日付基準計算のため、実際の出生時刻によって隣接星座になる可能性があります。</p>}<p>{automatic.asteria.methodNote}</p></details>
+    </section>}
+  />;
 
   useEffect(() => {
     if (stage !== 'converge') return;
     if (convergenceIndex >= CONVERGENCE_SEQUENCE.length) {
-      const timer = window.setTimeout(() => setStage('send'), 2800);
+      const timer = window.setTimeout(() => setStage('send'), 2000);
       return () => window.clearTimeout(timer);
     }
     const timer = window.setTimeout(() => setConvergenceIndex((value) => value + 1), 430);
@@ -360,8 +438,9 @@ export function PotenoSixDivination({
 
   useEffect(() => {
     if (stage !== 'tarot' || tarotPhase !== 'selection' || tarot.length !== 3) return;
-    const timer = window.setTimeout(() => setTarotPhase('locked'), 520);
-    return () => window.clearTimeout(timer);
+    // 3枚目の選択直後は必ず次の儀式段階へ進める。ここで待機タイマーを
+    // 挟むと、再描画や画面復帰のタイミング次第で選択画面に残ることがある。
+    setTarotPhase('locked');
   }, [stage, tarot.length, tarotPhase]);
 
   useEffect(() => {
@@ -468,7 +547,8 @@ export function PotenoSixDivination({
   const receive = () => {
     try {
       if (!results) throw new Error('六占の元結果がありません。');
-      const parsed = parseSixDivinationResponse(returnText, master);
+      if (!requestData) throw new Error('六占の照合用結果がありません。');
+      const parsed = parseSixDivinationResponse(returnText, master, requestData.sixResults);
       setResponse(parsed);
       setError('');
       if (!saved) {
@@ -476,8 +556,8 @@ export function PotenoSixDivination({
         setSaved(true);
       }
       setStage('result');
-    } catch (receiveError) {
-      setError(receiveError instanceof Error ? receiveError.message : '通信文を読み込めませんでした。');
+    } catch {
+      setError('六占の返信を読み込めませんでした。\nChatGPTのPOTENO-RETURNを最初から最後までコピーしてください。');
     }
   };
 
@@ -524,14 +604,16 @@ export function PotenoSixDivination({
         <div className="six-intro"><span className="entrance-mon" aria-hidden="true">六</span><div><strong>六つの兆しを、ひとつの問いへ</strong><p>六つの占いがそれぞれ異なる角度から問いを読み、選んだ術師が六つの結果を束ねて解釈します。</p></div></div>
 
         <div className="six-question-scroll">
-          <div className="question-heading"><label htmlFor="six-divination-question">六占に問うこと</label><small>気になることを書くか、下の問いを選んでください。</small><strong>空欄のまま進むと、今日の運勢を占います。</strong></div>
+          <div className="question-heading"><label htmlFor="six-divination-question">六占に問うこと</label><small>気になることを書くか、下の問いを選んでください。</small><strong>空欄のまま進むと、今日の流れを占います。</strong></div>
           <textarea id="six-divination-question" disabled={openingRitual} value={consultation} onChange={(event) => setConsultation(event.target.value)} maxLength={800} placeholder="ここを押して、六つの術式へ預けたい問いを書く……" />
           <div className="quick-question-list" aria-label="すぐに占える問い">{QUICK_QUESTIONS.map((question) => <button key={question.label} type="button" disabled={openingRitual} className={consultation === question.value ? 'is-selected' : ''} onClick={() => setConsultation(question.value)}>{question.label}</button>)}</div>
         </div>
 
-        <fieldset className="six-master-picker" disabled={openingRitual}><legend>六つの声を束ねる術師</legend>{MASTER_IDS.map((id) => {
+        <fieldset className="six-master-picker" disabled={openingRitual}><legend>今の悩みに近い術師を選ぶ</legend>{MASTER_IDS.map((id) => {
           const profile = DIVINATION_MASTER_PROFILES[id];
-          return <button key={id} type="button" data-diviner-id={id} className={master === id ? 'is-selected' : ''} onClick={() => { playOracleTone('select'); setMaster(id); }}><span className="diviner-card-art" aria-hidden="true"><img src={DIVINER_ART[id][master === id ? 'accent' : 'neutral']} alt="" /></span><span className="diviner-card-info"><span className="diviner-card-title"><b>{profile.name}</b><small>{profile.art}</small></span><em>「{MASTER_COPIES[id]}」</em></span>{master === id && <u>選定</u>}</button>;
+          const specialty = MASTER_CONSULTING_SPECIALTIES[id];
+          const isRecommended = recommendedMaster === id;
+          return <button key={id} type="button" data-diviner-id={id} className={master === id ? 'is-selected' : ''} onClick={() => { playOracleTone('select'); setMaster(id); }}><span className="diviner-card-art" aria-hidden="true"><img src={DIVINER_ART[id][master === id ? 'accent' : 'neutral']} alt="" /></span><span className="diviner-card-info"><span className="diviner-card-title"><b>{profile.name}</b><strong>{specialty}</strong></span><em>「{MASTER_COPIES[id]}」</em></span><span className="diviner-card-art-name">{profile.art}</span>{isRecommended && <mark>おすすめ</mark>}{master === id && <u>選定</u>}</button>;
         })}</fieldset>
 
         <div className={`setup-sigil-field${openingRitual ? ' is-opening' : ''}`} aria-live="polite">
@@ -692,47 +774,28 @@ export function PotenoSixDivination({
         <div className="six-link-preview"><b>📡 POTENO-LINK v1</b><span>TYPE: SIX_DIVINATION_REQUEST</span><small>六つの結果と記録をまとめて、ChatGPTへ送信できます。</small></div>
         <div className="six-link-actions"><button type="button" onClick={() => void copyLink()}><Clipboard size={16} />全文をコピー</button><button type="button" onClick={() => window.open('https://chatgpt.com/', '_blank', 'noopener,noreferrer')}><ExternalLink size={16} />ChatGPTを開く</button></div>
         {copyState === 'copied' && <p className="six-success">通信文をコピーしました。</p>}{copyState === 'failed' && <p className="six-error">コピーできませんでした。</p>}
-        {results && <DivinationResultsAccordion
-          results={results}
-          divinerArt={{
-            seimei: DIVINER_ART.seimei.accent,
-            taikobo: DIVINER_ART.taikobo.accent,
-            tamamo: DIVINER_ART.tamamo.accent,
-            'saint-germain': DIVINER_ART['saint-germain'].accent,
-            asteria: DIVINER_ART.asteria.accent,
-            davinci: DIVINER_ART.davinci.accent,
-          }}
-          davinciDetail={automatic?.davinci.calculationVersion === 'davinci-structure-v1' && <section className={`davinci-reading relation-${automatic.davinci.relation.id}`} aria-label="ダ・ヴィンチの数の設計図">
-          <header><img src={DIVINER_ART.davinci.accent} alt="" /><div><small>レオナルド・ダ・ヴィンチ・数の設計図</small><h3>あなたの設計図</h3></div></header>
-          <div className="davinci-main">
-            <div className="davinci-number-card"><small>CORE</small><b>{automatic.davinci.core.isMaster ? `${automatic.davinci.core.number} / ${automatic.davinci.core.baseNumber}` : automatic.davinci.core.number}</b><strong>{automatic.davinci.core.geometryLabel}</strong><em>「{automatic.davinci.core.keyword}」</em>{automatic.davinci.core.isMaster && <i>複層構造・基礎数 {automatic.davinci.core.baseNumber}</i>}</div>
-            <div className="davinci-blueprint" aria-hidden="true"><svg viewBox="0 0 200 200"><circle className="davinci-guide" cx="100" cy="100" r="84" /><DaVinciShape shape={automatic.davinci.style.geometry} className="davinci-shape is-style" /><DaVinciShape shape={automatic.davinci.core.geometry} className="davinci-shape is-core" /><circle className="davinci-center" cx="100" cy="100" r="3" /></svg><span>{automatic.davinci.relation.label}</span></div>
-            <div className="davinci-number-card"><small>STYLE</small><b>{automatic.davinci.style.number}</b><strong>{automatic.davinci.style.geometryLabel}</strong><em>「{automatic.davinci.style.keyword}」</em><i>{automatic.davinci.style.layer === 'generation' ? '発生層' : automatic.davinci.style.layer === 'formation' ? '形成層' : '統合層'}</i></div>
-          </div>
-          <div className="davinci-relation"><small>RELATION</small><b>{automatic.davinci.relation.label}</b><span>「{automatic.davinci.relation.theme}」</span></div>
-          <blockquote>「{automatic.davinci.characterReading}」</blockquote>
-          <details><summary>設計図の計算</summary><p>CORE：{automatic.davinci.core.reductionPath.join(' → ')} ／ STYLE：{automatic.davinci.style.rawValue} → {automatic.davinci.style.reductionPath.slice(1).join(' → ') || automatic.davinci.style.number}</p><p>CORE：{automatic.davinci.core.layer === 'generation' ? '発生層' : automatic.davinci.core.layer === 'formation' ? '形成層' : '統合層'} ／ STYLE：{automatic.davinci.style.layer === 'generation' ? '発生層' : automatic.davinci.style.layer === 'formation' ? '形成層' : '統合層'}</p><p>{automatic.davinci.methodNote}</p></details>
-          </section>}
-          asteriaDetail={automatic?.asteria.calculationVersion === 'asteria-lunar-solar-v1' && <section className="asteria-reading" aria-label="アステリアの月と太陽の巡り">
-          <header><img src={DIVINER_ART.asteria.accent} alt="" /><div><small>アステリア・月と太陽の巡り</small><h3>今日と一年、星の時計</h3></div></header>
-          <section className="asteria-birth-sign"><small>あなたの星座</small><b>{ZODIAC_GLYPHS[automatic.asteria.birthSun.sign]} {automatic.asteria.birthSun.label}</b><em>出生太陽を、あなた自身の基準点として見ています。</em></section>
-          <section className="asteria-today"><h4>今日の星運</h4><div className="asteria-pillars"><p><small>月</small><b>🌙 {automatic.asteria.moonSign.label}</b><em>{automatic.asteria.moonSign.theme}</em></p><p><small>月相</small><b>{automatic.asteria.moonPhase.label}</b><em>{automatic.asteria.moonPhase.theme}</em></p><p><small>星の響き</small><b>{automatic.asteria.personalAspect.id !== 'none' ? '✦ ' : ''}{automatic.asteria.personalAspect.label}</b><em>{automatic.asteria.personalAspect.theme}</em></p></div><p className="asteria-today-theme"><small>今日のテーマ</small><b>「{automatic.asteria.moonPhase.theme}」</b></p></section>
-          <section className="asteria-week"><h4>7日間の星巡り</h4><div>{asteriaWeek.map((day) => <p key={day.targetDate}><time>{monthDayLabel(day.targetDate)}</time><b>{day.moonSign.label}</b><span>{day.moonPhase.label}</span><em>{day.moonPhase.theme}</em>{day.personalAspect.id !== 'none' && <i title={`出生太陽との星の響き：${day.personalAspect.label}`}>✦</i>}</p>)}</div></section>
-          <section className="asteria-year"><small>☀ 一年の大きな巡り</small><b>{automatic.asteria.solarCycle.label}</b><em>{automatic.asteria.solarCycle.theme}</em><p>{automatic.asteria.fixedReading.split('。').filter(Boolean).at(-1)}。</p></section>
-          <details><summary>計算の詳細</summary><p>現在月黄経：{automatic.asteria.moonSign.longitude}°／現在太陽黄経：{Math.round(((automatic.asteria.moonSign.longitude - automatic.asteria.moonPhase.angle + 360) % 360) * 100) / 100}°／出生太陽黄経：{automatic.asteria.birthSun.longitude}°／月と出生太陽の角度差：{automatic.asteria.personalAspect.exactDifference}°</p>{automatic.asteria.birthSun.nearSignBoundary && <p className="asteria-boundary-note">出生太陽が星座境界付近です。出生時刻を使用しない日付基準計算のため、実際の出生時刻によって隣接星座になる可能性があります。</p>}<p>{automatic.asteria.methodNote}</p></details>
-          </section>}
-        />}
         <div className="six-guide"><b>使い方</b><ol><li>全文をコピー。</li><li>ChatGPTで貼り付けて送信。</li><li>返ってきたPOTENO-RETURNを、この下の受信画面へ貼り付け。</li></ol></div>
         <button className="six-next" type="button" onClick={() => setStage('receive')}>術師の返事を受け取る</button>
       </section>}
 
-      {stage === 'receive' && <section className="six-receive"><label><span>ChatGPTから返ってきた通信文</span><textarea value={returnText} onChange={(event) => { setReturnText(event.target.value); setError(''); }} placeholder={'📡 POTENO-RETURN v1\nTYPE: SIX_DIVINATION_RESPONSE\nDATA[ ... ]'} /></label>{error && <p className="six-error">{error}</p>}<button className="six-primary" type="button" disabled={!returnText.trim()} onClick={receive}><Radio size={16} />受信する</button><button className="six-subtle" type="button" onClick={() => setStage('send')}>通信画面へ戻る</button></section>}
+      {stage === 'receive' && <section className="six-receive">
+        <div className="six-receive-master">
+          <img className="six-receive-master-art" src={DIVINER_ART[master].accent} alt="" />
+          <div className="six-receive-master-copy"><small>今回の術師</small><h3>{DIVINATION_MASTER_PROFILES[master].name}</h3><p>推しの鑑定結果・今日の一手・今日の兆しを受け取ります。</p><p>今日の吉方・凶方はアプリ側の晴明の結果から表示します。</p></div>
+        </div>
+        <label><span>ChatGPTから返ってきた通信文</span><textarea value={returnText} onChange={(event) => { setReturnText(event.target.value); setError(''); }} placeholder={'📡 POTENO-RETURN v1\nTYPE: SIX_DIVINATION_RESPONSE\nDATA[ ... ]'} /></label>
+        {error && <p className="six-error">{error}</p>}
+        <button className="six-primary" type="button" disabled={!returnText.trim()} onClick={receive}><Radio size={16} />受信する</button>
+        <button className="six-subtle" type="button" onClick={() => setStage('send')}>通信画面へ戻る</button>
+      </section>}
 
       {stage === 'result' && response && <section className="six-reading">
-        <header><img className="six-reading-portrait" src={DIVINER_ART[response.master].accent} alt="" /><Check size={21} /><div><small>今回の術師</small><h3>{DIVINATION_MASTER_PROFILES[response.master].name}</h3></div></header>
-        <article><small>術師の統合解釈</small><p>{response.integratedReading}</p></article>
-        <article className="is-poteno"><small>ポテノの要約</small><p>{response.potenoSummary}</p></article>
-        <article className="is-focus"><small>今回意識すること</small><ul>{response.focus.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></article>
+        <header className="six-reading-hero"><img className="six-reading-hero-art" src={DIVINER_ART[response.master].accent} alt="" /><div><small>今回の術師</small><h3>{DIVINATION_MASTER_PROFILES[response.master].name}</h3><p className="six-reading-hero-intro">「{resolvedConsultation}」への答え</p></div><Check size={21} /></header>
+        <article className="is-reading"><small>{DIVINATION_MASTER_PROFILES[response.master].name}の鑑定結果</small><p>{renderReadingEmphasis(response.integratedReading)}</p></article>
+        {seimeiDirections && <article className="is-directions"><small>今日の吉方・凶方</small><div className="six-direction-grid"><div className="is-good"><span>今日の吉方</span><b>{seimeiDirections.good.label}</b><em>{seimeiDirections.good.theme}</em></div><div className="is-avoid"><span>今日の凶方</span><b>{seimeiDirections.avoid.label}</b><em>避けたほうが良い方角</em></div></div></article>}
+        <article className="is-move"><small>今日の一手</small><p>{response.dailyMove}</p></article>
+        <article className="is-omen"><small>今日の兆し</small><p>{response.dailyOmen}</p></article>
+        {divinationResultsAccordion}
         <p className="six-success">日誌に自動保存しました。</p>
         <button className="six-subtle" type="button" onClick={reset}><RotateCcw size={15} />もう一度占う</button>
       </section>}
@@ -809,7 +872,7 @@ export function PotenoSixDivination({
         .diviner-result-detail.is-taikobo .divination-detail-copy>p{position:relative;z-index:2;margin-top:2px;border:1px solid rgba(227,181,108,.62);border-left:3px solid #e0a652;color:#fff5dc;background:linear-gradient(135deg,rgba(23,12,7,.92),rgba(61,34,15,.88));box-shadow:0 4px 12px rgba(0,0,0,.27);font-weight:600;text-shadow:0 1px 0 rgba(0,0,0,.38)}
         .diviner-result-detail.is-saint-germain .divination-detail-copy>p{position:relative;z-index:2;margin-top:2px;border:1px solid rgba(225,186,112,.62);border-left:3px solid #dcb26a;color:#fff2d0;background:linear-gradient(135deg,rgba(22,12,32,.94),rgba(68,28,67,.9));box-shadow:0 4px 12px rgba(0,0,0,.3);font-weight:600;text-shadow:0 1px 0 rgba(0,0,0,.42)}
         .six-guide { padding:10px 12px;border:1px solid #b59cad;border-radius:11px;background:#fffaf5; }.six-guide b{color:#70556b}.six-guide ol{display:grid;gap:3px;margin:5px 0 0;padding-left:20px;line-height:1.45;}
-        .six-error,.six-success{margin:0;padding:7px 9px;border-radius:8px;font-weight:850}.six-error{color:#934e55;background:#ffe1df}.six-success{color:#396d5e;background:#e3f2ea}
+        .six-error,.six-success{margin:0;padding:7px 9px;border-radius:8px;font-weight:850}.six-error{color:#934e55;background:#ffe1df;white-space:pre-line}.six-success{color:#396d5e;background:#e3f2ea}
         .six-reading article { padding:12px 13px;border:2px solid #9b7baa;border-radius:12px;background:#f6effb; }.six-reading article.is-poteno{border-color:#d29362;background:#fff4df}.six-reading article.is-focus{border-color:#6f9f8f;background:#eaf7f1}
         .six-reading article small{display:block;margin-bottom:5px;color:#835d86;font-weight:900;letter-spacing:.08em}.six-reading article p,.six-reading article ul{margin:0;line-height:1.7;white-space:pre-wrap}.six-reading article ul{padding-left:20px}
 
@@ -1053,6 +1116,8 @@ export function PotenoSixDivination({
         .six-crossroads>.six-next{position:relative;z-index:10;isolation:isolate;justify-self:center;min-width:min(100%,330px);min-height:52px;margin-top:16px;padding:12px 26px;border:2px solid #e4bd78;outline:1px solid rgba(91,42,61,.82);outline-offset:3px;color:#fff7e2;background:linear-gradient(135deg,#8e5264,#4b283c 58%,#2d1b2c);box-shadow:0 5px 0 #21121e,0 11px 22px rgba(38,25,34,.42),inset 0 1px rgba(255,237,196,.38);font-size:.82rem;font-weight:700;line-height:1.5;text-align:center;text-shadow:0 2px 3px rgba(19,8,15,.85)}.six-crossroads>.six-next:hover{border-color:#ffe0a0;background:linear-gradient(135deg,#a96375,#5b304a 58%,#352032);filter:brightness(1.08)}
         /* Portrait assets supplied for the six diviners. */
         .six-master-picker button{grid-template-columns:96px minmax(0,1fr);min-height:148px;align-items:start;gap:12px;padding:12px}.diviner-card-art{position:relative;display:block!important;grid-column:1;grid-row:1;width:96px;height:96px;overflow:hidden;border:1px solid rgba(83,48,31,.55);border-radius:2px;background:#231a20;box-shadow:0 4px 9px rgba(50,30,20,.28)}.diviner-card-art img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 8%;transform:scale(2.8);transform-origin:50% 4%}.six-master-picker .diviner-card-info{grid-column:2;grid-row:1;align-content:start;gap:6px;text-align:left}.six-master-picker .diviner-card-title{gap:2px;text-align:left}.six-master-picker .diviner-card-info b{font-size:.84rem}.six-master-picker .diviner-card-info small{font-size:.6rem}.six-master-picker .diviner-card-info em{display:-webkit-box;overflow:hidden;color:inherit;font-size:.62rem;line-height:1.55;-webkit-box-orient:vertical;-webkit-line-clamp:2}.six-master-picker button[data-diviner-id="taikobo"] .diviner-card-art img{transform:translateY(9%) scale(2.72);transform-origin:50% 0}.six-master-picker button[data-diviner-id="saint-germain"] .diviner-card-art img{transform:translateY(3%) scale(2.35);transform-origin:50% 0}.six-master-picker button.is-selected{grid-template-columns:116px minmax(0,1fr);min-height:158px;padding:13px}.six-master-picker button.is-selected .diviner-card-art{width:116px;height:116px;border-color:#f1ca81;box-shadow:0 0 18px rgba(222,166,76,.48)}.six-master-picker button.is-selected .diviner-card-info{min-height:116px;gap:8px}.six-master-picker button.is-selected .diviner-card-info b{font-size:.92rem}
+        .six-master-picker button{--master-glow:#b36e4e;--master-glow-rgb:179,110,78;grid-template-rows:minmax(0,1fr) auto;min-height:164px}.six-master-picker button[data-diviner-id="seimei"]{--master-glow:#4e9ba0;--master-glow-rgb:78,155,160}.six-master-picker button[data-diviner-id="taikobo"]{--master-glow:#c28a37;--master-glow-rgb:194,138,55}.six-master-picker button[data-diviner-id="tamamo"]{--master-glow:#cf668b;--master-glow-rgb:207,102,139}.six-master-picker button[data-diviner-id="saint-germain"]{--master-glow:#9a70b8;--master-glow-rgb:154,112,184}.six-master-picker button[data-diviner-id="asteria"]{--master-glow:#678fca;--master-glow-rgb:103,143,202}.six-master-picker button[data-diviner-id="davinci"]{--master-glow:#559a88;--master-glow-rgb:85,154,136}.six-master-picker button.is-selected{min-height:174px;border-color:var(--master-glow);background:linear-gradient(145deg,rgba(255,244,214,.96),rgba(var(--master-glow-rgb),.28));box-shadow:inset 0 0 0 3px rgba(255,250,229,.6),0 0 0 1px rgba(var(--master-glow-rgb),.7),0 0 22px rgba(var(--master-glow-rgb),.42),0 6px 14px rgba(var(--master-glow-rgb),.2)}.six-master-picker button.is-selected .diviner-card-art{border-color:var(--master-glow);box-shadow:0 0 20px rgba(var(--master-glow-rgb),.68),inset 0 0 12px rgba(var(--master-glow-rgb),.18)}.six-master-picker .diviner-card-title strong{display:block;color:#8a4634;font:.73rem/1.3 'Yu Mincho',serif;letter-spacing:.04em}.six-master-picker .diviner-card-info em{font-size:.61rem;line-height:1.52}.six-master-picker .diviner-card-art-name{display:inline-flex!important;grid-column:1/-1;grid-row:2;justify-self:center;align-items:center;margin-top:1px;border:1px solid rgba(139,85,53,.52);border-radius:2px;padding:3px 8px;color:#70412e;background:rgba(246,222,174,.78);font:.69rem/1.1 'Yu Mincho',serif;letter-spacing:.07em}.six-master-picker button.is-selected .diviner-card-title strong{color:#5f3028}.six-master-picker button.is-selected .diviner-card-art-name{border-color:var(--master-glow);color:#38261f;background:rgba(255,244,215,.88);box-shadow:0 0 10px rgba(var(--master-glow-rgb),.44)}.six-master-picker button mark{position:absolute;top:7px;right:39px;z-index:2;border:1px solid #a84938;border-radius:2px;padding:2px 4px;color:#8a362b;background:#f9e0a2;font:.48rem 'Yu Mincho',serif;line-height:1;text-decoration:none}.six-master-picker button:not(.is-selected) mark{right:7px}
+        @media(min-width:701px){.six-master-picker button{min-height:210px}.six-master-picker button.is-selected{min-height:222px}.six-master-picker .diviner-card-info{min-height:153px;gap:7px}.six-master-picker .diviner-card-info b{font-size:1rem}.six-master-picker .diviner-card-title strong{font-size:.84rem}.six-master-picker .diviner-card-info em{display:block;overflow:visible;font-size:.73rem;line-height:1.55;-webkit-line-clamp:unset}.six-master-picker .diviner-card-art-name{padding:4px 10px;font-size:.78rem}.six-master-picker button mark{font-size:.55rem}}
         .iching-footer .taikobo-art{position:relative;z-index:2;align-self:end;width:88px;height:132px;object-fit:contain;object-position:center bottom;mix-blend-mode:screen;filter:drop-shadow(0 9px 8px rgba(0,0,0,.48));pointer-events:none;animation:six-note-arrive .45s .08s both}
         .tamamo-art{position:absolute;z-index:5;inset:0;width:100%;height:100%;object-fit:contain;object-position:center bottom;mix-blend-mode:screen;filter:drop-shadow(0 11px 10px rgba(10,5,12,.5));animation:tamamo-arrive 1.05s cubic-bezier(.16,.8,.2,1) both}.germain-art{position:absolute;z-index:2;inset:0;width:100%;height:100%;object-fit:contain;object-position:center bottom;mix-blend-mode:screen;filter:drop-shadow(0 14px 12px rgba(8,5,15,.55));animation:germain-arrive 1.1s cubic-bezier(.17,.78,.22,1) both}
         .six-reading-portrait{width:52px;height:62px;border:1px solid #a47854;border-radius:2px;object-fit:cover;object-position:50% 16%;background:#251b20;box-shadow:0 3px 8px rgba(55,31,21,.22)}
@@ -1117,7 +1182,10 @@ export function PotenoSixDivination({
         @media(max-width:700px){.poteno-six:has(.six-setup){padding:14px 10px}.six-setup{gap:14px;padding:14px 10px}.six-intro{grid-template-columns:45px 1fr;gap:10px}.entrance-mon{width:40px;height:40px}.six-intro strong{font-size:.94rem}.six-intro p{font-size:.62rem}.six-question-scroll{padding:10px 12px 13px}.question-heading{display:grid;gap:3px}.quick-question-list{gap:5px}.quick-question-list button{padding-inline:8px}.six-master-picker{grid-template-columns:1fr;gap:7px;padding:8px}.six-master-picker button{grid-template-columns:40px 1fr;min-height:78px;padding:8px 10px}.six-master-picker button>i{width:35px;height:42px}.six-master-picker button em{font-size:.55rem}.setup-sigil-field{height:225px}.setup-sigil-field::before{width:210px;height:210px}.setup-hexagram-lines{width:270px;height:203px}.setup-sigil-orbit>span{--orbit:87px}.setup-open-seal{width:94px;height:94px}.setup-origin label{min-width:min(320px,88vw)}.setup-opening-voice{font-size:.6rem}.phase-invocation .tamamo-presence{animation-name:tamamo-stage-entrance-mobile}}
         @media(max-width:700px){.poteno-six:has(.six-iching){padding:14px 10px}.six-progress{gap:2px}.six-progress span{min-height:43px}.six-progress span i{width:30px;height:30px;font-size:.7rem}.six-progress::before{top:19px}.six-iching{padding:13px 10px 16px}.six-iching::before{font-size:1.25rem}.iching-ritual{min-height:350px;padding:0 4px}.six-iching.has-reading .iching-ritual{min-height:775px;grid-template-columns:1fr;grid-template-rows:180px 292px auto;gap:8px}.iching-vessel-zone,.six-iching.has-reading .iching-vessel-zone{grid-column:1;grid-row:1}.iching-vessel{width:150px;height:275px;transform:scale(.77)}.six-iching.has-reading .iching-vessel{transform:translateY(-18px) scale(.57)}.six-iching.is-complete .iching-vessel{opacity:.58;transform:translateY(-22px) scale(.49)}.iching-tube{width:116px;height:235px}.cast-sticks{top:24px;left:50%}.iching-transformation{grid-column:1;grid-row:2;width:100%;height:285px;grid-template-columns:1fr;grid-template-rows:56px 1fr}.iching-transformation .ritual-hexagram{width:174px;height:224px;gap:12px;padding:20px 22px}.iching-transformation .ritual-line>span{gap:21px}.iching-transformation .ritual-line>b{right:-28px}.process-title strong{font-size:.95rem}.iching-result-detail{grid-column:1;grid-row:3;width:min(100%,310px);min-height:0;justify-self:center}.iching-result-detail section{padding:10px 12px}.iching-result-detail strong{font-size:1rem}.iching-footer{grid-template-columns:minmax(0,1fr) 76px;gap:7px}.iching-footer blockquote{padding-left:16px}.iching-footer .taikobo-art{width:76px;height:112px}.iching-footer .six-next{grid-column:1/-1;justify-self:stretch}.iching-cast-button{min-width:220px}}
         @media(max-width:700px){.diviner-card-art{width:35px;height:48px}.six-reading-portrait{width:43px;height:52px}.divination-summary-button{grid-template-columns:30px minmax(0,1fr);align-items:start}.divination-summary-toggle{grid-column:2;justify-self:start}.divination-summary-heading small{overflow:visible;white-space:normal}.divination-detail-list{grid-template-columns:1fr}.davinci-main{grid-template-columns:1fr;gap:8px}.davinci-blueprint{grid-row:1;width:100%;height:116px}.asteria-pillars{grid-template-columns:repeat(3,minmax(0,1fr))}.asteria-week p{grid-template-columns:34px 52px minmax(0,1fr) auto;gap:3px;font-size:.58rem}.asteria-week span{display:none}.asteria-birth-sign em{font-size:.56rem}.six-master-picker button{grid-template-columns:76px minmax(0,1fr);min-height:96px;align-items:start;gap:11px;padding:11px}.six-master-picker .diviner-card-art{width:76px;height:76px;grid-column:1;grid-row:1;align-self:start;border-radius:2px}.six-master-picker .diviner-card-art img{width:100%;height:100%;object-fit:cover}.six-master-picker .diviner-card-info{display:grid!important;grid-column:2;grid-row:1;align-content:start;gap:7px;min-width:0;text-align:left}.six-master-picker .diviner-card-title{display:grid!important;gap:2px;text-align:left}.six-master-picker .diviner-card-info b{font-size:.84rem}.six-master-picker .diviner-card-info small{font-size:.61rem}.six-master-picker .diviner-card-info em{font-size:.63rem;line-height:1.55}.six-master-picker button.is-selected{grid-template-columns:94px minmax(0,1fr);min-height:118px;padding:12px;box-shadow:inset 0 0 0 3px rgba(255,242,205,.46),0 0 0 1px #c39b55,0 6px 16px rgba(93,50,31,.24)}.six-master-picker button.is-selected .diviner-card-art{width:94px;height:94px;box-shadow:0 0 18px rgba(222,166,76,.46)}.six-master-picker button.is-selected .diviner-card-info{min-height:94px;gap:9px}.six-master-picker button.is-selected .diviner-card-info b{font-size:.9rem}.six-master-picker button u{top:7px;right:7px;width:25px;height:25px;font-size:.45rem}}
-        @media(max-width:700px){.tarot-fan-scroll{top:0;right:0;bottom:74px;left:0;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x pan-y}.tarot-fan-scroll::-webkit-scrollbar{display:none}.tarot-fan{position:relative;left:0;top:20px;width:640px;min-width:640px;height:280px;transform:none}.tarot-fan button{left:50%;touch-action:manipulation}}
+        @media(max-width:700px){.six-master-picker button{min-height:125px}.six-master-picker button.is-selected{min-height:137px}.six-master-picker .diviner-card-title strong{font-size:.69rem}.six-master-picker .diviner-card-info em{font-size:.59rem;line-height:1.48}.six-master-picker .diviner-card-art-name{padding:3px 8px;font-size:.64rem}.six-master-picker button mark{top:7px;right:39px;font-size:.46rem}.six-master-picker button:not(.is-selected) mark{right:7px}.tarot-fan-scroll{top:0;right:0;bottom:74px;left:0;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x pan-y}.tarot-fan-scroll::-webkit-scrollbar{display:none}.tarot-fan{position:relative;left:0;top:20px;width:640px;min-width:640px;height:280px;transform:none}.tarot-fan button{left:50%;touch-action:manipulation}}
+        .six-reading article.is-reading{border-color:#b78b63;background:#fff8e8;box-shadow:0 5px 14px rgba(99,67,42,.08)}.six-reading article.is-reading small{font-size:.72rem}.six-reading article.is-reading p{font-size:.82rem;line-height:1.85}.six-reading-emphasis{color:#5f4033;font-weight:800}.six-reading-critical{color:#9f3f35;font-weight:800}.six-reading article.is-directions{border-color:#c6a36c;background:linear-gradient(135deg,#fff9e9,#f7eed9)}.six-reading article.is-move{border-color:#90734d;background:linear-gradient(135deg,#fff9ea,#f6ead4);text-align:center}.six-reading article.is-move p{color:#5a3c27;font:900 clamp(1rem,2.6vw,1.22rem)/1.45 'Yu Mincho',serif;letter-spacing:.06em}.six-reading article.is-omen{border-color:#9c7897;background:radial-gradient(circle at 50% 12%,#fffdf7,#f6edf5);text-align:center}.six-reading article.is-omen p{color:#724c69;font:900 clamp(1.48rem,5vw,2rem)/1.2 'Yu Mincho',serif;letter-spacing:.13em}.six-direction-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:3px}.six-direction-grid>div{display:grid;gap:3px;padding:10px 11px;border:1px solid rgba(130,91,57,.2);border-radius:9px;background:rgba(255,255,255,.58)}.six-direction-grid span{font-size:.62rem;font-weight:900;letter-spacing:.06em}.six-direction-grid b{font:900 1.2rem/1.25 'Yu Mincho',serif}.six-direction-grid em{color:#76685f;font-size:.61rem;font-style:normal;line-height:1.5}.six-direction-grid .is-good span,.six-direction-grid .is-good b{color:#7d5b24}.six-direction-grid .is-avoid span,.six-direction-grid .is-avoid b{color:#8b4f4a}.six-signs>div{display:grid;gap:7px;margin-top:8px}.six-signs section{padding:8px 10px;border-left:3px solid #b88a5d;background:rgba(255,255,255,.48)}.six-signs section b{display:block;color:#5c3d2d;font:.72rem/1.4 'Yu Mincho',serif}.six-signs section p{margin:4px 0!important;color:#46382f;font-size:.68rem!important;line-height:1.55!important}.six-signs section em{display:block;color:#546d58;font:.66rem/1.5 'Yu Gothic',sans-serif;font-style:normal}.six-signs section:nth-child(1){border-color:#5d9da0}.six-signs section:nth-child(2){border-color:#c38b36}.six-signs section:nth-child(3){border-color:#cc6b8d}.six-signs section:nth-child(4){border-color:#9a70b8}.six-signs section:nth-child(5){border-color:#668fca}.six-signs section:nth-child(6){border-color:#559a88}
+        .six-receive-master{display:grid;justify-items:center;gap:2px;overflow:hidden;padding:10px 18px 13px;border:1px solid rgba(177,125,83,.45);border-radius:12px;background:radial-gradient(circle at 50% 28%,rgba(255,232,186,.75),rgba(255,250,238,.72) 56%,rgba(237,214,193,.58));text-align:center}.six-receive-master-art{display:block;max-width:100%;width:min(100%,390px);height:clamp(220px,30vw,290px);margin-bottom:-5px;object-fit:contain;transform:translateY(14px);filter:drop-shadow(0 13px 12px rgba(87,48,31,.24))}.six-receive-master-copy{display:grid;gap:3px}.six-receive-master small,.six-receive-master h3,.six-receive-master p{margin:0}.six-receive-master small{color:#9b613e;font-size:.61rem;font-weight:900;letter-spacing:.13em}.six-receive-master h3{color:#49332b;font:800 clamp(1.14rem,2.4vw,1.45rem)/1.35 'Yu Mincho',serif}.six-receive-master p{color:#806554;font-size:.66rem;font-weight:700;line-height:1.5}.six-reading-hero{display:grid!important;grid-template-columns:minmax(190px,285px) minmax(0,1fr) auto;align-items:center;gap:7px;min-height:240px;overflow:hidden;padding:0 0 7px!important;text-align:left}.six-reading-hero-art{display:block;width:100%;height:clamp(245px,30vw,300px);object-fit:contain;transform:translateY(25px) scale(1.1);transform-origin:center bottom;filter:drop-shadow(0 13px 12px rgba(87,48,31,.25))}.six-reading-hero>div{display:grid;align-content:center;gap:3px;min-width:0}.six-reading-hero h3{font-size:clamp(1.28rem,2.8vw,1.66rem)!important}.six-reading-hero-intro{margin:0;color:#78543f;font:.72rem/1.5 'Yu Gothic',sans-serif;white-space:normal}.six-reading-hero svg{align-self:start;margin-top:8px}.six-reading .six-results-accordion{margin-top:1px}.six-reading .six-results-toggle{width:100%}
+        @media(max-width:700px){.six-receive-master{padding:8px 11px 12px}.six-receive-master-art{height:clamp(190px,54vw,245px);transform:translateY(10px)}.six-receive-master p{font-size:.61rem}.six-reading-hero{grid-template-columns:1fr auto;min-height:0;padding:4px 0 9px!important}.six-reading-hero-art{grid-column:1/-1;justify-self:center;width:min(100%,290px);height:clamp(190px,54vw,245px);transform:translateY(10px)}.six-reading-hero>div{grid-column:1}.six-reading-hero-intro{font-size:.64rem}.six-reading-hero svg{grid-column:2;grid-row:2;margin-top:0;align-self:center}.six-direction-grid{grid-template-columns:1fr}}
         @media(prefers-reduced-motion:reduce){.iching-tube.is-cast,.six-cosmos::before,.six-brand-seal i,.iching-rings,.iching-diagram,.silhouette-street button,.six-converge::before,.converge-orbit.is-complete::after{animation:none}.converge-orbit>div{transition:none}.ritual-line,.line-changed,.hexagram-name.is-result,.moving-line-note,.transformation-mark{animation-duration:.01ms;animation-delay:0s}}
       `}</style>
     </div>
