@@ -12,6 +12,7 @@ import { FoodPanel } from '@/components/FoodPanel';
 import { MaskDisplay, type MaskGrowthStage } from '@/components/MaskDisplay';
 import { RotateDeviceScreen } from '@/components/RotateDeviceScreen';
 import { StartupLoadingScreen } from '@/components/StartupLoadingScreen';
+import { SuuhimochiKeyboard } from '@/components/SuuhimochiKeyboard';
 import { MOCHI_STATES, TYPE_ACCENTS, type MochiState } from '@/lib/characterData';
 import { INTRO_LINES, pickRoomMonologue } from '@/lib/dialogueData';
 import { pickSleepDialogue } from '@/lib/sleepDialogueData';
@@ -2048,8 +2049,7 @@ export function SuuhimochiGame() {
     setPhase('callName');
   }
 
-  function submitInitialCallName(event: React.SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function commitInitialCallName() {
     const callName = initialCallName.trim().slice(0, 20);
     if (!callName) return;
     const next = { ...save, callName };
@@ -2057,6 +2057,11 @@ export function SuuhimochiGame() {
     if (!isInitialPreview) storeSave(next);
     setSettingsCallName(callName);
     setPhase('persona');
+  }
+
+  function submitInitialCallName(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    commitInitialCallName();
   }
 
   function advancePersona() {
@@ -3035,13 +3040,17 @@ export function SuuhimochiGame() {
     setSettingsOpen(false);
   }
 
-  function submitTalk(event: React.SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function commitTalk() {
     const value = talkText.trim();
     if (!value || !conversation.current || isMochiSpeaking) return;
     setCurrentTalkLine('');
     setTalkText('');
     applyTalkResponse(conversation.current.submit(value));
+  }
+
+  function submitTalk(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    commitTalk();
   }
 
   function choosePromptedSuggestion(suggestion: string) {
@@ -3190,6 +3199,15 @@ export function SuuhimochiGame() {
       || (miniDialogueNode.type === 'choice' && MINI_FEAR_CHOICE_NODE_IDS.has(miniDialogueNode.id))
     ),
   );
+  const mobileInitialKeyboardOpen = mobileRoomMode && initialDialogueReady && phase === 'callName';
+  const mobileTalkKeyboardOpen = mobileRoomMode
+    && talkOpen
+    && !isMochiSpeaking
+    && !talkCommandOpen
+    && talkStage !== 'complete'
+    && talkStage !== 'ended'
+    && talkInputEnabled;
+  const mobileKeyboardOpen = mobileInitialKeyboardOpen || mobileTalkKeyboardOpen;
 
   if (!hydrated || !appReady) return <StartupLoadingScreen progress={startupProgress} />;
   if (isMobileDevice && isMobilePortrait) return <RotateDeviceScreen />;
@@ -3239,7 +3257,7 @@ export function SuuhimochiGame() {
   );
 
   return (
-    <main className={`game-shell startup-content-ready${mobileLandscapeClass} time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
+    <main className={`game-shell startup-content-ready${mobileLandscapeClass}${mobileKeyboardOpen ? ' mobile-keyboard-open' : ''} time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
       <style>{`
         .mochi.mochi-conversation {
           z-index: 4 !important;
@@ -4365,8 +4383,17 @@ export function SuuhimochiGame() {
             {initialDialogueReady && phase === 'permission' && permissionStep === 0 && <div className="choices"><button onClick={accept}>いいよ</button><button onClick={() => setPermissionStep(1)}>どうしようかな</button></div>}
             {initialDialogueReady && phase === 'permission' && permissionStep > 0 && <button className="soft-accept" onClick={() => permissionStep === 1 ? setPermissionStep(2) : accept()}>{permissionStep === 1 ? '……' : 'それなら、いいよ'}</button>}
             {initialDialogueReady && phase === 'callName' && <form className="initial-goal-form" onSubmit={submitInitialCallName}>
-              <input aria-label="呼ばれたい名前" value={initialCallName} onChange={(event) => setInitialCallName(event.target.value)} maxLength={20} placeholder="呼ばれたい名前" autoFocus />
-              <div className="choices"><button type="submit" disabled={!initialCallName.trim()}>この呼ばれ方にする</button></div>
+              {mobileRoomMode ? <SuuhimochiKeyboard
+                value={initialCallName}
+                onChange={setInitialCallName}
+                onDecide={commitInitialCallName}
+                maxLength={20}
+                placeholder="呼ばれたい名前"
+                ariaLabel="呼ばれたい名前"
+              /> : <>
+                <input aria-label="呼ばれたい名前" value={initialCallName} onChange={(event) => setInitialCallName(event.target.value)} maxLength={20} placeholder="呼ばれたい名前" autoFocus />
+                <div className="choices"><button type="submit" disabled={!initialCallName.trim()}>この呼ばれ方にする</button></div>
+              </>}
             </form>}
             {initialDialogueReady && phase === 'goal' && <form className="initial-goal-form" onSubmit={submitInitialGoal}>
               <input aria-label="30日間の目標" value={initialGoalText} onChange={(event) => setInitialGoalText(event.target.value)} maxLength={100} placeholder="見たい景色や、やってみたいこと" autoFocus />
@@ -4486,8 +4513,17 @@ export function SuuhimochiGame() {
                 <div className="face-talk-left">
                   <form className="face-talk-input" onSubmit={submitTalk}>
                     <label htmlFor="talk-text" className="sr-only">返事を書く</label>
-                    <textarea id="talk-text" value={talkText} onChange={(event) => setTalkText(event.target.value)} maxLength={180} placeholder={talkPlaceholder} />
-                    <div className="face-talk-input-footer"><small>お話はこの端末に保存されます</small><button className="face-talk-send" type="submit" disabled={!talkText.trim()}>話す</button></div>
+                    {mobileRoomMode ? <SuuhimochiKeyboard
+                      value={talkText}
+                      onChange={setTalkText}
+                      onDecide={commitTalk}
+                      maxLength={180}
+                      placeholder={talkPlaceholder}
+                      ariaLabel="返事を書く"
+                    /> : <>
+                      <textarea id="talk-text" value={talkText} onChange={(event) => setTalkText(event.target.value)} maxLength={180} placeholder={talkPlaceholder} />
+                      <div className="face-talk-input-footer"><small>お話はこの端末に保存されます</small><button className="face-talk-send" type="submit" disabled={!talkText.trim()}>話す</button></div>
+                    </>}
                   </form>
                   {promptedQuestionInput && promptedSuggestions.length > 0 && (
                     <div className="prompted-suggestion-box">

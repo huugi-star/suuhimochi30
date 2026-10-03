@@ -880,3 +880,427 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   }
 
 }
+
+/* The in-room keyboard belongs only to a real mobile device in landscape.
+   Desktop inputs and long-form editors continue to use the native IME. */
+@media (max-width: 1024px) and (orientation: landscape) {
+  .mobile-landscape.mobile-keyboard-open .dialogue-box {
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: min(53vw, 610px);
+    min-height: 112px;
+    max-height: calc(100dvh - 76px);
+    padding: 18px 20px 16px;
+    overflow-y: auto;
+    transform: none;
+  }
+
+  .mobile-landscape.mobile-keyboard-open .dialogue-box p {
+    font-size: clamp(.9rem, 2.1vw, 1.08rem);
+    line-height: 1.55;
+  }
+
+  .mobile-landscape.mobile-keyboard-open .face-talk-left {
+    left: max(8px, env(safe-area-inset-left));
+    right: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: min(54vw, 560px);
+    max-height: calc(100dvh - 70px);
+    overflow: visible;
+  }
+
+  .mobile-landscape.mobile-keyboard-open .face-talk-input,
+  .mobile-landscape.mobile-keyboard-open .initial-goal-form {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard {
+    position: fixed;
+    z-index: 280;
+    top: max(6px, env(safe-area-inset-top));
+    right: max(6px, env(safe-area-inset-right));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    gap: 5px;
+    width: min(43vw, 430px);
+    min-width: 310px;
+    padding: 7px;
+    overflow-y: auto;
+    border: 2px solid rgba(91, 60, 38, .62);
+    border-radius: 15px;
+    color: #403025;
+    background:
+      linear-gradient(rgba(255, 253, 244, .95), rgba(244, 226, 191, .96)),
+      repeating-linear-gradient(0deg, transparent 0 15px, rgba(111, 74, 43, .04) 16px);
+    box-shadow: 0 7px 0 rgba(74, 45, 27, .2), 0 16px 35px rgba(39, 24, 14, .34);
+    pointer-events: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    touch-action: pan-y;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard button {
+    appearance: none;
+    -webkit-appearance: none;
+    min-width: 0;
+    border: 1px solid rgba(112, 76, 48, .42);
+    border-radius: 9px;
+    color: #443226;
+    background: linear-gradient(#fffdf7, #f1dfbd);
+    box-shadow: 0 2px 0 rgba(86, 54, 34, .2);
+    font: inherit;
+    font-weight: 800;
+    line-height: 1;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard button:active,
+  .mobile-landscape .suuhimochi-keyboard button.is-active {
+    color: #fff9ec;
+    background: #9a5d3f;
+    box-shadow: inset 0 2px 4px rgba(55, 28, 15, .2);
+    transform: translateY(1px);
+  }
+
+  .mobile-landscape .suuhimochi-keyboard button:focus-visible,
+  .mobile-landscape .suuhimochi-keyboard-display:focus-visible,
+  .mobile-landscape .suuhimochi-native-editor textarea:focus-visible {
+    outline: 3px solid rgba(195, 105, 60, .5);
+    outline-offset: 1px;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-display {
+    display: block;
+    width: 100%;
+    height: 44px;
+    min-height: 44px;
+    resize: none;
+    overflow-y: auto;
+    border: 1px solid rgba(104, 70, 46, .5);
+    border-radius: 9px;
+    padding: 8px 10px;
+    color: #33271f;
+    background: rgba(255, 255, 252, .92);
+    font: inherit;
+    font-size: clamp(.82rem, 1.75vw, 1rem);
+    line-height: 1.4;
+    caret-color: #ad4f37;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-display::placeholder {
+    color: #958171;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-modes {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-modes button {
+    min-height: 25px;
+    padding: 3px 5px;
+    font-size: .72rem;
+  }
+
+  .mobile-landscape .suuhimochi-flick-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(29px, 1fr));
+    gap: 4px;
+    min-height: 132px;
+  }
+
+  .mobile-landscape .suuhimochi-flick-grid button {
+    min-height: 29px;
+    padding: 2px;
+    font-size: clamp(.82rem, 2vw, 1.02rem);
+    touch-action: none;
+  }
+
+  .mobile-landscape .suuhimochi-direct-grid {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    align-content: start;
+    gap: 4px;
+    min-height: 132px;
+  }
+
+  .mobile-landscape .suuhimochi-direct-grid.is-abc {
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+  }
+
+  .mobile-landscape .suuhimochi-direct-grid button {
+    min-height: 31px;
+    padding: 2px;
+    font-size: .74rem;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-functions {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr 1.35fr;
+    gap: 5px;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-functions button {
+    min-height: 30px;
+    padding: 4px 6px;
+    font-size: .76rem;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-functions button small {
+    margin-left: 3px;
+    font-size: .62rem;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-functions .is-decide {
+    color: #fffaf0;
+    border-color: #74452e;
+    background: linear-gradient(#b86c48, #8f4d34);
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-functions .is-decide:disabled {
+    cursor: default;
+    opacity: .4;
+  }
+
+  .mobile-landscape .suuhimochi-kanji-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+
+  .mobile-landscape .suuhimochi-kanji-actions button {
+    display: grid;
+    place-content: center;
+    gap: 3px;
+    min-height: 38px;
+    padding: 4px 7px;
+  }
+
+  .mobile-landscape .suuhimochi-kanji-actions b {
+    font-size: .74rem;
+  }
+
+  .mobile-landscape .suuhimochi-kanji-actions small {
+    color: #806b5a;
+    font-size: .58rem;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  .mobile-landscape .suuhimochi-conversion-candidates {
+    display: flex;
+    grid-row: 2;
+    gap: 5px;
+    min-height: 31px;
+    padding: 3px;
+    overflow-x: auto;
+    border-radius: 8px;
+    background: rgba(236, 215, 176, .65);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-landscape .suuhimochi-conversion-candidates::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-landscape .suuhimochi-conversion-candidates button {
+    flex: 0 0 auto;
+    min-height: 25px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    font-size: .78rem;
+  }
+
+  .mobile-landscape .suuhimochi-conversion-candidates small {
+    align-self: center;
+    padding: 0 7px;
+    color: #796756;
+    font-size: .66rem;
+    white-space: nowrap;
+  }
+
+  .mobile-landscape .suuhimochi-flick-guide {
+    position: fixed;
+    z-index: 310;
+    top: 50%;
+    right: calc(min(43vw, 430px) / 2);
+    display: grid;
+    grid-template: repeat(3, 38px) / repeat(3, 38px);
+    place-items: center;
+    width: 114px;
+    height: 114px;
+    padding: 2px;
+    border: 1px solid rgba(82, 52, 32, .45);
+    border-radius: 18px;
+    background: rgba(255, 250, 235, .97);
+    box-shadow: 0 10px 28px rgba(43, 26, 14, .32);
+    transform: translate(50%, -50%);
+    pointer-events: none;
+  }
+
+  .mobile-landscape .suuhimochi-flick-guide span {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    color: #72533f;
+    font-size: .84rem;
+    font-weight: 900;
+  }
+
+  .mobile-landscape .suuhimochi-flick-guide span:nth-child(1) { grid-area: 1 / 2; }
+  .mobile-landscape .suuhimochi-flick-guide span:nth-child(2) { grid-area: 2 / 1; }
+  .mobile-landscape .suuhimochi-flick-guide span:nth-child(3) { grid-area: 2 / 2; }
+  .mobile-landscape .suuhimochi-flick-guide span:nth-child(4) { grid-area: 2 / 3; }
+  .mobile-landscape .suuhimochi-flick-guide span:nth-child(5) { grid-area: 3 / 2; }
+  .mobile-landscape .suuhimochi-flick-guide span.is-active {
+    color: #fffaf0;
+    background: #a75e40;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-guide {
+    position: absolute;
+    z-index: 5;
+    inset: 7px;
+    display: grid;
+    place-content: center;
+    gap: 8px;
+    padding: 18px;
+    border: 2px solid rgba(112, 72, 44, .52);
+    border-radius: 12px;
+    color: #473328;
+    background: rgba(255, 250, 235, .985);
+    box-shadow: 0 9px 25px rgba(47, 28, 16, .28);
+    text-align: center;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-guide b {
+    color: #a35b3c;
+    font-size: 1rem;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-guide p {
+    margin: 0;
+    font-size: .78rem;
+    line-height: 1.55;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-guide small {
+    color: #826e5e;
+    font-size: .66rem;
+    line-height: 1.45;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-guide button {
+    min-height: 34px;
+    margin-top: 4px;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard.is-native {
+    top: var(--suuhimochi-native-top, 0px);
+    right: 0;
+    bottom: auto;
+    width: 100vw;
+    height: var(--suuhimochi-native-height, 100dvh);
+    min-width: 0;
+    padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    border: 0;
+    border-radius: 0;
+    background: rgba(249, 239, 217, .985);
+    box-shadow: none;
+  }
+
+  .mobile-landscape .suuhimochi-native-editor {
+    display: grid;
+    grid-template-rows: auto minmax(64px, 1fr) auto;
+    gap: 8px;
+    width: 100%;
+    min-height: 0;
+  }
+
+  .mobile-landscape .suuhimochi-native-editor header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .mobile-landscape .suuhimochi-native-editor header b {
+    color: #70452f;
+    font-size: .96rem;
+  }
+
+  .mobile-landscape .suuhimochi-native-editor header small {
+    color: #806e60;
+    font-size: .68rem;
+  }
+
+  .mobile-landscape .suuhimochi-native-editor textarea {
+    display: block;
+    width: 100%;
+    min-height: 64px;
+    resize: none;
+    border: 2px solid #a77d5c;
+    border-radius: 12px;
+    padding: 10px 12px;
+    color: #30251f;
+    background: #fffdf7;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  .mobile-landscape .suuhimochi-native-finish {
+    justify-self: end;
+    min-width: 150px;
+    min-height: 38px;
+    padding: 8px 18px;
+    color: #fffaf0 !important;
+    background: #965238 !important;
+  }
+}
+
+@media (max-width: 1024px) and (orientation: landscape) and (max-height: 390px) {
+  .mobile-landscape .suuhimochi-keyboard {
+    gap: 3px;
+    padding: 5px;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-display {
+    height: 36px;
+    min-height: 36px;
+    padding: 5px 8px;
+  }
+
+  .mobile-landscape .suuhimochi-flick-grid,
+  .mobile-landscape .suuhimochi-direct-grid {
+    min-height: 112px;
+  }
+
+  .mobile-landscape .suuhimochi-flick-grid {
+    grid-template-rows: repeat(4, minmax(25px, 1fr));
+  }
+
+  .mobile-landscape .suuhimochi-flick-grid button,
+  .mobile-landscape .suuhimochi-direct-grid button {
+    min-height: 25px;
+  }
+
+  .mobile-landscape .suuhimochi-kanji-actions button {
+    min-height: 31px;
+  }
+
+  .mobile-landscape .suuhimochi-kanji-actions small {
+    display: none;
+  }
+}
