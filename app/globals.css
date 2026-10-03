@@ -92,7 +92,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 .game-shell { display: grid; place-items: center; background: #0b0f17; transition: filter 1.2s, opacity 1.2s; }
 .game-shell.blackout { filter: brightness(0); }
-.room { position: relative; width: min(100vw, calc(100svh * 1.6)); aspect-ratio: 16 / 10; max-height: 100svh; overflow: hidden; background: #17130f url('/assets/room-evening.png') center/cover no-repeat; box-shadow: 0 0 80px #000; }
+.room-stage { position: relative; width: min(100vw, calc(100svh * 1.6)); aspect-ratio: 16 / 10; max-height: 100svh; }
+.room { position: relative; width: 100%; height: 100%; overflow: hidden; background: #17130f url('/assets/room-evening.png') center/cover no-repeat; box-shadow: 0 0 80px #000; }
 .room-tint { position: absolute; inset: 0; pointer-events: none; transition: background 1s; }
 .room-items { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: visible; }
 .room-item { position: absolute; display: block; height: auto; user-select: none; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 4px 4px rgba(43, 23, 11, .22)); }
@@ -561,14 +562,37 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
+  /* Keep the room and navigation as separate vertical regions on phones.
+     The navigation used to live inside .room as an overlay, which hid the
+     lower part of the world and the character's walkable space. */
+  .game-shell.mobile-landscape {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: stretch;
+    box-sizing: border-box;
+  }
+
+  .mobile-landscape .room-stage {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+
   .title-screen.mobile-landscape,
   .birthday-screen.mobile-landscape {
     overflow-y: auto;
   }
 
   .mobile-landscape .room {
+    flex: 1 1 auto;
+    min-height: 0;
     width: 100%;
-    height: 100%;
+    height: auto;
     max-height: none;
     aspect-ratio: auto;
     overflow: hidden;
@@ -582,20 +606,28 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   }
 
   .mobile-landscape .room-nav {
-    bottom: max(5px, env(safe-area-inset-bottom));
-    width: min(720px, calc(100% - 18px));
-    max-width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px);
+    position: relative;
+    left: auto;
+    bottom: auto;
+    flex: 0 0 72px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    min-height: 72px;
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    transform: none;
     justify-content: flex-start;
     gap: 1px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 3px;
+    padding: 4px;
     scrollbar-width: none;
     overscroll-behavior-x: contain;
   }
 
   .mobile-landscape .room-nav::-webkit-scrollbar { display: none; }
-  .mobile-landscape .room-nav button { flex: 1 0 57px; min-width: 57px; gap: 1px; padding: 4px 3px 3px; }
+  .mobile-landscape .room-nav button { flex: 1 0 57px; min-width: 57px; min-height: 62px; gap: 1px; padding: 4px 3px 3px; }
   .mobile-landscape .room-nav button svg { width: 16px; height: 16px; }
   .mobile-landscape .room-nav span { font-size: .54rem; white-space: nowrap; }
 
@@ -1371,5 +1403,56 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
   .mobile-landscape .suuhimochi-kanji-actions small {
     display: none;
+  }
+}
+
+/* The opening conversation is a speech bubble for Suuhimochi, not a panel
+   laid over the character. Keep its tail aimed at the sprite below. */
+.initial-dialogue-box {
+  bottom: 49%;
+}
+
+.initial-dialogue-box::before,
+.initial-dialogue-box::after {
+  left: 50%;
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+  .mobile-landscape .initial-dialogue-box {
+    left: 41%;
+    bottom: 50%;
+    width: min(52vw, 580px);
+    min-height: 0;
+    max-height: 44dvh;
+    padding: 16px 18px 14px;
+    overflow-y: auto;
+  }
+
+  .mobile-landscape .initial-dialogue-box p {
+    margin: 5px 0;
+    font-size: clamp(.88rem, 2vw, 1.06rem);
+    line-height: 1.55;
+  }
+
+  .mobile-landscape.mobile-keyboard-open .initial-dialogue-box {
+    left: 28%;
+    bottom: calc(50% + 2px);
+    width: min(52vw, 540px);
+  }
+
+  .mobile-landscape.mobile-keyboard-open .initial-dialogue-box::before,
+  .mobile-landscape.mobile-keyboard-open .initial-dialogue-box::after {
+    left: 76%;
+  }
+
+  .mobile-landscape.mobile-keyboard-open .initial-dialogue-box .choices {
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
+
+  .mobile-landscape.mobile-keyboard-open .initial-dialogue-box .choices button {
+    min-height: 31px;
+    padding: 5px 10px;
+    font-size: .72rem;
   }
 }

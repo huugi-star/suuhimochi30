@@ -2097,12 +2097,16 @@ export function SuuhimochiGame() {
     beginWalk('east');
   }
 
-  function submitInitialGoal(event: React.SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function commitInitialGoal() {
     const value = initialGoalText.trim();
     if (!value || !conversation.current) return;
     initialGoalReplyRef.current = conversation.current.setGoal(value);
     setPhase('goalType');
+  }
+
+  function submitInitialGoal(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    commitInitialGoal();
   }
 
   function chooseInitialGoalType(goalType: TwoDayReviewGoalType) {
@@ -3199,7 +3203,9 @@ export function SuuhimochiGame() {
       || (miniDialogueNode.type === 'choice' && MINI_FEAR_CHOICE_NODE_IDS.has(miniDialogueNode.id))
     ),
   );
-  const mobileInitialKeyboardOpen = mobileRoomMode && initialDialogueReady && phase === 'callName';
+  const mobileInitialKeyboardOpen = mobileRoomMode
+    && initialDialogueReady
+    && (phase === 'callName' || phase === 'goal');
   const mobileTalkKeyboardOpen = mobileRoomMode
     && talkOpen
     && !isMochiSpeaking
@@ -4117,6 +4123,7 @@ export function SuuhimochiGame() {
           }
         }
       `}</style>
+      <div className="room-stage">
       <div ref={roomRef} className={`room${roomOverview ? ' room-overview-active' : ''}`} aria-label="夜の小さな部屋" style={{ backgroundColor: '#17130f', backgroundImage: 'none' }}>
         <div
           ref={worldRef}
@@ -4376,7 +4383,7 @@ export function SuuhimochiGame() {
         )}
 
         {['intro', 'permission', 'welcome', 'callName', 'persona', 'goalIntro', 'goal', 'goalType', 'goalReply'].includes(phase) && (
-          <section className="dialogue-box" aria-live="polite">
+          <section className="dialogue-box initial-dialogue-box" aria-live="polite">
             <span className="speaker">すうひもち</span>
             <p className={phase === 'permission' && permissionStep === 0 ? 'permission-line' : ''}>{replaceCallName(initialDialogueText, getPreferredCallName(save))}</p>
             {initialDialogueReady && ['intro', 'welcome', 'persona', 'goalIntro'].includes(phase) && <button className="dialogue-next" onClick={advanceInitialDialogue} aria-label="次の言葉へ">●</button>}
@@ -4396,8 +4403,20 @@ export function SuuhimochiGame() {
               </>}
             </form>}
             {initialDialogueReady && phase === 'goal' && <form className="initial-goal-form" onSubmit={submitInitialGoal}>
-              <input aria-label="30日間の目標" value={initialGoalText} onChange={(event) => setInitialGoalText(event.target.value)} maxLength={100} placeholder="見たい景色や、やってみたいこと" autoFocus />
-              <div className="choices"><button type="submit" disabled={!initialGoalText.trim()}>この景色を見にいく</button><button type="button" onClick={chooseUndecidedGoal}>まだ決まっていない</button></div>
+              {mobileRoomMode ? <>
+                <SuuhimochiKeyboard
+                  value={initialGoalText}
+                  onChange={setInitialGoalText}
+                  onDecide={commitInitialGoal}
+                  maxLength={100}
+                  placeholder="見たい景色や、やってみたいこと"
+                  ariaLabel="30日間の目標"
+                />
+                <div className="choices"><button type="button" onClick={chooseUndecidedGoal}>まだ決まっていない</button></div>
+              </> : <>
+                <input aria-label="30日間の目標" value={initialGoalText} onChange={(event) => setInitialGoalText(event.target.value)} maxLength={100} placeholder="見たい景色や、やってみたいこと" autoFocus />
+                <div className="choices"><button type="submit" disabled={!initialGoalText.trim()}>この景色を見にいく</button><button type="button" onClick={chooseUndecidedGoal}>まだ決まっていない</button></div>
+              </>}
             </form>}
             {initialDialogueReady && phase === 'goalType' && <div className="goal-type-choices" aria-label="30日の目標タイプ">
               {TWO_DAY_REVIEW_GOAL_TYPES.map((type) => <button type="button" key={type.value} onClick={() => chooseInitialGoalType(type.value)}><span aria-hidden="true">{type.icon}</span><span>{type.label}</span></button>)}
@@ -4607,17 +4626,6 @@ export function SuuhimochiGame() {
               {!isMochiSpeaking && !talkCommandOpen && talkStage === 'ended' && <div className="face-talk-right face-talk-complete"><button className="face-talk-action" onClick={openGraduationFlow}>卒業と引き継ぎへ</button><button className="face-talk-action face-talk-secondary" onClick={() => { closeTalk(); setMemoryOpen(true); }}>手紙を読む</button></div>}
             </section>
           )}
-          {!dailyProgressOpen && !talkOpen && !potenoOpen && !twoDayReviewTalkOpen && <nav className="room-nav" aria-label="部屋のメニュー">
-            <button className={!memoryOpen && !dictionaryOpen && !foodOpen && !itemOpen && !minigameOpen && !settingsOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); bubbleRef.current = null; setBubblePageIndex(0); setBubble(null); }}><Home size={19} /><span>部屋</span></button>
-            <button onClick={openTalk}><MessageCircle size={19} /><span>はなす</span></button>
-            <button className={memoryOpen ? 'active' : ''} onClick={() => { setMemoryOpen(true); setDictionaryOpen(false); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); }}><NotebookTabs size={19} /><span>日誌</span></button>
-            <button className={dictionaryOpen ? 'active' : ''} onClick={openDictionary}><BookOpen size={19} /><span>辞書</span></button>
-            <button className={foodOpen ? 'active' : ''} onClick={openFood}><Apple size={19} /><span>食事</span></button>
-            <button className={itemOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setFoodOpen(false); setMinigameOpen(false); setPotenoOpen(false); setItemOpen((open) => { if (!open) setItemPanelX(window.matchMedia('(max-width: 700px)').matches ? 12 : 3); return !open; }); setSettingsOpen(false); setItemPanelCollapsed(false); if (itemOpen) setSelectedItemId(null); }}><PackageOpen size={19} /><span>アイテム</span></button>
-            <button className={minigameOpen ? 'active' : ''} onClick={openMinigames}><Gamepad2 size={19} /><span>ミニゲーム</span></button>
-            <button onClick={openPoteno}><UserRoundPlus size={19} /><span>ポテノを呼ぶ</span></button>
-            <button className={settingsOpen ? 'active' : ''} onClick={openSettings}><Settings size={19} /><span>設定</span></button>
-          </nav>}
           {foodOpen && <FoodPanel
             fruits={save.experienceFruits ?? []}
             personaStage={maskGrowthStage}
@@ -4822,6 +4830,18 @@ export function SuuhimochiGame() {
             </>}
           </div>
         </details>}
+      </div>
+      {!dailyProgressOpen && !talkOpen && !potenoOpen && !twoDayReviewTalkOpen && <nav className="room-nav" aria-label="部屋のメニュー">
+        <button className={!memoryOpen && !dictionaryOpen && !foodOpen && !itemOpen && !minigameOpen && !settingsOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); bubbleRef.current = null; setBubblePageIndex(0); setBubble(null); }}><Home size={19} /><span>部屋</span></button>
+        <button onClick={openTalk}><MessageCircle size={19} /><span>はなす</span></button>
+        <button className={memoryOpen ? 'active' : ''} onClick={() => { setMemoryOpen(true); setDictionaryOpen(false); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); }}><NotebookTabs size={19} /><span>日誌</span></button>
+        <button className={dictionaryOpen ? 'active' : ''} onClick={openDictionary}><BookOpen size={19} /><span>辞書</span></button>
+        <button className={foodOpen ? 'active' : ''} onClick={openFood}><Apple size={19} /><span>食事</span></button>
+        <button className={itemOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setFoodOpen(false); setMinigameOpen(false); setPotenoOpen(false); setItemOpen((open) => { if (!open) setItemPanelX(window.matchMedia('(max-width: 700px)').matches ? 12 : 3); return !open; }); setSettingsOpen(false); setItemPanelCollapsed(false); if (itemOpen) setSelectedItemId(null); }}><PackageOpen size={19} /><span>アイテム</span></button>
+        <button className={minigameOpen ? 'active' : ''} onClick={openMinigames}><Gamepad2 size={19} /><span>ミニゲーム</span></button>
+        <button onClick={openPoteno}><UserRoundPlus size={19} /><span>ポテノを呼ぶ</span></button>
+        <button className={settingsOpen ? 'active' : ''} onClick={openSettings}><Settings size={19} /><span>設定</span></button>
+      </nav>}
       </div>
     </main>
   );

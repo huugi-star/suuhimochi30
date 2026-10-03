@@ -220,10 +220,15 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     if (composingRef.current) return;
     const source = nativeSourceRef.current;
     const input = nativeRef.current;
+    // React state can be one render behind an IME's final input event. Read
+    // the native field directly so the exact source → converted pair is never
+    // lost when the user confirms immediately after editing.
+    const converted = input?.value ?? value;
     const nextCursor = input?.selectionDirection === 'backward'
-      ? (input.selectionStart ?? value.length)
-      : (input?.selectionEnd ?? value.length);
-    setConversions(saveSuuhimochiConversion(source, value));
+      ? (input.selectionStart ?? converted.length)
+      : (input?.selectionEnd ?? converted.length);
+    if (converted !== value) onChange(converted);
+    setConversions(saveSuuhimochiConversion(source, converted));
     cursorRef.current = nextCursor;
     setCaretPosition(nextCursor);
     setNativeMode(false);
