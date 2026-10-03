@@ -4,6 +4,7 @@ import type { StrategistId, StrategyRecord } from './potenoLink';
 import type { SixDivinationRecord } from './potenoSixDivination';
 import type { ThirtyDayCycleArchive } from './graduation';
 import type { TwoDayReviewGoalType, TwoDayReviewRecord } from './twoDayReview';
+import { getPersonaStage, sanitizeExperienceFruits, type ExperienceFruitRecord, type PersonaStage } from './food';
 
 export type GameSave = {
   birthday: string;
@@ -28,6 +29,15 @@ export type GameSave = {
   currentMochiId: string;
   /** 完了済みの30日を、現行データとは分けて保存する。 */
   cycleArchives: ThirtyDayCycleArchive[];
+  /** 日誌から生成された実。日誌本文とは分離して保持する。 */
+  experienceFruits: ExperienceFruitRecord[];
+  /** 新鮮な経験の実を食べて得た、表示しない内部成長値。 */
+  personaExp: number;
+  personaStage: PersonaStage;
+  /** 食事は固定時刻でなく、各活動日の1〜3食目として保存する。 */
+  foodActivityDate: string;
+  experienceMealsEaten: number;
+  lastExperienceMealAt: string;
 };
 const SAVE_KEY = 'suuhimochi-30days-save-v1';
 export const EMPTY_SAVE: GameSave = {
@@ -49,6 +59,12 @@ export const EMPTY_SAVE: GameSave = {
   cycleNumber: 1,
   currentMochiId: 'suuhimochi-cycle-1',
   cycleArchives: [],
+  experienceFruits: [],
+  personaExp: 0,
+  personaStage: 0,
+  foodActivityDate: '',
+  experienceMealsEaten: 0,
+  lastExperienceMealAt: '',
 };
 
 export function loadSave(): GameSave {
@@ -143,6 +159,9 @@ export function loadSave(): GameSave {
           && typeof (archive as Partial<ThirtyDayCycleArchive>).cycleNumber === 'number'
         ))
       : [];
+    const experienceFruits = sanitizeExperienceFruits(parsed.experienceFruits);
+    const personaExp = Math.max(0, Math.floor(Number(parsed.personaExp) || 0));
+    const experienceMealsEaten = Math.min(3, Math.max(0, Math.floor(Number(parsed.experienceMealsEaten) || 0)));
     return {
       ...EMPTY_SAVE,
       ...saveWithoutBirthplace,
@@ -155,6 +174,12 @@ export function loadSave(): GameSave {
       dailyProgressRecords,
       strategyRecords,
       divinationRecords,
+      experienceFruits,
+      personaExp,
+      personaStage: getPersonaStage(personaExp),
+      foodActivityDate: typeof parsed.foodActivityDate === 'string' ? parsed.foodActivityDate : '',
+      experienceMealsEaten,
+      lastExperienceMealAt: typeof parsed.lastExperienceMealAt === 'string' ? parsed.lastExperienceMealAt : '',
     };
   } catch {
     return EMPTY_SAVE;

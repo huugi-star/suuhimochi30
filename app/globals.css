@@ -97,6 +97,29 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .room-item-vase { left: 49%; top: 53%; width: 8%; z-index: 3; clip-path: inset(12% 20.6% 9.3% 20.6%); }
 .room-item-wall-clock { left: 59%; top: 11%; width: 13%; aspect-ratio: 1; z-index: 2; }
 .room-item-wall-clock-digital { left: 74%; top: 13%; width: 11%; aspect-ratio: 1; z-index: 2; }
+.room-item-mask-case { left: 45%; top: 7%; width: 14%; aspect-ratio: 1316 / 1195; z-index: 2; }
+.mask-case { position: relative; display: block; width: 100%; aspect-ratio: 1316 / 1195; isolation: isolate; }
+.mask-frame { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; }
+.mask-frame-base { z-index: 0; }
+.mask-display-area { position: absolute; z-index: 1; inset: 22% 22% 18%; display: grid; place-items: center; overflow: hidden; }
+.mask-item { position: relative; top: -4%; display: block; width: 88%; height: 94%; object-fit: contain; transform-origin: 50% 56%; transition: filter 1.1s ease, opacity .8s ease; }
+.mask-stage-0 .mask-item { filter: grayscale(.94) saturate(.22) brightness(.92) opacity(.82) drop-shadow(0 2px 2px rgba(74,45,24,.18)); }
+.mask-stage-1 .mask-item { filter: grayscale(.58) saturate(.62) brightness(.98) drop-shadow(0 2px 3px rgba(103,66,35,.24)); }
+.mask-stage-2 .mask-item { filter: grayscale(.15) saturate(1.05) brightness(1.03) drop-shadow(0 0 5px rgba(239,190,92,.42)) drop-shadow(0 3px 3px rgba(84,48,23,.22)); }
+.mask-stage-3 .mask-item { filter: grayscale(0) saturate(1.24) brightness(1.08) drop-shadow(0 0 7px rgba(255,210,103,.68)) drop-shadow(0 0 13px rgba(255,168,83,.36)) drop-shadow(0 3px 3px rgba(84,48,23,.2)); }
+.mask-case-growing .mask-item { animation: mask-growth-pulse .9s cubic-bezier(.2,.8,.25,1) both; }
+.mask-case-glass { position: absolute; z-index: 2; inset: 0; pointer-events: none; background: linear-gradient(132deg, rgba(255,255,255,.24) 2%, rgba(255,255,255,0) 24% 70%, rgba(255,250,225,.13) 78%, rgba(255,255,255,0) 88%), linear-gradient(180deg, rgba(255,255,255,.07), rgba(132,83,42,.05)); box-shadow: inset 0 0 12px rgba(107,67,35,.2); }
+.mask-case-growing .mask-case-glass { animation: mask-glass-sparkle .9s ease both; }
+.mask-frame-front { position: absolute; z-index: 3; inset: 0; display: block; pointer-events: none; }
+.mask-frame-edge { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
+.mask-frame-edge-top { clip-path: inset(0 0 73% 0); }
+.mask-frame-edge-right { clip-path: inset(18% 0 17% 78%); }
+.mask-frame-edge-bottom { clip-path: inset(72% 0 0 0); }
+.mask-frame-edge-left { clip-path: inset(18% 78% 17% 0); }
+.mask-case-compact { width: 64px; }
+.item-tile-preview .mask-case { width: 58px; }
+@keyframes mask-growth-pulse { 0%,100% { transform: scale(1); } 46% { transform: scale(1.05); } 68% { transform: scale(1.025); } }
+@keyframes mask-glass-sparkle { 0%,100% { opacity: 1; filter: brightness(1); } 42% { opacity: .72; filter: brightness(1.9); box-shadow: inset 0 0 15px rgba(255,236,169,.62), 0 0 12px rgba(255,217,122,.52); } }
 .room-collider-debug { position: absolute; z-index: 9; pointer-events: none; box-sizing: border-box; border: 2px dashed rgba(255, 79, 61, .92); background: rgba(255, 85, 64, .2); }
 .room-collider-debug-low-table { border-radius: 50%; }
 .room-collider-debug-nonblocking { border-color: rgba(83, 158, 219, .9); background: rgba(83, 158, 219, .16); }
@@ -332,6 +355,60 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
    browse at a glance, but still visibly part of the room rather than an app
    settings screen. */
 .dictionary-note { position: absolute; top: 11%; right: 5%; bottom: 13%; z-index: 20; display: flex; flex-direction: column; width: min(88%, 438px); min-height: 210px; padding: 20px 18px 17px; overflow: hidden; border: 2px solid #9e7656; border-radius: 21px 16px 19px 15px; color: #49392e; background: linear-gradient(90deg, #f8ebc9 0 27px, #fff8df 27px 100%); box-shadow: 0 7px 0 rgba(93,65,44,.32), 0 18px 38px rgba(39,25,16,.38), inset 0 0 0 3px rgba(255,255,255,.45); animation: bubblein .25s ease both; }
+.food-panel { position: absolute; top: 8%; right: 4%; bottom: 13%; z-index: 22; width: min(90%, 470px); padding: 18px; overflow-y: auto; border: 2px solid #916b45; border-radius: 23px 17px 21px 18px; color: #49372a; background: linear-gradient(90deg, rgba(241,218,169,.98) 0 20px, rgba(255,249,229,.98) 20px 100%); box-shadow: 0 8px 0 rgba(85,55,31,.26), 0 20px 42px rgba(38,23,13,.38), inset 0 0 0 3px rgba(255,255,255,.44); animation: bubblein .25s ease both; }
+.food-panel-close { position: absolute; top: 12px; right: 12px; z-index: 2; display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid rgba(111,77,47,.3); border-radius: 50%; color: #684f3b; background: rgba(255,252,240,.86); }
+.food-panel-heading { display: flex; align-items: center; gap: 11px; padding: 1px 42px 12px 8px; border-bottom: 1px dashed rgba(132,94,57,.42); }
+.food-panel-heading > span { font-size: 1.75rem; filter: drop-shadow(0 2px 1px rgba(90,55,25,.18)); }
+.food-panel-heading div { display: grid; gap: 2px; }
+.food-panel-heading strong { font-family: "Yu Mincho", serif; font-size: 1.35rem; letter-spacing: .1em; }
+.food-panel-heading small { color: #806c59; font-size: .76rem; line-height: 1.45; }
+.persona-color-progress { margin: 12px 2px 14px; padding: 10px 12px; border: 1px solid rgba(151,111,67,.27); border-radius: 12px; background: linear-gradient(110deg, rgba(255,255,255,.5), rgba(244,219,164,.36)); }
+.persona-color-progress > div:first-child { display: flex; align-items: center; gap: 6px; }
+.persona-color-progress strong { font-size: .82rem; }
+.persona-color-progress span { margin-left: auto; color: #987044; font-size: .72rem; font-weight: 800; }
+.persona-color-dots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 8px; }
+.persona-color-dots i { height: 5px; border-radius: 999px; background: rgba(127,106,81,.2); }
+.persona-color-dots i.is-filled { background: linear-gradient(90deg, #e9ad64, #da7771); box-shadow: 0 0 5px rgba(231,151,86,.38); }
+.food-meal-status { margin: 0 2px 14px; padding: 10px 12px; border: 1px solid rgba(151,111,67,.3); border-radius: 12px; background: rgba(255,253,244,.72); }
+.food-meal-status strong { display: block; color: #624333; font-family: "Yu Mincho", serif; font-size: .98rem; letter-spacing: .03em; }
+.food-meal-status span { display: block; margin-top: 4px; color: #846c59; font-size: .72rem; font-weight: 750; line-height: 1.45; }
+.food-meal-status-hungry { border-color: rgba(202,126,75,.48); background: linear-gradient(110deg, rgba(255,252,240,.92), rgba(255,227,185,.5)); }
+.food-meal-status-hungry strong { color: #a25736; }
+.food-meal-status-full { background: linear-gradient(110deg, rgba(252,250,238,.92), rgba(222,238,221,.58)); }
+.food-meal-status-full strong { color: #547457; }
+.food-meal-status-doneToday { background: linear-gradient(110deg, rgba(252,249,235,.92), rgba(235,226,202,.7)); }
+.food-meal-status-doneToday strong { color: #806341; }
+.food-shelf { margin-top: 11px; padding: 12px; border: 1px solid rgba(126,87,52,.28); border-radius: 15px; background: rgba(255,253,244,.72); }
+.food-shelf-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.food-shelf-title > div { display: grid; gap: 1px; }
+.food-shelf-title b { color: #a47951; font-size: .64rem; letter-spacing: .16em; }
+.food-shelf-title strong { font-family: "Yu Mincho", serif; font-size: 1rem; }
+.food-shelf-title > span { color: #826d59; font-size: .7rem; font-weight: 850; }
+.fruit-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+.fruit-card { display: grid; justify-items: center; min-width: 0; padding: 8px 5px 7px; border: 1px solid rgba(136,95,54,.34); border-radius: 13px; color: #5e4936; background: linear-gradient(180deg, #fffdf6, #f4e4c5); box-shadow: 0 3px 0 rgba(113,76,42,.16); transition: transform .14s ease, box-shadow .14s ease; }
+.fruit-card:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 6px 0 rgba(113,76,42,.14), 0 8px 12px rgba(94,61,31,.12); }
+.fruit-card:disabled { cursor: default; opacity: .58; }
+.fruit-card img { width: clamp(58px, 7vw, 76px); aspect-ratio: 1; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 4px 3px rgba(80,48,24,.2)); }
+.fruit-card span { margin-top: 2px; font-size: .72rem; font-weight: 900; }
+.fruit-card small { color: #9b8066; font-size: .58rem; }
+.food-empty { margin: 5px 2px 2px; color: #8a7867; font-size: .77rem; line-height: 1.7; }
+.spoiled-fruits { margin-top: 11px; border-top: 1px dashed rgba(129,99,70,.28); padding-top: 8px; }
+.spoiled-fruits summary { display: flex; align-items: center; gap: 5px; color: #8a7868; cursor: pointer; font-size: .72rem; font-weight: 850; }
+.spoiled-fruit-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.spoiled-fruit-list div { display: grid; justify-items: center; color: #998778; font-size: .56rem; }
+.spoiled-fruit-list img { width: 42px; height: 42px; object-fit: contain; filter: grayscale(.2) opacity(.78); }
+.spoiled-fruits p { margin: 5px 0 0; color: #8f7e6e; font-size: .7rem; line-height: 1.5; }
+.food-shelf-snack { opacity: .78; }
+.food-coming-soon { border: 1px solid rgba(153,94,95,.32); border-radius: 999px; padding: 3px 8px; color: #9a5d65 !important; background: #fff2ee; }
+.word-fruit-placeholder { display: flex; align-items: center; gap: 10px; color: #a96067; }
+.word-fruit-placeholder p { margin: 0; color: #806d60; font-size: .72rem; line-height: 1.45; }
+.word-fruit-placeholder small { color: #a09183; }
+.food-eating { position: sticky; left: 0; bottom: 0; z-index: 5; display: grid; grid-template-columns: 62px 52px 1fr; align-items: center; gap: 7px; min-height: 76px; margin-top: 12px; padding: 8px 11px; border: 2px solid #a77d54; border-radius: 16px; color: #4e392b; background: rgba(255,250,231,.97); box-shadow: 0 8px 22px rgba(58,37,20,.2); overflow: hidden; }
+.food-eating img { width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 4px 3px rgba(75,43,21,.24)); }
+.food-eating-moving img { animation: fruit-to-mochi .62s ease-in forwards; }
+.food-eating-mochi { width: 52px !important; height: 58px !important; object-fit: contain !important; filter: drop-shadow(0 3px 2px rgba(75,43,21,.2)) !important; }
+.food-eating strong { font-size: .76rem; line-height: 1.55; }
+@keyframes fruit-to-mochi { from { transform: translate(0,0) scale(1); } to { transform: translate(68px,4px) scale(.18); opacity: .08; } }
 .dictionary-note::before { content: ""; position: absolute; inset: 0 auto 0 27px; width: 1px; background: rgba(190,111,90,.26); box-shadow: 7px 0 0 rgba(255,255,255,.3); pointer-events: none; }
 .dictionary-close { position: absolute; top: 10px; right: 11px; z-index: 2; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(113,77,53,.3); border-radius: 50%; color: #76553e; background: rgba(255,253,243,.86); box-shadow: 0 2px 0 rgba(101,70,48,.16); }
 .dictionary-close:active { transform: translateY(2px); box-shadow: none; }
@@ -417,6 +494,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .item-tile-name { font-size: .875rem; }
   .settings-note { right: 12px; bottom: 13%; width: min(88%, 340px); }
   .dictionary-note { top: max(70px, calc(env(safe-area-inset-top) + 54px)); right: 10px; bottom: 12%; width: calc(100% - 20px); padding: 16px 13px 13px; }
+  .food-panel { top: max(58px, calc(env(safe-area-inset-top) + 42px)); right: 8px; bottom: 12%; width: calc(100% - 16px); padding: 14px 12px; }
+  .food-panel-heading { padding-left: 4px; }
+  .fruit-grid { gap: 6px; }
+  .fruit-card { padding-inline: 3px; }
+  .food-eating { grid-template-columns: 52px 46px 1fr; }
+  .food-eating-mochi { width: 46px !important; height: 52px !important; }
   .dictionary-heading { padding-left: 12px; }
   .dictionary-list { grid-template-columns: 1fr; padding-left: 12px; }
   .dictionary-filters { margin-left: 12px; }

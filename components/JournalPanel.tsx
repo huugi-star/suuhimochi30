@@ -2,19 +2,18 @@
 
 import { useMemo, useRef, useState } from 'react';
 import {
-  BookOpen,
   ChevronLeft,
   ChevronRight,
   Compass,
   MessageCircle,
   PenLine,
+  ScrollText,
   Tags,
   Trash2,
   Sparkles,
   X,
 } from 'lucide-react';
 import type {
-  DailyProgressLevel,
   DailyProgressRecord,
   YesterdayProgressLevel,
 } from '@/lib/dailyProgress';
@@ -43,8 +42,10 @@ type JournalPanelProps = {
   words: WordEntry[];
   farewellLetter: string | null;
   cycleArchives: ThirtyDayCycleArchive[];
+  experienceFruitDates: string[];
   onClose: () => void;
   onSaveDoneItems: (date: string, doneItems: string[]) => void;
+  onConfirmNoExperience: (date: string) => void;
   onChangeGoalType: (goalType: TwoDayReviewGoalType) => void;
 };
 
@@ -64,12 +65,6 @@ const PROGRESS_LABELS: Record<YesterdayProgressLevel, string> = {
   STEP: 'ステップ',
   JUMP: 'ジャンプ',
   BREATH: 'ひと呼吸',
-};
-
-const TARGET_LABELS: Record<DailyProgressLevel, string> = {
-  HOP: 'ホップで、小さく一歩',
-  STEP: 'ステップで、しっかり前へ',
-  JUMP: 'ジャンプで、思いきって進む',
 };
 
 function moveDate(dateKey: string, days: number) {
@@ -107,8 +102,10 @@ export function JournalPanel({
   words,
   farewellLetter,
   cycleArchives,
+  experienceFruitDates,
   onClose,
   onSaveDoneItems,
+  onConfirmNoExperience,
   onChangeGoalType,
 }: JournalPanelProps) {
   const safeCurrentDay = Math.min(30, Math.max(1, currentDay));
@@ -121,12 +118,12 @@ export function JournalPanel({
   const itemInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [editingGoalType, setEditingGoalType] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [confirmingNoExperience, setConfirmingNoExperience] = useState(false);
 
   const selectedDate = moveDate(
     currentActivityDate,
     selectedDay - safeCurrentDay,
   );
-  const targetRecord = records.find((record) => record.date === selectedDate);
   const reviewRecord = records.find(
     (record) => record.reviewedDate === selectedDate,
   );
@@ -175,9 +172,11 @@ export function JournalPanel({
     setSelectedDay(nextDay);
     setEditing(false);
     setDraftItems(['']);
+    setConfirmingNoExperience(false);
   };
 
   const beginEditing = () => {
+    setConfirmingNoExperience(false);
     setDraftItems(lines.length > 0 ? lines : ['']);
     setEditing(true);
   };
@@ -339,22 +338,6 @@ export function JournalPanel({
 
           <div className="journal-rule" aria-hidden="true" />
 
-          <details className="journal-section journal-plan" open>
-            <summary>
-              <BookOpen size={17} />
-              <span>今日決めていたこと</span>
-            </summary>
-            <div className="journal-section-body journal-quote">
-              「
-              {targetRecord?.todayTarget
-                ? TARGET_LABELS[targetRecord.todayTarget]
-                : selectedDay === 1 && goalText
-                  ? goalText
-                  : '今日は目標を決めずに進む'}
-              」
-            </div>
-          </details>
-
           <details className="journal-section" open>
             <summary>
               <span className="journal-summary-mark">✓</span>
@@ -382,11 +365,15 @@ export function JournalPanel({
             <summary>
               <PenLine size={17} />
               <span>やったこと</span>
-              {reviewRecord?.noteDeferred && (
+              {lines.length === 0 && (
                 <em className="journal-pending">未記帳</em>
               )}
             </summary>
             <div className="journal-section-body">
+              <p className="journal-consult-hint">
+                <Compass size={15} aria-hidden="true" />
+                ここに書くと、軍師が足あとを見て作戦を考えられるの。
+              </p>
               {!editing ? (
                 <>
                   {lines.length > 0 ? (
@@ -406,6 +393,19 @@ export function JournalPanel({
                     <PenLine size={15} />
                     記帳・修正
                   </button>
+                  {lines.length === 0 && selectedDate < currentActivityDate && !experienceFruitDates.includes(selectedDate) && (
+                    !confirmingNoExperience ? (
+                      <button className="journal-no-experience" type="button" onClick={() => setConfirmingNoExperience(true)}>
+                        特に残すことはない
+                      </button>
+                    ) : (
+                      <fieldset className="journal-no-experience-confirm" aria-label="経験がなかった日として確定">
+                        <p>この日は記帳せず、ほとんど味のない白い実を3つ作りますか？</p>
+                        <button type="button" onClick={() => { onConfirmNoExperience(selectedDate); setConfirmingNoExperience(false); }}>白い実にする</button>
+                        <button type="button" onClick={() => setConfirmingNoExperience(false)}>やめる</button>
+                      </fieldset>
+                    )
+                  )}
                 </>
               ) : (
                 <div className="journal-editor">
@@ -643,7 +643,6 @@ export function JournalPanel({
         .journal-section summary > b { display: grid; min-width: 24px; height: 22px; margin-left: 3px; place-items: center; border-radius: 11px; color: #fff; background: #b99a72; font-size: .66rem; }
         .journal-summary-mark { display: grid; width: 17px; height: 17px; place-items: center; border: 1px solid #9e7d5f; border-radius: 4px; color: #a36c4f; font-size: .72rem; }
         .journal-section-body { padding: 1px 4px 15px 25px; line-height: 1.65; }
-        .journal-quote { color: #554035; font: 800 1rem/1.7 'Yu Mincho', serif; }
         .journal-progress { display: flex; align-items: center; gap: 9px; }
         .journal-progress strong { padding: 5px 13px; border-radius: 13px; color: #725039; background: #f5dec0; }
         .journal-progress strong[data-level='STEP'] { background: #f3d3a7; }
@@ -651,9 +650,15 @@ export function JournalPanel({
         .journal-progress strong[data-level='BREATH'] { color: #486b62; background: #dceee8; }
         .journal-progress small { color: #9b5f4c; font-weight: 800; }
         .journal-pending { margin-left: 5px; padding: 3px 7px; border-radius: 9px; color: #9b5e3f; background: #ffe0ae; font-size: .66rem; font-style: normal; }
+        .journal-consult-hint { display: flex; align-items: flex-start; gap: 6px; margin: 1px 0 11px; padding: 8px 10px; border: 1px solid rgba(115, 142, 124, .38); border-radius: 9px; color: #566d62; background: rgba(238, 248, 242, .76); font-size: .76rem; font-weight: 750; line-height: 1.55; }
+        .journal-consult-hint svg { flex: 0 0 auto; margin-top: 2px; color: #5f9585; }
         .journal-note-lines { display: grid; gap: 4px; margin: 0 0 11px; padding: 0; list-style: none; }
         .journal-note-lines li::before { content: '・'; color: #bd7250; font-weight: 900; }
         .journal-empty { margin: 0 0 10px; color: #9b8b7c; font-size: .8rem; }
+        .journal-no-experience { margin-left: 8px; border: 1px solid rgba(137,119,101,.38); border-radius: 9px; padding: 7px 10px; color: #817263; background: rgba(250,247,238,.7); font-size: .74rem; font-weight: 750; }
+        .journal-no-experience-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 10px; padding: 10px; border: 1px dashed rgba(137,119,101,.48); border-radius: 10px; background: rgba(250,247,238,.76); }
+        .journal-no-experience-confirm p { flex: 1 0 100%; margin: 0; color: #746656; font-size: .77rem; line-height: 1.55; }
+        .journal-no-experience-confirm button { border: 1px solid #aa9278; border-radius: 8px; padding: 7px 10px; color: #604f3d; background: #fffaf0; font-size: .75rem; font-weight: 800; }
         .journal-edit { display: inline-flex; min-height: 34px; align-items: center; gap: 5px; padding: 6px 12px; border: 1px solid #ac8a69; border-radius: 10px; color: #654a39; background: #fff7e4; font-weight: 800; box-shadow: 0 2px 0 #d9c2a4; }
         .journal-editor { display: grid; gap: 9px; }
         .journal-item-editor-list { display: grid; gap: 7px; }

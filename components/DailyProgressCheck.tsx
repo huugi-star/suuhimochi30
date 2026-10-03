@@ -154,9 +154,12 @@ export function DailyProgressCheck({
             <div className="daily-progress-note">
               <span>
                 {evaluation === 'BREATH'
-                  ? 'どんなことがあったの？（任意）'
-                  : 'どんなことをしたの？（任意）'}
+                  ? 'どんなことがあったの？'
+                  : 'どんなことをしたの？'}
               </span>
+              <small className="daily-progress-note-hint">
+                任意です。書いておくと、あとで軍師に昨日の足あとを詳しく相談できるの。
+              </small>
               <div className="daily-progress-item-list">
                 {doneItems.map((item, index) => (
                   <label key={index} className="daily-progress-item">
@@ -222,6 +225,7 @@ export function DailyProgressCheck({
         .daily-progress-choices button b { font-size: .98rem; letter-spacing: .06em; }
         .daily-progress-note { position: relative; z-index: 1; display: grid; gap: 10px; margin: 20px 2px 15px; }
         .daily-progress-note > span { font-family: 'Yu Mincho', serif; font-size: 1.03rem; font-weight: 800; }
+        .daily-progress-note-hint { display: block; margin-top: -4px; color: #806454; font-size: .82rem; font-weight: 700; line-height: 1.6; }
         .daily-progress-item-list { display: grid; gap: 7px; }
         .daily-progress-item { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 7px; }
         .daily-progress-item input { min-width: 0; border: 2px solid #cfb18b; border-radius: 11px; padding: 10px 11px; color: #49372c; background: rgba(255,254,247,.9); box-shadow: inset 0 2px 5px rgba(75,48,29,.08); font: .91rem/1.45 'Yu Gothic', sans-serif; }

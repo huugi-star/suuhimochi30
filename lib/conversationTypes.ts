@@ -54,6 +54,7 @@ export type ExpectedAnswer =
   | 'WORD_FEELING'
   | 'OSHI_CONFIRM'
   | 'WORD_RECENCY'
+  | 'MEMORY_REFLECTION'
   | 'MOOD'
   | 'GOAL_STATUS'
   | 'GOAL_ACTION'

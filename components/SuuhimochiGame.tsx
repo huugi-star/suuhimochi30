@@ -1,13 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Gamepad2, Home, MessageCircle, NotebookTabs, PackageOpen, RotateCcw, Settings, Sparkles, UserRoundPlus, X } from 'lucide-react';
+import { Apple, BookOpen, Gamepad2, Home, MessageCircle, NotebookTabs, PackageOpen, RotateCcw, Settings, Sparkles, UserRoundPlus, X } from 'lucide-react';
 import { MiniGamePanel } from '@/components/minigames/MiniGamePanel';
 import { PotenoPanel } from '@/components/PotenoPanel';
 import { TwoDayReviewTalk } from '@/components/TwoDayReviewTalk';
 import { DailyProgressCheck } from '@/components/DailyProgressCheck';
 import { GraduationFlow } from '@/components/GraduationFlow';
 import { JournalPanel } from '@/components/JournalPanel';
+import { FoodPanel } from '@/components/FoodPanel';
+import { MaskDisplay, type MaskGrowthStage } from '@/components/MaskDisplay';
 import { MOCHI_STATES, TYPE_ACCENTS, type MochiState } from '@/lib/characterData';
 import { INTRO_LINES, pickRoomMonologue } from '@/lib/dialogueData';
 import { pickSleepDialogue } from '@/lib/sleepDialogueData';
@@ -18,6 +20,7 @@ import type { StrategyRecord } from '@/lib/potenoLink';
 import type { SixDivinationRecord } from '@/lib/potenoSixDivination';
 import { createThirtyDayCycleArchive, type GraduationFootprint, type GraduationHandoffAdvice, type NextGoalChoice } from '@/lib/graduation';
 import { TWO_DAY_REVIEW_GOAL_TYPES, type TwoDayReviewGoalType, type TwoDayReviewRecord } from '@/lib/twoDayReview';
+import { createExperienceFruitBatch, getExperienceMealStatus, getFoodActivityDate, getPersonaStage, isFruitSpoiled, type ExperienceFruitRecord } from '@/lib/food';
 import { advanceDialogue, createDialogueRuntime, getDialogueNode, resolveDialogueText, type DialogueRuntime } from '@/lib/miniDialogueRunner';
 import { closetScare } from '@/lib/miniDialogueScripts';
 import { PERSON_DIALOGUE_SCRIPTS } from '@/lib/miniDialogueAdditionalScripts';
@@ -124,11 +127,12 @@ function dialogueMotionToEmotion(motion?: DialogueMotion): ZoomFaceEmotion {
  * an explicit `motion` always wins when a script provides one.
  */
 function inferDialogueMotion(text: string): DialogueMotion {
-  if (/(怖|こわ|恐|驚|びっくり|ゾッ|不安)/.test(text)) return 'nervous';
-  if (/(怒|腹|嫌|いや|ムカ|イライラ|許せ)/.test(text)) return 'angry';
-  if (/(悲|さみ|寂|涙|つら|かわいそう|落ち込)/.test(text)) return 'sad';
-  if (/(嬉|うれ|楽|やった|好き|大好き|笑|面白|幸せ)/.test(text)) return 'happy';
-  if (/(考|どうして|なぜ|不思議|わから|分から|知りたい|気になる)/.test(text)) return 'thinking';
+  if (/(怖|こわ|恐|ゾッ|不安|心配|緊張|危な|逃げ|どうしよう|落ち着かない)/.test(text)) return 'nervous';
+  if (/(怒|腹が立|嫌だ|いやだ|ムカ|イライラ|許せ|ずるい)/.test(text)) return 'angry';
+  if (/(悲|さみ|寂|涙|泣|つら|苦し|かわいそう|落ち込|残念|会いたい)/.test(text)) return 'sad';
+  if (/(嬉|うれ|楽し|やった|好き|大好き|ありがとう|よかった|笑|面白|幸せ|わくわく|すごい)/.test(text)) return 'happy';
+  if (/(驚|びっくり|まさか|ほんとに|本当に|えっ|ええっ|あっ|！{2,}|!{2,})/.test(text)) return 'surprised';
+  if (/(考|どうして|なぜ|なんで|どういう|どっち|不思議|わから|分から|知りたい|気になる|教えて|かな[？?]?|[？?])/.test(text)) return 'thinking';
   return 'idle';
 }
 
@@ -299,7 +303,6 @@ function WallClockDigitalFace({ time }: { time: string }) {
 
 const BUBBLE_PAGE_LENGTH = 42;
 const TALK_PAGE_LENGTH = 54;
-const TALK_LINE_LENGTH = 18;
 const TEXT_BREAKS = '。！？!?、，…';
 // 文字送りは一文字ずつ続けつつ、口の切り替えは数文字に一度だけ行う。
 // これで高速なパラパラ口パクにならず、ゆっくり考えながら話す印象になる。
@@ -378,20 +381,31 @@ function splitRoomMonologuePages(text: string): string[] {
 }
 
 function splitTalkPages(text: string): string[] {
-  // 会話は「。」などの文末でいったん区切り、吹き出し内でも一文ずつ読みやすく見せる。
-  // 長い一文だけは既存の文字数制限で補助的に分割する。
-  const sentences = text.split(/(?<=[。！？!?])/u).filter(Boolean);
-  const lines = sentences.flatMap((sentence) => splitReadableText(sentence, TALK_LINE_LENGTH, 0.6));
+  // 台詞データ内の装飾的な改行や固定文字数では行を作らない。
+  // ページだけを文末優先で分け、枠内の折り返しは実際の画面幅へ任せる。
+  const normalized = text.trim().replace(/\s*\n+\s*/gu, '');
+  const sentences = normalized.split(/(?<=[。！？!?])/u).filter(Boolean);
   const pages: string[] = [];
-  for (let index = 0; index < lines.length; index += 3) {
-    pages.push(lines.slice(index, index + 3).join('\n'));
+  let currentPage = '';
+
+  for (const sentence of sentences) {
+    const chunks = splitReadableText(sentence, TALK_PAGE_LENGTH, 0.6);
+    for (const chunk of chunks) {
+      const combined = `${currentPage}${chunk}`;
+      if (currentPage && Array.from(combined).length > TALK_PAGE_LENGTH) {
+        pages.push(currentPage);
+        currentPage = chunk;
+      } else {
+        currentPage = combined;
+      }
+    }
   }
-  return pages.length ? pages : splitReadableText(text, TALK_PAGE_LENGTH).map((page) => (
-    splitReadableText(page, TALK_LINE_LENGTH, 0.6).join('\n')
-  ));
+  if (currentPage) pages.push(currentPage);
+  return pages.length ? pages : splitReadableText(normalized, TALK_PAGE_LENGTH);
 }
 
 const TIME_LABELS = { morning: '朝', day: '昼', evening: '夕暮れ', night: '夜', midnight: '深夜' };
+const MASK_CASE_ITEM_ID = 'mask-case';
 const ROOM_ITEMS = [
   { id: 'bookshelf', src: '/assets/items/wooden-bookshelf-with-plant-and-mushroom.png', alt: '本棚' },
   { id: 'bed-flower-red', src: '/assets/items/bed_flower_red.png', alt: 'ベッド（赤）' },
@@ -408,6 +422,7 @@ const ROOM_ITEMS = [
   { id: 'vase', src: '/assets/items/blue-ceramic-vase.png', alt: '青い花瓶' },
   { id: 'wall-clock', src: '/assets/items/wall-clock-analog-thin.png', alt: '壁掛け時計' },
   { id: 'wall-clock-digital', src: '/assets/items/wall-clock-pixel.png', alt: '壁掛けデジタル時計' },
+  { id: MASK_CASE_ITEM_ID, src: '/assets/kamen/kamen-frame/kamen-frame.png', alt: '仮面展示フレーム' },
 ] as const;
 type RoomItemPosition = { x: number; y: number };
 const INITIAL_ITEM_POSITIONS: Record<string, RoomItemPosition> = {
@@ -428,6 +443,7 @@ const INITIAL_ITEM_POSITIONS: Record<string, RoomItemPosition> = {
   vase: { x: 49, y: 53 },
   'wall-clock': { x: 62, y: 16 },
   'wall-clock-digital': { x: 74, y: 16 },
+  [MASK_CASE_ITEM_ID]: { x: 45, y: 7 },
 };
 const ROOM_LAYOUT_STORAGE_KEY = 'suuhimochi_room_layout_v1';
 const RECENT_CATEGORY_STORAGE_KEY = 'suuhimochi_recent_categories_v1';
@@ -463,7 +479,9 @@ const ROOM_ITEM_COLLIDERS: Record<string, RoomItemCollider> = {
   rug: { width: 50, left: 0.02, top: 0.22, widthFactor: 0.96, heightFactor: 0.56, blocks: false },
   'wall-clock': { width: 13, left: 0, top: 0, widthFactor: 1, heightFactor: 1, blocks: false },
   'wall-clock-digital': { width: 11, left: 0, top: 0, widthFactor: 1, heightFactor: 1, blocks: false },
+  [MASK_CASE_ITEM_ID]: { width: 14, left: 0, top: 0, widthFactor: 1, heightFactor: 1, blocks: false },
 };
+
 // Hand-authored floor footprint for the low table. This is deliberately
 // independent from the PNG dimensions/alpha and follows only the occupied
 // floor area under the tabletop and legs.
@@ -482,6 +500,18 @@ const WALK_DURATION_MS = 1700;
 // Waiting behaviour is intentionally walk-heavy: the room should feel lived
 // in, while the occasional idle beat keeps the movement from looking robotic.
 const HOME_MOCHI_STATES: MochiState[] = ['walk', 'walk', 'walk', 'idle'];
+const HUNGER_MONOLOGUES = [
+  'なんかおなかすいたの。',
+  'まだ実になってない日があるみたい。',
+  'この前の経験、日誌に書いたら実になる？',
+  'まだ味わってない日があるの。',
+  '日誌に書いてくれたら、経験の実になるんだよ。',
+] as const;
+const MEAL_READY_MONOLOGUES = [
+  'そろそろおなかすいてきたの。',
+  'ごはん、まだある？',
+  '経験の実、食べたいの。',
+] as const;
 const SPRITE_ROTATIONS: Record<MochiState, SpriteDirection> = {
   idle: 'south', walk: 'south', sit: 'south', window: 'east', roll: 'south-west', look: 'south', sleep: 'south-west',
 };
@@ -515,6 +545,7 @@ export function SuuhimochiGame() {
   const [lightsOut, setLightsOut] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [dictionaryOpen, setDictionaryOpen] = useState(false);
+  const [foodOpen, setFoodOpen] = useState(false);
   const [dictionaryEntries, setDictionaryEntries] = useState<WordEntry[]>([]);
   const [dictionaryCategory, setDictionaryCategory] = useState<WordCategory | 'ALL'>('ALL');
   const [itemOpen, setItemOpen] = useState(false);
@@ -547,6 +578,7 @@ export function SuuhimochiGame() {
   const [itemPanelCollapsed, setItemPanelCollapsed] = useState(false);
   const [itemPanelX, setItemPanelX] = useState(3);
   const [showCollisionDebug, setShowCollisionDebug] = useState(false);
+  const [maskGrowthAnimating, setMaskGrowthAnimating] = useState(false);
   const [talkOpen, setTalkOpen] = useState(false);
   const [talkCommandOpen, setTalkCommandOpen] = useState(false);
   const [talkReturning, setTalkReturning] = useState(false);
@@ -566,6 +598,7 @@ export function SuuhimochiGame() {
   const [talkInputMode, setTalkInputMode] = useState<InputMode>('none');
   const [miniDialogue, setMiniDialogue] = useState<DialogueRuntime | null>(null);
   const [miniDialogueMotion, setMiniDialogueMotion] = useState<DialogueMotion | undefined>();
+  const [talkLineMotion, setTalkLineMotion] = useState<DialogueMotion>('idle');
   const [talkDebug, setTalkDebug] = useState<DebugSnapshot | null>(null);
   const [zoomEyes, setZoomEyes] = useState<ZoomEyeFrame>('open');
   const [zoomMouth, setZoomMouth] = useState<ZoomMouthFrame>('closed');
@@ -607,6 +640,7 @@ export function SuuhimochiGame() {
   const nightWakeOverrideRef = useRef(false);
   const manualWalkUntil = useRef(0);
   const talkReturnTimer = useRef<number | null>(null);
+  const shouldAutoCloseTalk = useRef(false);
   const talkReturnTarget = useRef({ x: 0, y: 0 });
   const clockDragRef = useRef<{ pointerId: number; x: number; y: number; clientX: number; clientY: number } | null>(null);
   const itemDragRef = useRef<{ id: string; pointerId: number; x: number; y: number; clientX: number; clientY: number } | null>(null);
@@ -618,12 +652,39 @@ export function SuuhimochiGame() {
   const roomMonologueBubbleRef = useRef<string | null>(null);
   const sleepBubbleLineRef = useRef<string | null>(null);
   const miniDialogueRef = useRef<DialogueRuntime | null>(null);
+  const previousMaskGrowthStageRef = useRef<MaskGrowthStage | null>(null);
+  const maskGrowthTimerRef = useRef<number | null>(null);
 
   useEffect(() => { itemPositionsRef.current = itemPositions; }, [itemPositions]);
   useEffect(() => { storedItemIdsRef.current = storedItemIds; }, [storedItemIds]);
   useEffect(() => { isInitialPreviewRef.current = isInitialPreview; }, [isInitialPreview]);
   useEffect(() => { clockPositionRef.current = clockPosition; }, [clockPosition]);
   useEffect(() => { roomPanRef.current = roomPanX; }, [roomPanX]);
+
+  const maskGrowthStage: MaskGrowthStage = save.personaStage ?? getPersonaStage(save.personaExp ?? 0);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const previousStage = previousMaskGrowthStageRef.current;
+    previousMaskGrowthStageRef.current = maskGrowthStage;
+    if (previousStage === null || maskGrowthStage <= previousStage) return;
+
+    if (maskGrowthTimerRef.current !== null) window.clearTimeout(maskGrowthTimerRef.current);
+    setMaskGrowthAnimating(false);
+    const startTimer = window.setTimeout(() => {
+      setMaskGrowthAnimating(true);
+      maskGrowthTimerRef.current = window.setTimeout(() => {
+        setMaskGrowthAnimating(false);
+        maskGrowthTimerRef.current = null;
+      }, 950);
+    }, 20);
+    maskGrowthTimerRef.current = startTimer;
+
+    return () => {
+      if (maskGrowthTimerRef.current !== null) window.clearTimeout(maskGrowthTimerRef.current);
+      maskGrowthTimerRef.current = null;
+    };
+  }, [hydrated, maskGrowthStage]);
 
   useEffect(() => {
     const mobileQuery = window.matchMedia('(max-width: 700px) and (orientation: portrait)');
@@ -784,16 +845,16 @@ export function SuuhimochiGame() {
   }, [isWalkOffsetBlocked, walkInSteps]);
 
   const requestBedSleep = useCallback((bedId: string) => {
-    if (phase !== 'home' || dailyProgressOpen || talkOpen || talkReturning || itemOpen || minigameOpen || potenoOpen || settingsOpen) return;
+    if (phase !== 'home' || dailyProgressOpen || talkOpen || talkReturning || itemOpen || foodOpen || minigameOpen || potenoOpen || settingsOpen) return;
     if (sleepingBedId === bedId && mochiState === 'sleep') {
       setWakePromptOpen(true);
       return;
     }
     setBedPromptId((current) => current === bedId ? null : bedId);
-  }, [dailyProgressOpen, itemOpen, minigameOpen, mochiState, phase, potenoOpen, settingsOpen, sleepingBedId, talkOpen, talkReturning]);
+  }, [dailyProgressOpen, foodOpen, itemOpen, minigameOpen, mochiState, phase, potenoOpen, settingsOpen, sleepingBedId, talkOpen, talkReturning]);
 
   const startBedSleep = useCallback((bedId: string) => {
-    if (phase !== 'home' || dailyProgressOpen || talkOpen || talkReturning || itemOpen || minigameOpen || potenoOpen || settingsOpen) return;
+    if (phase !== 'home' || dailyProgressOpen || talkOpen || talkReturning || itemOpen || foodOpen || minigameOpen || potenoOpen || settingsOpen) return;
     // Choosing to lie down again after a nighttime wake-up resumes sleep for
     // the rest of this night.
     if (isScheduledSleepTimeNow) nightWakeOverrideRef.current = false;
@@ -885,7 +946,7 @@ export function SuuhimochiGame() {
         window.requestAnimationFrame(() => setBedHandoff(false));
       });
     });
-  }, [dailyProgressOpen, isScheduledSleepTimeNow, itemOpen, itemPositions, minigameOpen, phase, potenoOpen, settingsOpen, talkOpen, talkReturning, walkInSteps]);
+  }, [dailyProgressOpen, foodOpen, isScheduledSleepTimeNow, itemOpen, itemPositions, minigameOpen, phase, potenoOpen, settingsOpen, talkOpen, talkReturning, walkInSteps]);
 
   const wakeFromBed = useCallback((manual = true) => {
     if (manual && isScheduledSleepTimeNow) {
@@ -979,7 +1040,7 @@ export function SuuhimochiGame() {
       if (event.button === 0 || event.pointerType === 'touch') advanceBubblePage();
       return;
     }
-    if (phase !== 'home' || dailyProgressOpen || twoDayReviewTalkOpen || talkOpen || talkReturning || itemOpen || minigameOpen || potenoOpen || settingsOpen || event.button !== 0) return;
+    if (phase !== 'home' || dailyProgressOpen || twoDayReviewTalkOpen || talkOpen || talkReturning || itemOpen || foodOpen || minigameOpen || potenoOpen || settingsOpen || event.button !== 0) return;
     if (bedPromptId) setBedPromptId(null);
     bedSleepTargetRef.current = null;
     if (mochiState === 'sleep') {
@@ -1011,7 +1072,7 @@ export function SuuhimochiGame() {
         : closest;
     }, 'south' as SpriteDirection);
     walkInSteps(next, direction, distance, true);
-  }, [advanceBubblePage, bedPromptId, dailyProgressOpen, itemOpen, minigameOpen, mochiState, openPromptedTalk, openTwoDayReviewTalk, phase, potenoOpen, promptedQuestionOffer, settingsOpen, talkOpen, talkReturning, twoDayReviewOffer, twoDayReviewTalkOpen, walkInSteps]);
+  }, [advanceBubblePage, bedPromptId, dailyProgressOpen, foodOpen, itemOpen, minigameOpen, mochiState, openPromptedTalk, openTwoDayReviewTalk, phase, potenoOpen, promptedQuestionOffer, settingsOpen, talkOpen, talkReturning, twoDayReviewOffer, twoDayReviewTalkOpen, walkInSteps]);
 
   const updateClockPosition = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const drag = clockDragRef.current;
@@ -1168,6 +1229,10 @@ export function SuuhimochiGame() {
           // keep the yellow bed placed and offer the red/green variants in
           // storage instead of stacking all three in the room.
           if (!stored.some((id) => id.startsWith('bed-'))) stored.push(...LEGACY_BED_STORED_ITEM_IDS);
+          // The mask case was added after room-layout v1 shipped. Keep it in
+          // storage for existing rooms until the player explicitly places it.
+          if (!Object.prototype.hasOwnProperty.call(savedLayout.positions ?? {}, MASK_CASE_ITEM_ID)
+            && !stored.includes(MASK_CASE_ITEM_ID)) stored.push(MASK_CASE_ITEM_ID);
           setStoredItemIds(stored);
         }
       } else {
@@ -1255,11 +1320,11 @@ export function SuuhimochiGame() {
 
     if (nightWakeOverrideRef.current) return;
     automaticSleepRef.current = true;
-    if (phase !== 'home' || talkOpen || talkReturning || itemOpen || minigameOpen || settingsOpen) return;
+    if (phase !== 'home' || talkOpen || talkReturning || itemOpen || foodOpen || minigameOpen || settingsOpen) return;
     const bedId = ROOM_ITEMS.find((item) => BED_ITEM_IDS.has(item.id) && !storedItemIds.includes(item.id))?.id;
     if (!bedId || (mochiState === 'sleep' && sleepingBedId) || bedSleepTargetRef.current) return;
     startBedSleep(bedId);
-  }, [hydrated, isScheduledSleepTimeNow, itemOpen, minigameOpen, mochiState, phase, potenoOpen, settingsOpen, sleepingBedId, startBedSleep, storedItemIds, talkOpen, talkReturning, wakeFromBed]);
+  }, [foodOpen, hydrated, isScheduledSleepTimeNow, itemOpen, minigameOpen, mochiState, phase, potenoOpen, settingsOpen, sleepingBedId, startBedSleep, storedItemIds, talkOpen, talkReturning, wakeFromBed]);
 
   useEffect(() => {
     bubbleRef.current = bubble;
@@ -1326,8 +1391,37 @@ export function SuuhimochiGame() {
     return targetDate ? { targetDate } : null;
   }, [conversationDay, save.dailyProgressRecords, save.journalNotes, save.twoDayReviews]);
 
+  const hasDeferredExperienceDay = useMemo(() => {
+    const generatedDates = new Set((save.experienceFruits ?? []).map((fruit) => fruit.sourceDate));
+    return (save.dailyProgressRecords ?? []).some((record) => {
+      if (!record.noteDeferred || generatedDates.has(record.reviewedDate)) return false;
+      const items = Object.prototype.hasOwnProperty.call(save.journalNotes ?? {}, record.reviewedDate)
+        ? normalizeDoneItems(save.journalNotes[record.reviewedDate])
+        : getDoneItems(record);
+      return items.length === 0;
+    });
+  }, [save.dailyProgressRecords, save.experienceFruits, save.journalNotes]);
+
+  // 食べた時刻を基準にするため、日付が変わっても朝昼晩には紐付けない。
+  // 06:00を越えた別の食事用活動日は food.ts 側で自動的に1食目へ戻す。
+  const foodStatusNow = useMemo(() => {
+    const [hours, minutes] = clockTime.split(':').map(Number);
+    const now = new Date();
+    if (Number.isFinite(hours) && Number.isFinite(minutes)) now.setHours(hours, minutes, 0, 0);
+    return now;
+  }, [clockTime]);
+  const foodMealStatus = useMemo(() => getExperienceMealStatus({
+    activityDate: save.foodActivityDate,
+    mealsEaten: save.experienceMealsEaten,
+    lastMealAt: save.lastExperienceMealAt,
+  }, foodStatusNow), [foodStatusNow, save.experienceMealsEaten, save.foodActivityDate, save.lastExperienceMealAt]);
+  const hasFreshExperienceFruit = useMemo(
+    () => (save.experienceFruits ?? []).some((fruit) => !fruit.eatenAt && !isFruitSpoiled(fruit, foodStatusNow)),
+    [foodStatusNow, save.experienceFruits],
+  );
+
   const saySomething = useCallback(() => {
-    if (dailyProgressOpen || twoDayReviewTalkOpen || (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) || potenoOpen || bubbleRef.current || sleepingBedId || bedSleepTargetRef.current) return;
+    if (dailyProgressOpen || twoDayReviewTalkOpen || foodOpen || (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) || potenoOpen || bubbleRef.current || sleepingBedId || bedSleepTargetRef.current) return;
     const showBubble = (line: string, duration: number) => {
       setPromptedQuestionOffer(false);
       setTwoDayReviewOffer(false);
@@ -1373,7 +1467,11 @@ export function SuuhimochiGame() {
       return;
     }
     if (conversation.current?.getGoal() && Math.random() < 0.18) {
-      const invitation = replaceCallName('ねえ、人間さん。聞きたいことがあるの。少しだけ、お話してくれる？', getPreferredCallName(save));
+      const preparedMemoryCallout = conversation.current.prepareAmbientMemoryConversation();
+      const invitation = replaceCallName(
+        preparedMemoryCallout ?? 'ねえ、人間さん。聞きたいことがあるの。少しだけ、お話してくれる？',
+        getPreferredCallName(save),
+      );
       walkRun.current += 1;
       if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
       walkStepTimer.current = null;
@@ -1391,7 +1489,22 @@ export function SuuhimochiGame() {
       }, 13_000);
       return;
     }
-    const line = pickRoomMonologue(
+    if (hasDeferredExperienceDay && Math.random() < 0.2) {
+      const candidates = HUNGER_MONOLOGUES.filter((candidate) => candidate !== lastLine.current);
+      const line = candidates[Math.floor(Math.random() * candidates.length)] ?? HUNGER_MONOLOGUES[0];
+      lastLine.current = line;
+      showBubble(line, Math.max(5_600, line.length * 110));
+      return;
+    }
+    if (foodMealStatus.state === 'hungry' && foodMealStatus.mealsEaten > 0 && hasFreshExperienceFruit && Math.random() < 0.18) {
+      const candidates = MEAL_READY_MONOLOGUES.filter((candidate) => candidate !== lastLine.current);
+      const line = candidates[Math.floor(Math.random() * candidates.length)] ?? MEAL_READY_MONOLOGUES[0];
+      lastLine.current = line;
+      showBubble(line, Math.max(5_600, line.length * 110));
+      return;
+    }
+    const memoryAfterthought = Math.random() < 0.36 ? conversation.current?.getAmbientMemoryLine() : null;
+    const line = memoryAfterthought ?? pickRoomMonologue(
       save.mochiType,
       conversation.current?.getLearnedWords() ?? [],
       Math.random,
@@ -1403,7 +1516,7 @@ export function SuuhimochiGame() {
       replaceCallName(line, getPreferredCallName(save)),
       Math.max(5600, Math.min(9000, line.length * 105)),
     );
-  }, [dailyProgressOpen, isScheduledSleepTimeNow, learnedWords, pendingTwoDayReview, potenoOpen, save.callName, save.mochiType, save.userName, sleepingBedId, twoDayReviewTalkOpen]);
+  }, [dailyProgressOpen, foodMealStatus.mealsEaten, foodMealStatus.state, foodOpen, hasDeferredExperienceDay, hasFreshExperienceFruit, isScheduledSleepTimeNow, pendingTwoDayReview, potenoOpen, save.callName, save.mochiType, save.userName, sleepingBedId, twoDayReviewTalkOpen]);
 
   useEffect(() => {
     if (!isScheduledSleepTimeNow || phase !== 'home' || talkOpen || mochiState !== 'sleep' || !sleepingBedId) return;
@@ -1450,7 +1563,7 @@ export function SuuhimochiGame() {
   }, [isScheduledSleepTimeNow, mochiState, phase, save.callName, save.userName, sleepingBedId, talkOpen]);
 
   useEffect(() => {
-    if (phase !== 'home' || dailyProgressOpen || talkOpen || minigameOpen || potenoOpen || twoDayReviewTalkOpen || (isScheduledSleepTimeNow && !nightWakeOverrideRef.current)) return;
+    if (phase !== 'home' || dailyProgressOpen || talkOpen || foodOpen || minigameOpen || potenoOpen || twoDayReviewTalkOpen || (isScheduledSleepTimeNow && !nightWakeOverrideRef.current)) return;
     const stateTimer = window.setInterval(() => {
       if (bubbleRef.current || sleepingBedId || bedSleepTargetRef.current || Date.now() < manualWalkUntil.current) return;
       const nextState = HOME_MOCHI_STATES[Math.floor(Math.random() * HOME_MOCHI_STATES.length)];
@@ -1460,7 +1573,7 @@ export function SuuhimochiGame() {
     const firstThought = window.setTimeout(saySomething, 4500);
     const thoughtTimer = window.setInterval(saySomething, 17500);
     return () => { window.clearInterval(stateTimer); window.clearTimeout(firstThought); window.clearInterval(thoughtTimer); };
-  }, [beginWalk, dailyProgressOpen, isScheduledSleepTimeNow, minigameOpen, phase, potenoOpen, saySomething, sleepingBedId, talkOpen, twoDayReviewTalkOpen]);
+  }, [beginWalk, dailyProgressOpen, foodOpen, isScheduledSleepTimeNow, minigameOpen, phase, potenoOpen, saySomething, sleepingBedId, talkOpen, twoDayReviewTalkOpen]);
 
   useEffect(() => () => {
     speechRun.current += 1;
@@ -1486,7 +1599,17 @@ export function SuuhimochiGame() {
     if (node.type !== 'character') return miniDialogueMotion;
     return node.motion ?? inferDialogueMotion(resolveDialogueText(node.text, miniDialogue?.slots ?? {}));
   }, [miniDialogue, miniDialogueMotion]);
-  const activeZoomEmotion = dialogueMotionToEmotion(activeMiniDialogueMotion);
+  const activeMonologueMotion = useMemo<DialogueMotion>(() => {
+    if (!isMonologueZoom || !bubble) return 'idle';
+    const page = splitBubblePages(bubble)[bubblePageIndex] ?? bubble;
+    return inferDialogueMotion(page);
+  }, [bubble, bubblePageIndex, isMonologueZoom]);
+  const activeZoomMotion = miniDialogue
+    ? activeMiniDialogueMotion
+    : isMonologueZoom
+      ? activeMonologueMotion
+      : talkLineMotion;
+  const activeZoomEmotion = dialogueMotionToEmotion(activeZoomMotion);
 
   useEffect(() => {
     if ((!talkOpen && !isMonologueZoom) || save.mochiType !== 1) {
@@ -1496,15 +1619,33 @@ export function SuuhimochiGame() {
 
     let closedTimer: number | null = null;
     let nextBlinkTimer: number | null = null;
+    const restingFrame: ZoomEyeFrame = activeZoomEmotion === 'thinking' || activeZoomEmotion === 'sad'
+      ? 'half'
+      : 'open';
+    const blinkTiming = activeZoomEmotion === 'happy'
+      ? { delay: 1500, variation: 1000, closed: 520 }
+      : activeZoomEmotion === 'surprised'
+        ? { delay: 1800, variation: 1100, closed: 340 }
+        : activeZoomEmotion === 'nervous'
+          ? { delay: 2400, variation: 1300, closed: 210 }
+          : activeZoomEmotion === 'sad'
+            ? { delay: 3100, variation: 1500, closed: 420 }
+            : activeZoomEmotion === 'thinking'
+              ? { delay: 3300, variation: 1600, closed: 300 }
+              : isMonologueZoom
+                ? { delay: 2800, variation: 1500, closed: 200 }
+                : { delay: 4200, variation: 1800, closed: 220 };
+
+    setZoomEyes(restingFrame);
 
     const scheduleBlink = () => {
       nextBlinkTimer = window.setTimeout(() => {
         closedTimer = window.setTimeout(() => {
-          setZoomEyes('open');
+          setZoomEyes(restingFrame);
           scheduleBlink();
-        }, isMonologueZoom ? 180 : 220);
+        }, blinkTiming.closed);
         setZoomEyes('closed');
-      }, isMonologueZoom ? 2200 + Math.round(Math.random() * 1600) : 4200 + Math.round(Math.random() * 2000));
+      }, blinkTiming.delay + Math.round(Math.random() * blinkTiming.variation));
     };
 
     scheduleBlink();
@@ -1512,7 +1653,7 @@ export function SuuhimochiGame() {
       if (closedTimer !== null) window.clearTimeout(closedTimer);
       if (nextBlinkTimer !== null) window.clearTimeout(nextBlinkTimer);
     };
-  }, [isMonologueZoom, save.mochiType, talkOpen]);
+  }, [activeZoomEmotion, isMonologueZoom, save.mochiType, talkOpen]);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' || !devPreviewPlaying) return;
@@ -1541,7 +1682,7 @@ export function SuuhimochiGame() {
       return;
     }
 
-    const armFrames = armFramesForDialogueMotion(activeMiniDialogueMotion);
+    const armFrames = armFramesForDialogueMotion(activeZoomMotion);
     let armIndex = 0;
     setZoomArmPose(armFrames[armIndex]);
 
@@ -1553,7 +1694,7 @@ export function SuuhimochiGame() {
     return () => {
       window.clearInterval(armTimer);
     };
-  }, [activeMiniDialogueMotion, isMochiSpeaking, save.mochiType, talkOpen]);
+  }, [activeZoomMotion, isMochiSpeaking, save.mochiType, talkOpen]);
 
   useEffect(() => {
     if (!isMonologueZoom || save.mochiType !== 1) return;
@@ -1562,7 +1703,7 @@ export function SuuhimochiGame() {
     const mouthBeatCount = Math.max(1, Math.ceil(voicedCharacters / 4));
     let beatIndex = 0;
     let armIndex = 0;
-    const armFrames: ZoomArmPose[] = ['down', 'down', 'open', 'down'];
+    const armFrames = armFramesForDialogueMotion(activeMonologueMotion);
     setZoomArmPose('down');
     setZoomMouth('small');
     const mouthTimer = window.setInterval(() => {
@@ -1584,7 +1725,7 @@ export function SuuhimochiGame() {
       setZoomMouth('closed');
       setZoomArmPose('down');
     };
-  }, [bubble, bubblePageIndex, isMonologueZoom, save.mochiType]);
+  }, [activeMonologueMotion, bubble, bubblePageIndex, isMonologueZoom, save.mochiType]);
 
   const currentTime = timeMode === 'auto' ? getAutoTime() : timeMode;
   const isDarkPeriod = currentTime === 'night' || currentTime === 'midnight';
@@ -1979,6 +2120,7 @@ export function SuuhimochiGame() {
     setTalkReturning(false);
     setMemoryOpen(false);
     setDictionaryOpen(false);
+    setFoodOpen(false);
     setItemOpen(false);
     setMinigameOpen(false);
     setPotenoOpen(false);
@@ -2048,6 +2190,7 @@ export function SuuhimochiGame() {
     setTalkReturning(false);
     setMemoryOpen(false);
     setDictionaryOpen(false);
+    setFoodOpen(false);
     setItemOpen(false);
     setMinigameOpen(false);
     setPotenoOpen(false);
@@ -2075,6 +2218,7 @@ export function SuuhimochiGame() {
     setTalkPageCount(0);
     setTalkPageReady(false);
     setIsMochiSpeaking(false);
+    setTalkLineMotion('idle');
     setZoomMouth('closed');
     setZoomArmPose('down');
   }
@@ -2093,6 +2237,7 @@ export function SuuhimochiGame() {
     setTalkPageIndex(pageIndex);
     setTalkPageReady(false);
     setCurrentTalkLine('');
+    setTalkLineMotion(inferDialogueMotion(fullText));
     setZoomMouth('closed');
     let voicedCharacters = 0;
     let mouthPulse = 0;
@@ -2128,6 +2273,16 @@ export function SuuhimochiGame() {
       setZoomMouth('closed');
       talkPageReadyRef.current = true;
       setTalkPageReady(true);
+      if (
+        pageIndex === talkPagesRef.current.length - 1 &&
+        shouldAutoCloseTalk.current
+      ) {
+        scheduleSpeech(() => {
+          if (speechRun.current !== run || !shouldAutoCloseTalk.current) return;
+          shouldAutoCloseTalk.current = false;
+          closeTalk();
+        }, 850);
+      }
     };
 
     scheduleSpeech(() => typeCharacter(0), initialDelay);
@@ -2203,6 +2358,7 @@ export function SuuhimochiGame() {
     }
 
     const miniRuntime = miniDialogueRef.current;
+    const shouldReturnToRoom = shouldAutoCloseTalk.current && !miniRuntime;
     const miniScript = miniRuntime ? getMiniDialogueScript(miniRuntime.scriptId) : null;
     const miniNode = miniRuntime && miniScript ? getDialogueNode(miniScript, miniRuntime) : null;
     if (miniRuntime && miniNode?.type === 'character') {
@@ -2211,11 +2367,16 @@ export function SuuhimochiGame() {
       setMiniDialogue(nextRuntime);
     }
     stopTalkSpeech();
+    if (shouldReturnToRoom) {
+      shouldAutoCloseTalk.current = false;
+      closeTalk();
+    }
   }
 
   function applyTalkResponse(response: ConversationResponse, replace = false) {
     setTalkCommandOpen(false);
     setTalkStage(response.stage);
+    shouldAutoCloseTalk.current = response.stage === 'complete';
     setTalkInputMode(response.inputMode);
     if (response.inputMode === 'category' && response.categoryChoices.length > 0) setCategoryPage(0);
     setTalkChoices(response.choices);
@@ -2242,6 +2403,7 @@ export function SuuhimochiGame() {
   }
 
   function closeTalk() {
+    shouldAutoCloseTalk.current = false;
     stopTalkSpeech();
     miniDialogueRef.current = null;
     setMiniDialogueMotion(undefined);
@@ -2285,11 +2447,13 @@ export function SuuhimochiGame() {
     // not leave the bed for a conversation during the scheduled sleep window.
     // A player who has explicitly chosen "起きる" may still talk normally.
     if (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) return;
+    shouldAutoCloseTalk.current = false;
     roomPanRef.current = 0;
     setRoomPanX(0);
     setRoomOverview(false);
     setMemoryOpen(false);
     setDictionaryOpen(false);
+    setFoodOpen(false);
     setItemOpen(false);
     setMinigameOpen(false);
     setPotenoOpen(false);
@@ -2338,7 +2502,7 @@ export function SuuhimochiGame() {
       return;
     }
     openTalk();
-    applyTalkResponse(conversation.current.startPromptedLearning(), true);
+    applyTalkResponse(conversation.current.startPreparedAmbientConversation(), true);
   }
 
   function openTwoDayReviewTalk() {
@@ -2357,6 +2521,7 @@ export function SuuhimochiGame() {
 
   function openDictionary() {
     setMemoryOpen(false);
+    setFoodOpen(false);
     setItemOpen(false);
     setMinigameOpen(false);
     setPotenoOpen(false);
@@ -2380,15 +2545,6 @@ export function SuuhimochiGame() {
     setLearnedWords(conversation.current.getLearnedWords().map((item) => item.word));
   }
 
-  function startAnotherTalk() {
-    stopTalkSpeech();
-    miniDialogueRef.current = null;
-    setMiniDialogueMotion(undefined);
-    setMiniDialogue(null);
-    setTalkText('');
-    setTalkCommandOpen(true);
-  }
-
   function chooseTalkCommand(command: 'chat' | 'teach' | 'question' | 'monologue' | 'skit') {
     if (!conversation.current) return;
     if (command === 'monologue') {
@@ -2397,6 +2553,7 @@ export function SuuhimochiGame() {
       lastLine.current = line;
       setTalkCommandOpen(false);
       setTalkStage('complete');
+      shouldAutoCloseTalk.current = true;
       setTalkInputMode('none');
       setTalkChoices([]);
       setCategoryChoices([]);
@@ -2424,10 +2581,20 @@ export function SuuhimochiGame() {
 
   function completeDailyProgress(record: DailyProgressRecord) {
     const previousRecords = Array.isArray(save.dailyProgressRecords) ? save.dailyProgressRecords : [];
+    const recordItems = normalizeDoneItems(record.doneItems);
+    const journalItems = normalizeDoneItems(save.journalNotes?.[record.reviewedDate] ?? []);
+    const normalizedItems = recordItems.length > 0 ? recordItems : journalItems;
+    const fruitBatch = createExperienceFruitBatch({
+      existing: save.experienceFruits ?? [],
+      sourceDate: record.reviewedDate,
+      kind: 'experience',
+      doneItems: normalizedItems,
+    });
     const next: GameSave = {
       ...save,
       dailyProgressRecords: [...previousRecords.filter((item) => item.date !== record.date), record].slice(-30),
       lastDailyProgressActivityDate: record.date,
+      experienceFruits: fruitBatch.fruits,
     };
     setSave(next);
     if (!isInitialPreview) storeSave(next);
@@ -2442,13 +2609,82 @@ export function SuuhimochiGame() {
         ? { ...record, doneItems: normalizedItems, note: undefined, noteDeferred: false }
         : record
     ));
+    const fruitBatch = date < getActivityDateKey()
+      ? createExperienceFruitBatch({
+          existing: save.experienceFruits ?? [],
+          sourceDate: date,
+          kind: 'experience',
+          doneItems: normalizedItems,
+        })
+      : { fruits: save.experienceFruits ?? [], created: [] as ExperienceFruitRecord[] };
     const next: GameSave = {
       ...save,
       dailyProgressRecords: nextRecords,
-      journalNotes: { ...(save.journalNotes ?? {}), [date]: normalizedItems },
+      journalNotes: { ...save.journalNotes, [date]: normalizedItems },
+      experienceFruits: fruitBatch.fruits,
     };
     setSave(next);
     if (!isInitialPreview) storeSave(next);
+  }
+
+  function confirmNoExperience(date: string) {
+    if (!date || date >= getActivityDateKey()) return;
+    const fruitBatch = createExperienceFruitBatch({
+      existing: save.experienceFruits ?? [],
+      sourceDate: date,
+      kind: 'white',
+    });
+    if (fruitBatch.created.length === 0) return;
+    const nextRecords = (save.dailyProgressRecords ?? []).map((record) => (
+      record.reviewedDate === date ? { ...record, noteDeferred: false } : record
+    ));
+    const next: GameSave = {
+      ...save,
+      dailyProgressRecords: nextRecords,
+      journalNotes: { ...save.journalNotes, [date]: [] },
+      experienceFruits: fruitBatch.fruits,
+    };
+    setSave(next);
+    if (!isInitialPreview) storeSave(next);
+  }
+
+  function eatExperienceFruit(fruitId: string) {
+    const fruit = (save.experienceFruits ?? []).find((candidate) => candidate.id === fruitId);
+    const now = new Date();
+    const mealStatus = getExperienceMealStatus({
+      activityDate: save.foodActivityDate,
+      mealsEaten: save.experienceMealsEaten,
+      lastMealAt: save.lastExperienceMealAt,
+    }, now);
+    if (!fruit || fruit.eatenAt || isFruitSpoiled(fruit, now) || mealStatus.state !== 'hungry') return null;
+    const eatenAt = now.toISOString();
+    const experienceMealsEaten = mealStatus.mealsEaten + 1;
+    const personaExp = Math.max(0, save.personaExp ?? 0) + (fruit.kind === 'experience' ? 1 : 0);
+    const next: GameSave = {
+      ...save,
+      experienceFruits: (save.experienceFruits ?? []).map((candidate) => (
+        candidate.id === fruitId ? { ...candidate, eatenAt } : candidate
+      )),
+      personaExp,
+      personaStage: getPersonaStage(personaExp),
+      foodActivityDate: getFoodActivityDate(now),
+      experienceMealsEaten,
+      lastExperienceMealAt: eatenAt,
+    };
+    setSave(next);
+    if (!isInitialPreview) storeSave(next);
+
+    if (fruit.kind === 'white') {
+      const lines = ['今日は白い実なの。', 'もぐもぐ……まっしろな味なの。', 'こういう日もあるんだね。'];
+      return lines[Math.floor(Math.random() * lines.length)];
+    }
+    if (fruit.experienceText) {
+      const experience = fruit.experienceText.length > 24 ? `${fruit.experienceText.slice(0, 24)}…` : fruit.experienceText;
+      return `「${experience}」の経験、ちょっと濃い味がするの。`;
+    }
+    return Math.random() < 0.5
+      ? 'もぐもぐ……昨日の経験の味なの。'
+      : '人間さんのこと、少し分かった気がするの。';
   }
 
   function saveTwoDayReview(record: TwoDayReviewRecord) {
@@ -2492,6 +2728,7 @@ export function SuuhimochiGame() {
     setTalkReturning(false);
     setMemoryOpen(false);
     setDictionaryOpen(false);
+    setFoodOpen(false);
     setItemOpen(false);
     setMinigameOpen(false);
     setPotenoOpen(false);
@@ -2557,6 +2794,12 @@ export function SuuhimochiGame() {
       twoDayReviews: [],
       strategyRecords: [],
       divinationRecords: [],
+      experienceFruits: [],
+      personaExp: 0,
+      personaStage: 0,
+      foodActivityDate: '',
+      experienceMealsEaten: 0,
+      lastExperienceMealAt: '',
       lastDailyProgressActivityDate: getActivityDateKey(),
       cycleNumber: nextCycleNumber,
       currentMochiId: `suuhimochi-cycle-${nextCycleNumber}-${Date.now()}`,
@@ -2590,6 +2833,7 @@ export function SuuhimochiGame() {
   function openSettings() {
     setMemoryOpen(false);
     setDictionaryOpen(false);
+    setFoodOpen(false);
     setItemOpen(false);
     setMinigameOpen(false);
     setPotenoOpen(false);
@@ -2603,6 +2847,7 @@ export function SuuhimochiGame() {
   function openMinigames() {
     setMemoryOpen(false);
     setDictionaryOpen(false);
+    setFoodOpen(false);
     setItemOpen(false);
     setPotenoOpen(false);
     setSettingsOpen(false);
@@ -2631,6 +2876,7 @@ export function SuuhimochiGame() {
     setTalkReturning(false);
     setMemoryOpen(false);
     setDictionaryOpen(false);
+    setFoodOpen(false);
     setItemOpen(false);
     setMinigameOpen(false);
     setSettingsOpen(false);
@@ -2663,6 +2909,27 @@ export function SuuhimochiGame() {
       setBubble(null);
     }
     setPotenoOpen(false);
+  }
+
+  function openFood() {
+    setMemoryOpen(false);
+    setDictionaryOpen(false);
+    setItemOpen(false);
+    setMinigameOpen(false);
+    setPotenoOpen(false);
+    setSettingsOpen(false);
+    setSelectedItemId(null);
+    setBedPromptId(null);
+    bubbleRef.current = null;
+    setPromptedQuestionOffer(false);
+    setTwoDayReviewOffer(false);
+    setBubblePageIndex(0);
+    setBubble(null);
+    walkRun.current += 1;
+    if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
+    walkStepTimer.current = null;
+    if (mochiState === 'walk') setMochiState('idle');
+    setFoodOpen(true);
   }
 
   function saveSettings(event: React.SyntheticEvent<HTMLFormElement>) {
@@ -2732,6 +2999,7 @@ export function SuuhimochiGame() {
 
   function runDevConversation(response: ConversationResponse) {
     setMemoryOpen(false);
+    setFoodOpen(false);
     setSelectedItemId(null);
     if (talkReturnTimer.current !== null) window.clearTimeout(talkReturnTimer.current);
     talkReturnTimer.current = null;
@@ -2765,7 +3033,7 @@ export function SuuhimochiGame() {
     setTalkStage('topic'); setTalkOpen(false); setTalkCommandOpen(false); setTalkReturning(false); setTalkText(''); setIntroLine(0);
     setDismissedPromptedSuggestions([]); promptedSuggestionQuestionKeyRef.current = '';
     setDailyProgressOpen(false); setDailyProgressActivityDate(''); setGraduationOpen(false); setGraduationPreview(false); setTwoDayReviewOffer(false); setTwoDayReviewTalkOpen(false); twoDayReviewOfferDateRef.current = '';
-    setSleepingBedId(null); setSleepPose(null); setBedPromptId(null); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSettingsUserName(''); setSettingsCallName(''); setClockPosition({ x: 74, y: 49 }); setLightsOut(false); setSelectedItemId(null); setItemPositions(INITIAL_ITEM_POSITIONS); setStoredItemIds(INITIAL_STORED_ITEM_IDS); setItemTab('placed'); setItemPanelCollapsed(false); setItemPanelX(3); setShowCollisionDebug(false);
+    setSleepingBedId(null); setSleepPose(null); setBedPromptId(null); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSettingsUserName(''); setSettingsCallName(''); setClockPosition({ x: 74, y: 49 }); setLightsOut(false); setSelectedItemId(null); setItemPositions(INITIAL_ITEM_POSITIONS); setStoredItemIds(INITIAL_STORED_ITEM_IDS); setItemTab('placed'); setItemPanelCollapsed(false); setItemPanelX(3); setShowCollisionDebug(false);
     walkOffsetRef.current = { x: 0, y: 0 };
     setPermissionStep(0); setInitialCallName(''); setInitialGoalText(''); initialGoalReplyRef.current = null; initialGoalReplyLineRef.current = ''; setMochiState('idle'); setWalkDirection('south'); setWalkOffset({ x: 0, y: 0 }); setPhase('title');
   }
@@ -2887,7 +3155,7 @@ export function SuuhimochiGame() {
   );
 
   return (
-    <main className={`game-shell time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
+    <main className={`game-shell time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
       <style>{`
         .mochi.mochi-conversation {
           z-index: 4 !important;
@@ -3154,11 +3422,14 @@ export function SuuhimochiGame() {
         .face-talk-line {
           display: block;
           margin: 0;
-          white-space: pre-wrap;
-          overflow-wrap: anywhere;
+          white-space: normal;
+          overflow-wrap: break-word;
+          word-break: normal;
+          line-break: strict;
+          text-wrap: pretty;
           font-size: clamp(1.05rem, 1.7vw, 1.22rem);
           line-height: 1.75;
-          letter-spacing: .045em;
+          letter-spacing: .025em;
         }
 
         .face-talk-page {
@@ -3704,7 +3975,7 @@ export function SuuhimochiGame() {
       <div ref={roomRef} className={`room${roomOverview ? ' room-overview-active' : ''}`} aria-label="夜の小さな部屋" style={{ backgroundColor: '#17130f', backgroundImage: 'none' }}>
         <div
           ref={worldRef}
-          className={`world-layer${talkOpen || isMonologueZoom ? ' world-layer-talk' : ''}${roomOverview ? ' room-world-overview' : ''}${isRoomPanning ? ' room-world-panning' : ''}${isDarkPeriod && lightsOut ? ' world-layer-lights-out' : ''}${phase === 'home' && !dailyProgressOpen && !bubble && !talkReturning && !minigameOpen && !potenoOpen && !settingsOpen ? ' world-layer-walkable' : ''}`}
+          className={`world-layer${talkOpen || isMonologueZoom ? ' world-layer-talk' : ''}${roomOverview ? ' room-world-overview' : ''}${isRoomPanning ? ' room-world-panning' : ''}${isDarkPeriod && lightsOut ? ' world-layer-lights-out' : ''}${phase === 'home' && !dailyProgressOpen && !bubble && !talkReturning && !foodOpen && !minigameOpen && !potenoOpen && !settingsOpen ? ' world-layer-walkable' : ''}`}
           style={{ '--camera-x': `${cameraOrigin.x}%`, '--camera-y': `${cameraOrigin.y}%`, '--room-pan-x': `${roomPanX}px`, '--room-overview-scale': roomOverviewScale, backgroundImage: `url('${roomBackground}')` } as React.CSSProperties}
           onPointerDown={handleWorldPointerDown}
           onPointerMove={handleWorldPointerMove}
@@ -3713,7 +3984,34 @@ export function SuuhimochiGame() {
         >
           <div className="room-tint" aria-hidden="true" />
           <div className="room-items">
-            {ROOM_ITEMS.filter((item) => !['wall-clock', 'wall-clock-digital'].includes(item.id) && !storedItemIds.includes(item.id)).map((item) => (
+            {ROOM_ITEMS.filter((item) => !['wall-clock', 'wall-clock-digital'].includes(item.id) && !storedItemIds.includes(item.id)).map((item) => item.id === MASK_CASE_ITEM_ID ? (
+              <div
+                key={item.id}
+                data-room-item-id={item.id}
+                className={`room-item room-item-${item.id}${itemOpen ? ' room-item-editable' : ''}${selectedItemId === item.id ? ' room-item-selected' : ''}`}
+                role="img"
+                aria-label={`${item.alt}。仮面の成長段階${maskGrowthStage}`}
+                title={itemOpen ? `${item.alt}：ドラッグで移動、ダブルクリックで収納` : undefined}
+                style={{
+                  left: `${itemPositions[item.id]?.x ?? 0}%`,
+                  top: `${itemPositions[item.id]?.y ?? 0}%`,
+                  pointerEvents: itemOpen ? 'auto' : 'none',
+                }}
+                onPointerDown={(event) => {
+                  if (!itemOpen) return;
+                  event.stopPropagation();
+                  setSelectedItemId(item.id);
+                  const position = itemPositions[item.id] ?? INITIAL_ITEM_POSITIONS[item.id];
+                  itemDragRef.current = { id: item.id, pointerId: event.pointerId, x: position.x, y: position.y, clientX: event.clientX, clientY: event.clientY };
+                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                }}
+                onPointerUp={(event) => { if (itemDragRef.current?.pointerId === event.pointerId) itemDragRef.current = null; }}
+                onPointerCancel={() => { itemDragRef.current = null; }}
+                onDoubleClick={(event) => { if (itemOpen) { event.stopPropagation(); storeRoomItem(item.id); } }}
+              >
+                <MaskDisplay stage={maskGrowthStage} growing={maskGrowthAnimating} />
+              </div>
+            ) : (
               <img
                 key={item.id}
                 data-room-item-id={item.id}
@@ -4143,20 +4441,31 @@ export function SuuhimochiGame() {
               )}
 
               {!isMochiSpeaking && !talkCommandOpen && talkStage === 'farewell' && <div className="face-talk-right"><button className="face-talk-action" onClick={() => conversation.current && applyTalkResponse(conversation.current.continueFarewell())}>……</button></div>}
-              {!isMochiSpeaking && !talkCommandOpen && talkStage === 'complete' && <div className="face-talk-right face-talk-complete"><button className="face-talk-action" onClick={startAnotherTalk}>もう一度はなす</button><button className="face-talk-action face-talk-secondary" onClick={closeTalk}>部屋にもどる</button></div>}
               {!isMochiSpeaking && !talkCommandOpen && talkStage === 'ended' && <div className="face-talk-right face-talk-complete"><button className="face-talk-action" onClick={openGraduationFlow}>卒業と引き継ぎへ</button><button className="face-talk-action face-talk-secondary" onClick={() => { closeTalk(); setMemoryOpen(true); }}>手紙を読む</button></div>}
             </section>
           )}
           {!dailyProgressOpen && !talkOpen && !potenoOpen && !twoDayReviewTalkOpen && <nav className="room-nav" aria-label="部屋のメニュー">
-            <button className={!memoryOpen && !dictionaryOpen && !itemOpen && !minigameOpen && !settingsOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); bubbleRef.current = null; setBubblePageIndex(0); setBubble(null); }}><Home size={19} /><span>部屋</span></button>
+            <button className={!memoryOpen && !dictionaryOpen && !foodOpen && !itemOpen && !minigameOpen && !settingsOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); bubbleRef.current = null; setBubblePageIndex(0); setBubble(null); }}><Home size={19} /><span>部屋</span></button>
             <button onClick={openTalk}><MessageCircle size={19} /><span>はなす</span></button>
-            <button className={memoryOpen ? 'active' : ''} onClick={() => { setMemoryOpen(true); setDictionaryOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); }}><NotebookTabs size={19} /><span>日誌</span></button>
+            <button className={memoryOpen ? 'active' : ''} onClick={() => { setMemoryOpen(true); setDictionaryOpen(false); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); }}><NotebookTabs size={19} /><span>日誌</span></button>
             <button className={dictionaryOpen ? 'active' : ''} onClick={openDictionary}><BookOpen size={19} /><span>辞書</span></button>
-            <button className={itemOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setMinigameOpen(false); setPotenoOpen(false); setItemOpen((open) => { if (!open) setItemPanelX(window.matchMedia('(max-width: 700px)').matches ? 12 : 3); return !open; }); setSettingsOpen(false); setItemPanelCollapsed(false); if (itemOpen) setSelectedItemId(null); }}><PackageOpen size={19} /><span>アイテム</span></button>
+            <button className={foodOpen ? 'active' : ''} onClick={openFood}><Apple size={19} /><span>食事</span></button>
+            <button className={itemOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setFoodOpen(false); setMinigameOpen(false); setPotenoOpen(false); setItemOpen((open) => { if (!open) setItemPanelX(window.matchMedia('(max-width: 700px)').matches ? 12 : 3); return !open; }); setSettingsOpen(false); setItemPanelCollapsed(false); if (itemOpen) setSelectedItemId(null); }}><PackageOpen size={19} /><span>アイテム</span></button>
             <button className={minigameOpen ? 'active' : ''} onClick={openMinigames}><Gamepad2 size={19} /><span>ミニゲーム</span></button>
             <button onClick={openPoteno}><UserRoundPlus size={19} /><span>ポテノを呼ぶ</span></button>
             <button className={settingsOpen ? 'active' : ''} onClick={openSettings}><Settings size={19} /><span>設定</span></button>
           </nav>}
+          {foodOpen && <FoodPanel
+            fruits={save.experienceFruits ?? []}
+            personaStage={maskGrowthStage}
+            mealState={{
+              activityDate: save.foodActivityDate,
+              mealsEaten: save.experienceMealsEaten,
+              lastMealAt: save.lastExperienceMealAt,
+            }}
+            onEat={eatExperienceFruit}
+            onClose={() => setFoodOpen(false)}
+          />}
           {minigameOpen && <MiniGamePanel onClose={() => setMinigameOpen(false)} />}
           {potenoOpen && <PotenoPanel
             onClose={closePoteno}
@@ -4200,8 +4509,10 @@ export function SuuhimochiGame() {
             words={dictionaryEntries}
             farewellLetter={farewellLetter ? replaceCallName(farewellLetter, getPreferredCallName(save)) : null}
             cycleArchives={save.cycleArchives ?? []}
+            experienceFruitDates={[...new Set((save.experienceFruits ?? []).map((fruit) => fruit.sourceDate))]}
             onClose={() => setMemoryOpen(false)}
             onSaveDoneItems={saveJournalDoneItems}
+            onConfirmNoExperience={confirmNoExperience}
             onChangeGoalType={saveGoalType}
           />}
           {dictionaryOpen && <section className="dictionary-note" aria-label="すうひもちの辞書">
@@ -4248,7 +4559,7 @@ export function SuuhimochiGame() {
                 .map((item) => (
                   <div className={`item-tile${selectedItemId === item.id ? ' selected' : ''}`} key={item.id}>
                     <button className="item-tile-main" type="button" onClick={() => itemTab === 'stored' ? placeRoomItem(item.id) : setSelectedItemId(item.id)} aria-label={`${item.alt}を${itemTab === 'stored' ? '部屋に置く' : '部屋で確認する'}`}>
-                      <span className="item-tile-preview">{item.id === 'clock' ? <span className="item-card-mini-clock"><PixelClockDigits time={clockTime} /></span> : item.id === 'wall-clock' ? <span className="item-card-wall-clock"><WallClockFace time={clockTime} /></span> : item.id === 'wall-clock-digital' ? <span className="item-card-wall-clock"><WallClockDigitalFace time={clockTime} /></span> : <img src={item.src} alt="" draggable={false} />}</span>
+                      <span className="item-tile-preview">{item.id === 'clock' ? <span className="item-card-mini-clock"><PixelClockDigits time={clockTime} /></span> : item.id === 'wall-clock' ? <span className="item-card-wall-clock"><WallClockFace time={clockTime} /></span> : item.id === 'wall-clock-digital' ? <span className="item-card-wall-clock"><WallClockDigitalFace time={clockTime} /></span> : item.id === MASK_CASE_ITEM_ID ? <MaskDisplay stage={maskGrowthStage} compact /> : <img src={item.src} alt="" draggable={false} />}</span>
                       <span className="item-tile-name">{item.alt}</span>
                     </button>
                     {itemTab === 'stored' ? (

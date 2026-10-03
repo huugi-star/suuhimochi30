@@ -25,6 +25,13 @@ import {
   pickPromptedLearningAxis,
   pickPromptedLearningQuestion,
 } from './promptedLearningData';
+import { buildMemoryConversationCandidate, memoryPairKey, memoryWordKey } from './memoryConversationEngine';
+import type {
+  MemoryAfterthought,
+  MemoryCalloutKind,
+  MemoryConversationCandidate,
+  MemoryConversationRecord,
+} from './memoryConversationTypes';
 import type {
   CategoryChoice,
   ConversationChoice,
@@ -76,6 +83,7 @@ export type {
   WordCategory,
   WordEntry,
 } from './conversationTypes';
+export type { MemoryConversationRecord } from './memoryConversationTypes';
 
 const STORAGE_KEY = 'suuhimochi_conversation_v6_choices';
 const INTERNAL_TOPICS = new Set(['今日の調子', '30日の目標']);
@@ -158,6 +166,13 @@ type StoredState = {
   promptedQuestionCounts: Record<string, number>;
   promptedStarterCounts: Record<string, number>;
   oshiLoveCounts: Record<string, number>;
+  memoryConversationRecords: MemoryConversationRecord[];
+  memoryConversationRecentTemplateIds: string[];
+  memoryConversationRecentWordKeys: string[];
+  memoryConversationRecentPairKeys: string[];
+  memoryConversationRecentCalloutKinds: MemoryCalloutKind[];
+  memoryConversationAfterthoughts: MemoryAfterthought[];
+  normalConversationDeck: Array<'MEMORY' | 'OTHER'>;
 };
 
 type Session = {
@@ -202,6 +217,13 @@ function emptyState(): StoredState {
     promptedQuestionCounts: Object.create(null),
     promptedStarterCounts: Object.create(null),
     oshiLoveCounts: Object.create(null),
+    memoryConversationRecords: [],
+    memoryConversationRecentTemplateIds: [],
+    memoryConversationRecentWordKeys: [],
+    memoryConversationRecentPairKeys: [],
+    memoryConversationRecentCalloutKinds: [],
+    memoryConversationAfterthoughts: [],
+    normalConversationDeck: [],
   };
 }
 
@@ -218,7 +240,7 @@ function cleanText(value: string) {
   return value.normalize('NFKC').trim();
 }
 
-function pushRecent(items: string[], value: string, max: number) {
+function pushRecent<T extends string>(items: T[], value: T, max: number) {
   const next = items.filter((item) => item !== value);
   next.unshift(value);
   return next.slice(0, max);
@@ -254,6 +276,9 @@ export class SuuhimochiConversation {
   private farewellQueue: string[] = [];
   private sessionSequence = 0;
   private debug: DebugSnapshot;
+  private pendingMemoryConversation: MemoryConversationCandidate | null = null;
+  private preparedAmbientConversation: MemoryConversationCandidate | null = null;
+  private preparedAmbientOffer = false;
 
   constructor(options: { storage?: StorageLike; random?: () => number; now?: () => Date } = {}) {
     this.storage = options.storage ?? (typeof localStorage === 'undefined' ? memoryStorage() : localStorage);
@@ -328,6 +353,13 @@ export class SuuhimochiConversation {
         promptedQuestionCounts: Object.assign(Object.create(null), parsed.promptedQuestionCounts ?? {}),
         promptedStarterCounts: Object.assign(Object.create(null), parsed.promptedStarterCounts ?? {}),
         oshiLoveCounts: Object.assign(Object.create(null), parsed.oshiLoveCounts ?? {}),
+        memoryConversationRecords: parsed.memoryConversationRecords ?? [],
+        memoryConversationRecentTemplateIds: parsed.memoryConversationRecentTemplateIds ?? [],
+        memoryConversationRecentWordKeys: parsed.memoryConversationRecentWordKeys ?? [],
+        memoryConversationRecentPairKeys: parsed.memoryConversationRecentPairKeys ?? [],
+        memoryConversationRecentCalloutKinds: parsed.memoryConversationRecentCalloutKinds ?? [],
+        memoryConversationAfterthoughts: parsed.memoryConversationAfterthoughts ?? [],
+        normalConversationDeck: parsed.normalConversationDeck ?? [],
       };
     } catch {
       return emptyState();
@@ -458,6 +490,35 @@ export class SuuhimochiConversation {
     return this.openPromptedLearningQuestion();
   }
 
+  /**
+   * Selects and freezes a room-originated memory conversation before its
+   * callout is shown. Clicking the callout therefore cannot reroll the topic.
+   */
+  prepareAmbientMemoryConversation(): string | null {
+    this.preparedAmbientConversation = null;
+    this.preparedAmbientOffer = true;
+    if (!this.state.goalText || this.state.ended || this.getCurrentDay() >= 30) return null;
+    this.ensureNormalConversationDeck();
+    if (this.state.normalConversationDeck[0] !== 'MEMORY') return null;
+    const candidate = this.buildMemoryCandidate();
+    if (!candidate) return null;
+    this.preparedAmbientConversation = candidate;
+    return candidate.callout;
+  }
+
+  startPreparedAmbientConversation(): ConversationResponse {
+    const candidate = this.preparedAmbientConversation;
+    this.preparedAmbientConversation = null;
+    const slot = this.preparedAmbientOffer ? this.takeNormalConversationSlot() : 'OTHER';
+    this.preparedAmbientOffer = false;
+    if (slot !== 'MEMORY' || !candidate || !this.memoryCandidateStillValid(candidate)) return this.startPromptedLearning();
+    this.rememberSession();
+    this.session = this.blankSession();
+    this.state.conversationCount += 1;
+    this.save();
+    return this.openMemoryConversation(candidate);
+  }
+
   submit(text: string): ConversationResponse {
     const surface = text.trim();
     const value = cleanText(text);
@@ -557,6 +618,8 @@ export class SuuhimochiConversation {
         return OSHI_CONFIRM_CHOICES;
       case 'WORD_RECENCY':
         return WORD_RECENCY_CHOICES;
+      case 'MEMORY_REFLECTION':
+        return this.pendingMemoryConversation?.choices.map(({ id, label }) => ({ id, label })) ?? [];
       case 'GOAL_STATUS':
         return GOAL_STATUS_CHOICES;
       case 'GOAL_ACTION':
@@ -642,6 +705,9 @@ export class SuuhimochiConversation {
     this.session = this.blankSession();
     this.debug = this.blankDebug();
     this.farewellQueue = [];
+    this.pendingMemoryConversation = null;
+    this.preparedAmbientConversation = null;
+    this.preparedAmbientOffer = false;
     this.ensureStartDate();
   }
 
@@ -656,6 +722,9 @@ export class SuuhimochiConversation {
     this.session = this.blankSession();
     this.debug = this.blankDebug();
     this.farewellQueue = [];
+    this.pendingMemoryConversation = null;
+    this.preparedAmbientConversation = null;
+    this.preparedAmbientOffer = false;
     this.state.startDate = this.dateKey();
     this.state.goalText = goal || UNDECIDED_GOAL;
     this.state.goalSetAt = this.dateKey();
@@ -689,11 +758,19 @@ export class SuuhimochiConversation {
    * dictionary display, and learned-word selection stop using this entry.
    */
   forgetWord(surface: string) {
-    const key = cleanText(surface);
-    if (!key || !this.state.words[key]) return false;
-    delete this.state.words[key];
-    if (this.state.lastWordSurface === key) this.state.lastWordSurface = null;
-    this.state.relations = this.state.relations.filter((relation) => relation.object !== key);
+    const normalized = cleanText(surface).toLowerCase();
+    const storedKey = Object.keys(this.state.words).find((key) => cleanText(key).toLowerCase() === normalized);
+    if (!normalized || !storedKey) return false;
+    const memoryKey = memoryWordKey(this.state.words[storedKey]!);
+    delete this.state.words[storedKey];
+    if (this.state.lastWordSurface === storedKey) this.state.lastWordSurface = null;
+    this.state.relations = this.state.relations.filter((relation) => cleanText(relation.object).toLowerCase() !== normalized);
+    this.state.memoryConversationRecords = this.state.memoryConversationRecords.filter((record) => !record.wordKeys.includes(memoryKey));
+    this.state.memoryConversationAfterthoughts = this.state.memoryConversationAfterthoughts.filter((item) => !item.wordKeys.includes(memoryKey));
+    this.state.memoryConversationRecentWordKeys = this.state.memoryConversationRecentWordKeys.filter((key) => key !== memoryKey);
+    this.state.memoryConversationRecentPairKeys = this.state.memoryConversationRecentPairKeys.filter((key) => !key.split('::').includes(memoryKey));
+    if (this.pendingMemoryConversation?.wordKeys.includes(memoryKey)) this.pendingMemoryConversation = null;
+    if (this.preparedAmbientConversation?.wordKeys.includes(memoryKey)) this.preparedAmbientConversation = null;
     this.save();
     return true;
   }
@@ -714,12 +791,31 @@ export class SuuhimochiConversation {
     return [...this.state.conversations];
   }
 
+  getMemoryConversationRecords() {
+    return this.state.memoryConversationRecords.map((record) => ({
+      ...record,
+      wordKeys: [...record.wordKeys],
+      evidence: record.evidence.map((item) => ({ ...item })),
+    }));
+  }
+
   getAmbientMemoryLine(): string | null {
+    while (this.state.memoryConversationAfterthoughts.length) {
+      const afterthought = this.state.memoryConversationAfterthoughts.shift();
+      if (!afterthought) break;
+      const currentKeys = new Set(Object.values(this.state.words).map(memoryWordKey));
+      if (!afterthought.wordKeys.every((key) => currentKeys.has(key))) continue;
+      this.save();
+      return afterthought.line;
+    }
     const words = Object.values(this.state.words)
       .filter((word) => !INTERNAL_TOPICS.has(word.surface) && !SYSTEM_WORDS.has(word.surface));
     if (!words.length) return null;
     const picked = words[Math.floor(this.random() * words.length)];
     if (!picked) return null;
+    if (picked.category === 'UNKNOWN') {
+      return `${quote(picked.surface)}は名前だけ覚えてるの。何なのかは、まだ人間さんに聞けてないの。`;
+    }
     const promptedRecall = buildPromptedLearningRecall(
       picked.attributes['promptedQuestionId'],
       picked.attributes['promptedLastAxisId'],
@@ -823,12 +919,74 @@ export class SuuhimochiConversation {
 
   private openNormalConversation(): ConversationResponse {
     const words = this.learnedWordEntries();
-    const roll = this.random();
+    const slot = this.takeNormalConversationSlot();
+    if (slot === 'MEMORY') {
+      const candidate = this.buildMemoryCandidate();
+      if (candidate) return this.openMemoryConversation(candidate);
+      // Older saves may have categorized words but no structured prompted
+      // answers yet. Keep the legacy recall available until enough evidence
+      // has been learned for the richer conversation.
+      if (words.length) return this.openRecall(words);
+    }
+    if (!words.length || this.random() < 0.38) return this.openNewWord();
+    if (this.random() < 0.62) return this.openPromptedLearningQuestion();
+    return this.openMood();
+  }
 
-    if (!words.length || roll < 0.25) return this.openNewWord();
-    if (roll < 0.43) return this.openPromptedLearningQuestion();
-    if (roll < 0.62) return this.openMood();
-    return this.openRecall(words);
+  private takeNormalConversationSlot(): 'MEMORY' | 'OTHER' {
+    this.ensureNormalConversationDeck();
+    const slot = this.state.normalConversationDeck.shift() ?? 'OTHER';
+    this.save();
+    return slot;
+  }
+
+  private ensureNormalConversationDeck() {
+    if (!this.state.normalConversationDeck.length) {
+      const deck: Array<'MEMORY' | 'OTHER'> = ['MEMORY', 'MEMORY', 'MEMORY', 'MEMORY', 'OTHER', 'OTHER'];
+      for (let index = deck.length - 1; index > 0; index -= 1) {
+        const swap = Math.floor(this.random() * (index + 1));
+        [deck[index], deck[swap]] = [deck[swap]!, deck[index]!];
+      }
+      this.state.normalConversationDeck = deck;
+      this.save();
+    }
+  }
+
+  private buildMemoryCandidate() {
+    return buildMemoryConversationCandidate(this.learnedWordEntries(), {
+      recentTemplateIds: this.state.memoryConversationRecentTemplateIds,
+      recentWordKeys: this.state.memoryConversationRecentWordKeys,
+      recentPairKeys: this.state.memoryConversationRecentPairKeys,
+      recentCalloutKinds: this.state.memoryConversationRecentCalloutKinds,
+      records: this.state.memoryConversationRecords,
+    }, this.random);
+  }
+
+  private memoryCandidateStillValid(candidate: MemoryConversationCandidate) {
+    const currentKeys = new Set(this.learnedWordEntries().map(memoryWordKey));
+    return candidate.wordKeys.every((key) => currentKeys.has(key));
+  }
+
+  private openMemoryConversation(candidate: MemoryConversationCandidate): ConversationResponse {
+    if (!this.memoryCandidateStillValid(candidate)) return this.openPromptedLearningQuestion();
+    this.pendingMemoryConversation = candidate;
+    this.state.lastNormalMode = 'RECALL';
+    this.session.stage = 'followup';
+    this.session.phase = 'CHAT';
+    this.session.startType = 'RECALL';
+    this.session.expected = 'MEMORY_REFLECTION';
+    this.session.inputMode = 'choice';
+    this.session.topic = candidate.evidence[0]?.wordSurface ?? candidate.wordKeys[0] ?? null;
+    this.session.choices = candidate.choices.map(({ id, label }) => ({ id, label }));
+    this.session.attributes['memoryTemplateId'] = candidate.templateId;
+    this.session.attributes['memoryFamily'] = candidate.family;
+    this.session.attributes['memoryWordKeys'] = candidate.wordKeys.join('|');
+    for (const word of this.learnedWordEntries().filter((item) => candidate.wordKeys.includes(memoryWordKey(item)))) {
+      word.lastRecalled = this.dateKey();
+      word.lastReferencedAt = this.now().getTime();
+    }
+    this.save();
+    return this.respond(candidate.lines, 'followup', 'choice', `MEMORY_${candidate.family}`);
   }
 
   private openPromptedLearningQuestion(preface: string[] = []): ConversationResponse {
@@ -1294,6 +1452,8 @@ export class SuuhimochiConversation {
         return this.handleOshiChoice(choice);
       case 'WORD_RECENCY':
         return this.handleWordRecencyChoice(choice);
+      case 'MEMORY_REFLECTION':
+        return this.handleMemoryConversationChoice(choice);
       case 'GOAL_STATUS':
         return this.handleGoalStatusChoice(choice);
       case 'GOAL_ACTION':
@@ -1378,6 +1538,63 @@ export class SuuhimochiConversation {
     if (choice.id === 'WORD_OFTEN') return this.finishConversation(['まだよく出会うコトバなんだね。']);
     if (choice.id === 'WORD_NOT_RECENT') return this.finishConversation(['最近はあんまり出てこないんだね。']);
     return this.finishConversation(['たまに出会うくらいなんだね。']);
+  }
+
+  private handleMemoryConversationChoice(choice: ConversationChoice): ConversationResponse {
+    const candidate = this.pendingMemoryConversation;
+    const selected = candidate?.choices.find((item) => item.id === choice.id);
+    if (!candidate || !selected || !this.memoryCandidateStillValid(candidate)) {
+      this.pendingMemoryConversation = null;
+      return this.finishConversation(['うまく続きを受け取れなかったの。また別の時に話すの。']);
+    }
+
+    const record: MemoryConversationRecord = {
+      id: `memory_conversation_${this.now().getTime()}_${this.state.memoryConversationRecords.length + 1}`,
+      templateId: candidate.templateId,
+      family: candidate.family,
+      calloutKind: candidate.calloutKind,
+      wordKeys: [...candidate.wordKeys],
+      evidence: candidate.evidence.map((item) => ({ ...item })),
+      hypothesis: candidate.hypothesis,
+      choiceId: selected.id,
+      choiceLabel: selected.label,
+      responseMeaning: selected.meaning,
+      reaction: selected.reaction,
+      date: this.now().toISOString(),
+      day: this.getCurrentDay(),
+      usedAsContinuation: false,
+    };
+    if (candidate.continuationOf) {
+      const previous = this.state.memoryConversationRecords.find((item) => item.id === candidate.continuationOf);
+      if (previous) previous.usedAsContinuation = true;
+    }
+    this.state.memoryConversationRecords.push(record);
+    this.state.memoryConversationRecentTemplateIds = pushRecent(this.state.memoryConversationRecentTemplateIds, candidate.templateId, 12);
+    this.state.memoryConversationRecentWordKeys = candidate.wordKeys.reduce((items, key) => pushRecent(items, key, 10), this.state.memoryConversationRecentWordKeys);
+    if (candidate.wordKeys.length === 2) {
+      this.state.memoryConversationRecentPairKeys = pushRecent(
+        this.state.memoryConversationRecentPairKeys,
+        memoryPairKey(candidate.wordKeys[0] ?? '', candidate.wordKeys[1] ?? ''),
+        8,
+      );
+    }
+    this.state.memoryConversationRecentCalloutKinds = pushRecent(
+      this.state.memoryConversationRecentCalloutKinds,
+      candidate.calloutKind,
+      6,
+    );
+    this.state.memoryConversationAfterthoughts.push({
+      id: `memory_afterthought_${this.now().getTime()}`,
+      recordId: record.id,
+      wordKeys: [...candidate.wordKeys],
+      line: selected.afterthought,
+      createdAt: this.now().toISOString(),
+    });
+    this.state.memoryConversationAfterthoughts = this.state.memoryConversationAfterthoughts.slice(-8);
+    this.pendingMemoryConversation = null;
+    this.recordEvent('TALK', candidate.evidence[0]?.wordSurface ?? this.session.topic ?? '想起会話', selected.meaning, 'NEUTRAL');
+    this.save();
+    return this.finishConversation(selected.reply);
   }
 
   private handleGoalStatusChoice(choice: ConversationChoice): ConversationResponse {
