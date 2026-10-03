@@ -86,15 +86,23 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   const [conversions, setConversions] = useState<SuuhimochiConversion[]>(() => loadSuuhimochiConversions());
   const [activeFlick, setActiveFlick] = useState<{ key: FlickKey; direction: FlickDirection } | null>(null);
   const [visualViewport, setVisualViewport] = useState<{ top: number; height: number } | null>(null);
+  const [caretPosition, setCaretPosition] = useState(value.length);
   const displayRef = useRef<HTMLTextAreaElement>(null);
+  const displayMirrorRef = useRef<HTMLDivElement>(null);
   const nativeRef = useRef<HTMLTextAreaElement>(null);
   const cursorRef = useRef(value.length);
+  const previousValueRef = useRef(value);
   const nativeSourceRef = useRef('');
+  const nativeSelectionRef = useRef({ start: value.length, end: value.length });
   const composingRef = useRef(false);
   const flickRef = useRef<{ pointerId: number; x: number; y: number; key: FlickKey; direction: FlickDirection } | null>(null);
 
   useEffect(() => {
-    cursorRef.current = Math.min(cursorRef.current, value.length);
+    const externalValueWasInserted = previousValueRef.current.length === 0 && value.length > 0 && cursorRef.current === 0;
+    const nextCaret = externalValueWasInserted ? value.length : Math.min(cursorRef.current, value.length);
+    cursorRef.current = nextCaret;
+    setCaretPosition(nextCaret);
+    previousValueRef.current = value;
   }, [value]);
 
   useEffect(() => {
@@ -107,7 +115,9 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     const frame = window.requestAnimationFrame(() => {
       nativeRef.current?.focus({ preventScroll: true });
       const nativeValueLength = nativeRef.current?.value.length ?? 0;
-      nativeRef.current?.setSelectionRange(0, nativeValueLength);
+      const start = Math.min(nativeSelectionRef.current.start, nativeValueLength);
+      const end = Math.min(Math.max(start, nativeSelectionRef.current.end), nativeValueLength);
+      nativeRef.current?.setSelectionRange(start, end);
     });
     return () => {
       window.cancelAnimationFrame(frame);
@@ -128,6 +138,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     const next = value.slice(0, start) + insertion + value.slice(end);
     const cursor = start + insertion.length;
     cursorRef.current = cursor;
+    setCaretPosition(cursor);
     onChange(next);
     setShowCandidates(false);
     window.requestAnimationFrame(() => displayRef.current?.setSelectionRange(cursor, cursor));
@@ -142,6 +153,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     if (!replacement) return;
     const next = value.slice(0, cursor - 1) + replacement + value.slice(cursor);
     onChange(next);
+    setCaretPosition(cursor);
     setShowCandidates(false);
     window.requestAnimationFrame(() => displayRef.current?.setSelectionRange(cursor, cursor));
   }
@@ -162,6 +174,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     const from = start === end ? start - 1 : start;
     const next = value.slice(0, from) + value.slice(end);
     cursorRef.current = from;
+    setCaretPosition(from);
     onChange(next);
     setShowCandidates(false);
     window.requestAnimationFrame(() => displayRef.current?.setSelectionRange(from, from));
@@ -193,7 +206,11 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   }
 
   function enterNativeMode() {
+    const input = displayRef.current;
+    const start = input?.selectionStart ?? cursorRef.current;
+    const end = input?.selectionEnd ?? start;
     nativeSourceRef.current = value;
+    nativeSelectionRef.current = { start, end };
     composingRef.current = false;
     setNativeMode(true);
     setShowCandidates(false);
@@ -202,15 +219,22 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   function finishNativeMode() {
     if (composingRef.current) return;
     const source = nativeSourceRef.current;
+    const input = nativeRef.current;
+    const nextCursor = input?.selectionDirection === 'backward'
+      ? (input.selectionStart ?? value.length)
+      : (input?.selectionEnd ?? value.length);
     setConversions(saveSuuhimochiConversion(source, value));
-    cursorRef.current = value.length;
+    cursorRef.current = nextCursor;
+    setCaretPosition(nextCursor);
     setNativeMode(false);
+    window.requestAnimationFrame(() => displayRef.current?.setSelectionRange(nextCursor, nextCursor));
   }
 
   function chooseConversion(converted: string) {
     const source = value;
     onChange(converted);
     cursorRef.current = converted.length;
+    setCaretPosition(converted.length);
     setConversions(markSuuhimochiConversionUsed(source, converted));
     setShowCandidates(false);
   }
@@ -218,6 +242,20 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   function closeGuide() {
     setGuideOpen(false);
     try { window.localStorage.setItem(SUUHIMOCHI_KEYBOARD_GUIDE_KEY, '1'); } catch { /* Continue without persistence. */ }
+  }
+
+  function syncDisplaySelection() {
+    const input = displayRef.current;
+    if (!input) return;
+    const position = input.selectionDirection === 'backward' ? input.selectionStart : input.selectionEnd;
+    cursorRef.current = position;
+    setCaretPosition(position);
+  }
+
+  function syncDisplayScroll() {
+    if (!displayRef.current || !displayMirrorRef.current) return;
+    displayMirrorRef.current.scrollTop = displayRef.current.scrollTop;
+    displayMirrorRef.current.scrollLeft = displayRef.current.scrollLeft;
   }
 
   const nativeStyle = visualViewport ? {
@@ -230,13 +268,13 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
       {guideOpen && <aside className="suuhimochi-keyboard-guide" aria-label="すうひもちキーボードの説明">
         <b>すうひもち</b>
         <p>人間さんの言葉は分かるんだけど、漢字の書き方にはまだ自信がないの。</p>
-        <p>知らない漢字は「漢字を伝える」から教えてほしいの。</p>
+        <p>知らない漢字は「漢字を手に入れる」から教えてほしいの。</p>
         <small>一度使った変換は、次から「漢字変換」で使えます。</small>
         <button type="button" onClick={closeGuide}>わかった</button>
       </aside>}
 
       {nativeMode ? <div className="suuhimochi-native-editor">
-        <header><b>漢字を伝える</b><small>入力済みの文をそのまま編集できます</small></header>
+        <header><b>漢字を手に入れる</b><small>標準キーボードで文章を編集できます</small></header>
         <textarea
           ref={nativeRef}
           value={value}
@@ -246,24 +284,41 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
           onCompositionStart={() => { composingRef.current = true; }}
           onCompositionUpdate={() => { composingRef.current = true; }}
           onCompositionEnd={() => { composingRef.current = false; }}
+          onSelect={(event) => {
+            nativeSelectionRef.current = {
+              start: event.currentTarget.selectionStart,
+              end: event.currentTarget.selectionEnd,
+            };
+          }}
           onKeyDown={(event) => {
             if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing || composingRef.current) return;
             event.preventDefault();
             finishNativeMode();
           }}
         />
-        <button className="suuhimochi-native-finish" type="button" onClick={finishNativeMode}>変換を確定</button>
+        <button className="suuhimochi-native-finish" type="button" onClick={finishNativeMode}>編集を確定</button>
       </div> : <>
-        <textarea
-          ref={displayRef}
-          className="suuhimochi-keyboard-display"
-          value={value}
-          readOnly
-          inputMode="none"
-          aria-label={ariaLabel}
-          placeholder={placeholder}
-          onSelect={(event) => { cursorRef.current = event.currentTarget.selectionStart; }}
-        />
+        <div className="suuhimochi-keyboard-display-shell">
+          <div ref={displayMirrorRef} className="suuhimochi-keyboard-display-mirror" aria-hidden="true">
+            <span>{value.slice(0, caretPosition)}</span>
+            <span className="suuhimochi-keyboard-caret" />
+            <span>{value.slice(caretPosition)}</span>
+            {!value && <span className="suuhimochi-keyboard-placeholder">{placeholder}</span>}
+          </div>
+          <textarea
+            ref={displayRef}
+            className="suuhimochi-keyboard-display"
+            value={value}
+            readOnly
+            inputMode="none"
+            aria-label={ariaLabel}
+            onSelect={syncDisplaySelection}
+            onClick={syncDisplaySelection}
+            onPointerUp={() => window.requestAnimationFrame(syncDisplaySelection)}
+            onKeyUp={syncDisplaySelection}
+            onScroll={syncDisplayScroll}
+          />
+        </div>
 
         {showCandidates && <div className="suuhimochi-conversion-candidates" aria-label="漢字変換候補">
           {candidates.length > 0
@@ -305,8 +360,8 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
         </div>
 
         <div className="suuhimochi-kanji-actions">
-          <button type="button" onClick={() => setShowCandidates(true)}><b>漢字変換</b><small>知っている漢字に変える</small></button>
-          <button type="button" onClick={enterNativeMode}><b>漢字を伝える</b><small>標準キーボードで変換する</small></button>
+          <button type="button" onClick={() => setShowCandidates(true)}><b>漢字変換</b><small>覚えている変換を使う</small></button>
+          <button type="button" onClick={enterNativeMode}><b>漢字を手に入れる</b><small>標準キーボードを使う</small></button>
         </div>
       </>}
     </section>

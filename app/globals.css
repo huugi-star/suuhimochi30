@@ -969,32 +969,97 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   }
 
   .mobile-landscape .suuhimochi-keyboard button:focus-visible,
-  .mobile-landscape .suuhimochi-keyboard-display:focus-visible,
   .mobile-landscape .suuhimochi-native-editor textarea:focus-visible {
     outline: 3px solid rgba(195, 105, 60, .5);
     outline-offset: 1px;
   }
 
-  .mobile-landscape .suuhimochi-keyboard-display {
+  .mobile-landscape .suuhimochi-keyboard-display-shell {
+    position: relative;
     display: block;
     width: 100%;
     height: 44px;
     min-height: 44px;
-    resize: none;
-    overflow-y: auto;
     border: 1px solid rgba(104, 70, 46, .5);
     border-radius: 9px;
-    padding: 8px 10px;
-    color: #33271f;
     background: rgba(255, 255, 252, .92);
+    overflow: hidden;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-display-shell:focus-within {
+    outline: 3px solid rgba(195, 105, 60, .5);
+    outline-offset: 1px;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-display,
+  .mobile-landscape .suuhimochi-keyboard-display-mirror {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 8px 10px;
+    overflow: auto;
+    border: 0;
+    border-radius: inherit;
     font: inherit;
     font-size: clamp(.82rem, 1.75vw, 1rem);
     line-height: 1.4;
-    caret-color: #ad4f37;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: normal;
   }
 
-  .mobile-landscape .suuhimochi-keyboard-display::placeholder {
+  .mobile-landscape .suuhimochi-keyboard-display-mirror {
+    z-index: 1;
+    color: #33271f;
+    pointer-events: none;
+    scrollbar-width: none;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-display-mirror::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-display {
+    z-index: 2;
+    resize: none;
+    color: transparent;
+    background: transparent;
+    caret-color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-display::selection {
+    color: transparent;
+    background: rgba(187, 113, 76, .16);
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-caret {
+    display: inline-block;
+    width: 2px;
+    height: 1.18em;
+    margin: 0 -1px;
+    vertical-align: -.19em;
+    border-radius: 2px;
+    background: #a84934;
+    animation: suuhimochi-caret-blink 1s steps(1, end) infinite;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-placeholder {
     color: #958171;
+  }
+
+  @keyframes suuhimochi-caret-blink {
+    0%, 48% { opacity: 1; }
+    49%, 100% { opacity: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-landscape .suuhimochi-keyboard-caret {
+      animation-duration: 1.8s;
+    }
   }
 
   .mobile-landscape .suuhimochi-keyboard-modes {
@@ -1276,9 +1341,13 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     padding: 5px;
   }
 
-  .mobile-landscape .suuhimochi-keyboard-display {
+  .mobile-landscape .suuhimochi-keyboard-display-shell {
     height: 36px;
     min-height: 36px;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-display,
+  .mobile-landscape .suuhimochi-keyboard-display-mirror {
     padding: 5px 8px;
   }
 
