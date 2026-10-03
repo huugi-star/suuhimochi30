@@ -10,6 +10,7 @@ import { GraduationFlow } from '@/components/GraduationFlow';
 import { JournalPanel } from '@/components/JournalPanel';
 import { FoodPanel } from '@/components/FoodPanel';
 import { MaskDisplay, type MaskGrowthStage } from '@/components/MaskDisplay';
+import { StartupLoadingScreen } from '@/components/StartupLoadingScreen';
 import { MOCHI_STATES, TYPE_ACCENTS, type MochiState } from '@/lib/characterData';
 import { INTRO_LINES, pickRoomMonologue } from '@/lib/dialogueData';
 import { pickSleepDialogue } from '@/lib/sleepDialogueData';
@@ -21,6 +22,7 @@ import type { SixDivinationRecord } from '@/lib/potenoSixDivination';
 import { createThirtyDayCycleArchive, type GraduationFootprint, type GraduationHandoffAdvice, type NextGoalChoice } from '@/lib/graduation';
 import { TWO_DAY_REVIEW_GOAL_TYPES, type TwoDayReviewGoalType, type TwoDayReviewRecord } from '@/lib/twoDayReview';
 import { createExperienceFruitBatch, getExperienceMealStatus, getFoodActivityDate, getPersonaStage, isFruitSpoiled, type ExperienceFruitRecord } from '@/lib/food';
+import { BACKGROUND_PRELOAD_ASSETS, preloadCriticalImages, preloadImagesInIdleBatches, STARTUP_CRITICAL_ASSETS, uniqueImageSources } from '@/lib/imagePreload';
 import { advanceDialogue, createDialogueRuntime, getDialogueNode, resolveDialogueText, type DialogueRuntime } from '@/lib/miniDialogueRunner';
 import { closetScare } from '@/lib/miniDialogueScripts';
 import { PERSON_DIALOGUE_SCRIPTS } from '@/lib/miniDialogueAdditionalScripts';
@@ -521,6 +523,8 @@ export function SuuhimochiGame() {
   const [phase, setPhase] = useState<Phase>('title');
   const [birthday, setBirthday] = useState('');
   const [hydrated, setHydrated] = useState(false);
+  const [appReady, setAppReady] = useState(false);
+  const [startupProgress, setStartupProgress] = useState(0);
   const [revealBeat, setRevealBeat] = useState(-1);
   const [introLine, setIntroLine] = useState(0);
   const [permissionStep, setPermissionStep] = useState(0);
@@ -664,7 +668,7 @@ export function SuuhimochiGame() {
   const maskGrowthStage: MaskGrowthStage = save.personaStage ?? getPersonaStage(save.personaExp ?? 0);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !appReady) return;
     const previousStage = previousMaskGrowthStageRef.current;
     previousMaskGrowthStageRef.current = maskGrowthStage;
     if (previousStage === null || maskGrowthStage <= previousStage) return;
@@ -684,9 +688,10 @@ export function SuuhimochiGame() {
       if (maskGrowthTimerRef.current !== null) window.clearTimeout(maskGrowthTimerRef.current);
       maskGrowthTimerRef.current = null;
     };
-  }, [hydrated, maskGrowthStage]);
+  }, [appReady, hydrated, maskGrowthStage]);
 
   useEffect(() => {
+    if (!appReady) return;
     const mobileQuery = window.matchMedia('(max-width: 700px) and (orientation: portrait)');
     const syncRoomViewport = () => {
       const viewport = roomRef.current?.getBoundingClientRect();
@@ -705,7 +710,7 @@ export function SuuhimochiGame() {
       mobileQuery.removeEventListener?.('change', syncRoomViewport);
       window.removeEventListener('resize', syncRoomViewport);
     };
-  }, [hydrated]);
+  }, [appReady, hydrated]);
 
   const clampRoomPan = useCallback((value: number) => {
     const viewport = roomRef.current?.getBoundingClientRect();
@@ -1301,7 +1306,7 @@ export function SuuhimochiGame() {
   // preview selector, controls this routine.  At 07:00 the usual gentle
   // get-up motion returns them to the room.
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !appReady) return;
 
     if (!isScheduledSleepTimeNow) {
       if (automaticSleepRef.current || nightWakeOverrideRef.current) {
@@ -1324,7 +1329,7 @@ export function SuuhimochiGame() {
     const bedId = ROOM_ITEMS.find((item) => BED_ITEM_IDS.has(item.id) && !storedItemIds.includes(item.id))?.id;
     if (!bedId || (mochiState === 'sleep' && sleepingBedId) || bedSleepTargetRef.current) return;
     startBedSleep(bedId);
-  }, [foodOpen, hydrated, isScheduledSleepTimeNow, itemOpen, minigameOpen, mochiState, phase, potenoOpen, settingsOpen, sleepingBedId, startBedSleep, storedItemIds, talkOpen, talkReturning, wakeFromBed]);
+  }, [appReady, foodOpen, hydrated, isScheduledSleepTimeNow, itemOpen, minigameOpen, mochiState, phase, potenoOpen, settingsOpen, sleepingBedId, startBedSleep, storedItemIds, talkOpen, talkReturning, wakeFromBed]);
 
   useEffect(() => {
     bubbleRef.current = bubble;
@@ -1519,7 +1524,7 @@ export function SuuhimochiGame() {
   }, [dailyProgressOpen, foodMealStatus.mealsEaten, foodMealStatus.state, foodOpen, hasDeferredExperienceDay, hasFreshExperienceFruit, isScheduledSleepTimeNow, pendingTwoDayReview, potenoOpen, save.callName, save.mochiType, save.userName, sleepingBedId, twoDayReviewTalkOpen]);
 
   useEffect(() => {
-    if (!isScheduledSleepTimeNow || phase !== 'home' || talkOpen || mochiState !== 'sleep' || !sleepingBedId) return;
+    if (!appReady || !isScheduledSleepTimeNow || phase !== 'home' || talkOpen || mochiState !== 'sleep' || !sleepingBedId) return;
 
     let nextLineTimer: number | null = null;
     let closeBubbleTimer: number | null = null;
@@ -1560,10 +1565,10 @@ export function SuuhimochiGame() {
       if (nextLineTimer !== null) window.clearTimeout(nextLineTimer);
       if (closeBubbleTimer !== null) window.clearTimeout(closeBubbleTimer);
     };
-  }, [isScheduledSleepTimeNow, mochiState, phase, save.callName, save.userName, sleepingBedId, talkOpen]);
+  }, [appReady, isScheduledSleepTimeNow, mochiState, phase, save.callName, save.userName, sleepingBedId, talkOpen]);
 
   useEffect(() => {
-    if (phase !== 'home' || dailyProgressOpen || talkOpen || foodOpen || minigameOpen || potenoOpen || twoDayReviewTalkOpen || (isScheduledSleepTimeNow && !nightWakeOverrideRef.current)) return;
+    if (!appReady || phase !== 'home' || dailyProgressOpen || talkOpen || foodOpen || minigameOpen || potenoOpen || twoDayReviewTalkOpen || (isScheduledSleepTimeNow && !nightWakeOverrideRef.current)) return;
     const stateTimer = window.setInterval(() => {
       if (bubbleRef.current || sleepingBedId || bedSleepTargetRef.current || Date.now() < manualWalkUntil.current) return;
       const nextState = HOME_MOCHI_STATES[Math.floor(Math.random() * HOME_MOCHI_STATES.length)];
@@ -1573,7 +1578,7 @@ export function SuuhimochiGame() {
     const firstThought = window.setTimeout(saySomething, 4500);
     const thoughtTimer = window.setInterval(saySomething, 17500);
     return () => { window.clearInterval(stateTimer); window.clearTimeout(firstThought); window.clearInterval(thoughtTimer); };
-  }, [beginWalk, dailyProgressOpen, foodOpen, isScheduledSleepTimeNow, minigameOpen, phase, potenoOpen, saySomething, sleepingBedId, talkOpen, twoDayReviewTalkOpen]);
+  }, [appReady, beginWalk, dailyProgressOpen, foodOpen, isScheduledSleepTimeNow, minigameOpen, phase, potenoOpen, saySomething, sleepingBedId, talkOpen, twoDayReviewTalkOpen]);
 
   useEffect(() => () => {
     speechRun.current += 1;
@@ -1730,6 +1735,47 @@ export function SuuhimochiGame() {
   const currentTime = timeMode === 'auto' ? getAutoTime() : timeMode;
   const isDarkPeriod = currentTime === 'night' || currentTime === 'midnight';
   const roomBackground = getRoomBackground(currentTime, isDarkPeriod && lightsOut);
+  const startupCriticalAssets = useMemo(() => {
+    const visibleRoomItems = ROOM_ITEMS
+      .filter((item) => !storedItemIds.includes(item.id))
+      .map((item) => item.src);
+    const maskArtwork = storedItemIds.includes(MASK_CASE_ITEM_ID)
+      ? []
+      : ['/assets/kamen/kamen-0.png'];
+    return uniqueImageSources([
+      roomBackground,
+      // The title screen uses this softly blurred legacy room image.
+      '/assets/room-evening.png',
+      ...STARTUP_CRITICAL_ASSETS,
+      ...visibleRoomItems,
+      ...maskArtwork,
+    ]);
+  }, [roomBackground, storedItemIds]);
+
+  useEffect(() => {
+    if (!hydrated || appReady) return;
+    let cancelled = false;
+    void preloadCriticalImages(startupCriticalAssets, (loaded, total) => {
+      if (!cancelled) setStartupProgress(total > 0 ? loaded / total * 100 : 100);
+    }).then(({ results, sources }) => {
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn('[image-preload] Critical image failed:', sources[index], result.reason);
+        }
+      });
+      if (!cancelled) setAppReady(true);
+    });
+    return () => { cancelled = true; };
+  }, [appReady, hydrated, startupCriticalAssets]);
+
+  useEffect(() => {
+    if (!appReady) return;
+    const critical = new Set(startupCriticalAssets);
+    return preloadImagesInIdleBatches(
+      BACKGROUND_PRELOAD_ASSETS.filter((src) => !critical.has(src)),
+      { batchSize: 8, pauseMs: 160 },
+    );
+  }, [appReady, startupCriticalAssets]);
   const bedPromptPosition = bedPromptId ? (itemPositions[bedPromptId] ?? INITIAL_ITEM_POSITIONS[bedPromptId]) : null;
   const zoomRightArmPose: ZoomArmPose = zoomArmPose === 'down'
     ? 'down'
@@ -3110,10 +3156,10 @@ export function SuuhimochiGame() {
     ),
   );
 
-  if (!hydrated) return <main className="game-shell loading" aria-label="読み込み中" />;
+  if (!hydrated || !appReady) return <StartupLoadingScreen progress={startupProgress} />;
 
   if (phase === 'title') return (
-    <main className="title-screen">
+    <main className="title-screen startup-content-ready">
       <div className="title-dust" aria-hidden="true" />
       <section className="title-content">
         <span className="title-moon" aria-hidden="true">○</span>
@@ -3126,7 +3172,7 @@ export function SuuhimochiGame() {
   );
 
   if (phase === 'birthday') return (
-    <main className="birthday-screen">
+    <main className="birthday-screen startup-content-ready">
       <section className="birthday-card">
         <div className="birthday-companion" aria-hidden="true">
           <span className="birthday-companion-speech">こんにちはなの</span>
@@ -3155,7 +3201,7 @@ export function SuuhimochiGame() {
   );
 
   return (
-    <main className={`game-shell time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
+    <main className={`game-shell startup-content-ready time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
       <style>{`
         .mochi.mochi-conversation {
           z-index: 4 !important;
