@@ -23,8 +23,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .startup-loading-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #dc8258, #f3c16d); box-shadow: 0 0 9px rgba(255,199,105,.48); transition: width .18s ease; }
 .startup-loading-card output { display: block; margin-top: 8px; color: #eadbc5; font-size: .7rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .startup-content-ready { animation: startup-content-in .24s ease-out both; }
+.rotate-device-screen { position: fixed; z-index: 10000; inset: 0; display: grid; width: 100%; min-height: 100vh; min-height: 100dvh; place-items: center; overflow: hidden; padding: max(22px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); color: #fff8e8; background: radial-gradient(circle at 50% 36%, #41566a 0, #1b2939 46%, #0d151f 100%); }
+.rotate-device-screen::before { content: ""; position: absolute; inset: 0; opacity: .15; background-image: radial-gradient(circle, rgba(255,255,255,.9) 0 1px, transparent 1.5px); background-size: 51px 51px; animation: drift 18s linear infinite; }
+.rotate-device-card { position: relative; z-index: 1; display: grid; width: min(88vw, 390px); justify-items: center; gap: 9px; padding: 27px 25px 24px; border: 1px solid rgba(255,247,225,.32); border-radius: 25px; background: rgba(21,34,47,.76); box-shadow: 0 18px 48px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.13); text-align: center; backdrop-filter: blur(7px); }
+.rotate-device-poteno { color: #ffd995; font-size: .88rem; font-weight: 900; letter-spacing: .05em; }
+.rotate-device-icon { margin: 2px 0 5px; color: #f3c16d; filter: drop-shadow(0 0 10px rgba(243,193,109,.38)); animation: rotate-device-hint 1.8s ease-in-out infinite; }
+.rotate-device-card h1 { margin: 0; font: 700 clamp(1.08rem, 5vw, 1.42rem)/1.5 "Yu Mincho", "Hiragino Mincho ProN", serif; letter-spacing: .055em; }
+.rotate-device-card p { margin: 0; color: #dce5eb; font-size: .86rem; font-weight: 800; letter-spacing: .1em; }
 @keyframes startup-potepote { 0%,100% { transform: translateX(-3px) rotate(-1deg); } 50% { transform: translateX(3px) rotate(1deg); } }
 @keyframes startup-content-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rotate-device-hint { 0%,100% { transform: rotate(-18deg); } 50% { transform: rotate(18deg); } }
 
 .title-screen, .birthday-screen, .game-shell { min-height: 100svh; width: 100%; overflow: hidden; }
 
@@ -537,6 +545,138 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .dialogue-box p { line-height: 1.5; }
   .room-nav { bottom: 1%; }
   .mochi { width: 13%; }
+}
+
+/* Smartphone landscape only. The JS device check adds .mobile-landscape, so
+   a narrow desktop window never receives these overrides. */
+@media (max-width: 1024px) and (orientation: landscape) {
+  .title-screen.mobile-landscape,
+  .birthday-screen.mobile-landscape,
+  .game-shell.mobile-landscape {
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  .title-screen.mobile-landscape,
+  .birthday-screen.mobile-landscape {
+    overflow-y: auto;
+  }
+
+  .mobile-landscape .room {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    aspect-ratio: auto;
+    overflow: hidden;
+  }
+
+  .mobile-landscape .game-status {
+    top: max(5px, env(safe-area-inset-top));
+    left: max(9px, env(safe-area-inset-left));
+    right: max(9px, env(safe-area-inset-right));
+    padding-top: 0;
+  }
+
+  .mobile-landscape .room-nav {
+    bottom: max(5px, env(safe-area-inset-bottom));
+    width: min(720px, calc(100% - 18px));
+    max-width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px);
+    justify-content: flex-start;
+    gap: 1px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 3px;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .mobile-landscape .room-nav::-webkit-scrollbar { display: none; }
+  .mobile-landscape .room-nav button { flex: 1 0 57px; min-width: 57px; gap: 1px; padding: 4px 3px 3px; }
+  .mobile-landscape .room-nav button svg { width: 16px; height: 16px; }
+  .mobile-landscape .room-nav span { font-size: .54rem; white-space: nowrap; }
+
+  .mobile-landscape .item-note,
+  .mobile-landscape .settings-note,
+  .mobile-landscape .dictionary-note,
+  .mobile-landscape .food-panel,
+  .mobile-landscape .memory-note {
+    top: max(42px, calc(env(safe-area-inset-top) + 36px)) !important;
+    bottom: max(59px, calc(env(safe-area-inset-bottom) + 54px)) !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-landscape .memory-note { inset-inline: auto max(10px, env(safe-area-inset-right)); width: min(420px, 52vw); }
+  .mobile-landscape .item-note { width: min(430px, 52vw); }
+  .mobile-landscape .settings-note { width: min(390px, 48vw); }
+  .mobile-landscape .dictionary-note,
+  .mobile-landscape .food-panel { right: max(8px, env(safe-area-inset-right)); width: min(500px, calc(100% - 16px - env(safe-area-inset-left) - env(safe-area-inset-right))); }
+
+  .mobile-landscape .journal-overlay {
+    inset: max(38px, env(safe-area-inset-top)) max(44px, env(safe-area-inset-right)) max(55px, env(safe-area-inset-bottom)) max(44px, env(safe-area-inset-left)) !important;
+    align-items: start !important;
+    overflow-y: auto !important;
+    padding: 6px 42px !important;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-landscape .journal-book { width: min(820px, 100%) !important; max-height: none !important; }
+  .mobile-landscape .journal-page,
+  .mobile-landscape .journal-archive-sheet { max-height: calc(100dvh - 104px) !important; }
+
+  .mobile-landscape .daily-progress-overlay,
+  .mobile-landscape .graduation-overlay,
+  .mobile-landscape .two-day-review-talk {
+    padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-landscape .daily-progress-card,
+  .mobile-landscape .graduation-book,
+  .mobile-landscape .two-day-review-talk-card {
+    max-height: calc(100dvh - 16px) !important;
+    overflow-y: auto !important;
+  }
+
+  .mobile-landscape .poteno-actions {
+    top: max(38px, calc(env(safe-area-inset-top) + 34px)) !important;
+    bottom: max(58px, calc(env(safe-area-inset-bottom) + 53px)) !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-landscape .poteno-strategist-modal-backdrop {
+    padding: max(7px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(7px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)) !important;
+  }
+
+  .mobile-landscape .poteno-strategist-modal {
+    width: min(920px, 96vw) !important;
+    max-height: calc(100dvh - 14px) !important;
+    overflow-y: auto !important;
+  }
+
+  .mobile-landscape .minigame-overlay {
+    inset: max(38px, env(safe-area-inset-top)) max(7px, env(safe-area-inset-right)) max(55px, env(safe-area-inset-bottom)) max(7px, env(safe-area-inset-left)) !important;
+    padding: 5px !important;
+    overflow-y: auto !important;
+  }
+
+  .mobile-landscape .minigame-panel {
+    width: min(900px, 100%) !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+  }
+
+  .mobile-landscape input,
+  .mobile-landscape textarea,
+  .mobile-landscape select { scroll-margin-block: 72px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

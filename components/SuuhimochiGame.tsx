@@ -10,6 +10,7 @@ import { GraduationFlow } from '@/components/GraduationFlow';
 import { JournalPanel } from '@/components/JournalPanel';
 import { FoodPanel } from '@/components/FoodPanel';
 import { MaskDisplay, type MaskGrowthStage } from '@/components/MaskDisplay';
+import { RotateDeviceScreen } from '@/components/RotateDeviceScreen';
 import { StartupLoadingScreen } from '@/components/StartupLoadingScreen';
 import { MOCHI_STATES, TYPE_ACCENTS, type MochiState } from '@/lib/characterData';
 import { INTRO_LINES, pickRoomMonologue } from '@/lib/dialogueData';
@@ -559,6 +560,8 @@ export function SuuhimochiGame() {
   const [dailyProgressActivityDate, setDailyProgressActivityDate] = useState('');
   const [graduationOpen, setGraduationOpen] = useState(false);
   const [graduationPreview, setGraduationPreview] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [isMobilePortrait, setIsMobilePortrait] = useState(false);
   const [mobileRoomMode, setMobileRoomMode] = useState(false);
   const [roomPanX, setRoomPanX] = useState(0);
   const [roomOverview, setRoomOverview] = useState(false);
@@ -691,26 +694,34 @@ export function SuuhimochiGame() {
   }, [appReady, hydrated, maskGrowthStage]);
 
   useEffect(() => {
-    if (!appReady) return;
-    const mobileQuery = window.matchMedia('(max-width: 700px) and (orientation: portrait)');
-    const syncRoomViewport = () => {
-      const viewport = roomRef.current?.getBoundingClientRect();
-      setMobileRoomMode(mobileQuery.matches);
-      setRoomViewport({ width: viewport?.width ?? window.innerWidth, height: viewport?.height ?? window.innerHeight });
-      if (!mobileQuery.matches) {
+    const portraitQuery = window.matchMedia('(orientation: portrait)');
+    const coarsePointerQuery = window.matchMedia('(pointer: coarse)');
+    const syncDeviceOrientation = () => {
+      const mobileUserAgent = /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent);
+      const phoneSizedScreen = Math.min(window.screen.width, window.screen.height) <= 900;
+      const mobile = mobileUserAgent || (coarsePointerQuery.matches && phoneSizedScreen);
+      const portrait = portraitQuery.matches || window.innerHeight > window.innerWidth;
+      setIsMobileDevice(mobile);
+      setIsMobilePortrait(mobile && portrait);
+      setMobileRoomMode(mobile && !portrait);
+      if (!mobile) {
         roomPanRef.current = 0;
         setRoomPanX(0);
         setRoomOverview(false);
       }
     };
-    syncRoomViewport();
-    mobileQuery.addEventListener?.('change', syncRoomViewport);
-    window.addEventListener('resize', syncRoomViewport);
+    syncDeviceOrientation();
+    portraitQuery.addEventListener?.('change', syncDeviceOrientation);
+    coarsePointerQuery.addEventListener?.('change', syncDeviceOrientation);
+    window.addEventListener('resize', syncDeviceOrientation);
+    window.addEventListener('orientationchange', syncDeviceOrientation);
     return () => {
-      mobileQuery.removeEventListener?.('change', syncRoomViewport);
-      window.removeEventListener('resize', syncRoomViewport);
+      portraitQuery.removeEventListener?.('change', syncDeviceOrientation);
+      coarsePointerQuery.removeEventListener?.('change', syncDeviceOrientation);
+      window.removeEventListener('resize', syncDeviceOrientation);
+      window.removeEventListener('orientationchange', syncDeviceOrientation);
     };
-  }, [appReady, hydrated]);
+  }, []);
 
   const clampRoomPan = useCallback((value: number) => {
     const viewport = roomRef.current?.getBoundingClientRect();
@@ -719,6 +730,29 @@ export function SuuhimochiGame() {
     const maxPan = Math.max(0, (world.width - viewport.width) / 2);
     return Math.max(-maxPan, Math.min(maxPan, value));
   }, [roomOverview]);
+
+  useEffect(() => {
+    if (!appReady || isMobilePortrait) return;
+    let frame = 0;
+    const syncRoomViewport = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const viewport = roomRef.current?.getBoundingClientRect();
+        setRoomViewport({ width: viewport?.width ?? window.innerWidth, height: viewport?.height ?? window.innerHeight });
+        setRoomPanX((current) => {
+          const next = clampRoomPan(current);
+          roomPanRef.current = next;
+          return next;
+        });
+      });
+    };
+    syncRoomViewport();
+    window.addEventListener('resize', syncRoomViewport);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', syncRoomViewport);
+    };
+  }, [appReady, clampRoomPan, isMobilePortrait, mobileRoomMode]);
 
   useEffect(() => {
     if (!mobileRoomMode || roomOverview || talkOpen || isRoomPanning || mochiState !== 'walk') return;
@@ -1800,7 +1834,7 @@ export function SuuhimochiGame() {
     left: `${Math.max(2, Math.min(66, sleepPose.left - 16))}%`,
     top: `${Math.max(4, sleepPose.top - 40)}%`,
   } : undefined;
-  const potenoWorldWidth = mobileRoomMode ? roomViewport.height * 1.6 : roomViewport.width;
+  const potenoWorldWidth = mobileRoomMode ? Math.max(roomViewport.width, roomViewport.height * 1.6) : roomViewport.width;
   const potenoWorldLeft = mobileRoomMode ? (roomViewport.width - potenoWorldWidth) / 2 + roomPanX : 0;
   const potenoWelcomeBubbleStyle = isPotenoWelcomeBubble ? {
     left: `${potenoWorldLeft + potenoWorldWidth * (0.41 + walkOffset.x / 100) + 64}px`,
@@ -3126,8 +3160,9 @@ export function SuuhimochiGame() {
   const mochiWorldX = measuredRoom
     ? 41 + walkOffset.x + (64 / measuredRoom.width) * 100
     : 48;
+  const mobileWorldWidth = Math.max(roomViewport.width, roomViewport.height * 1.6);
   const roomOverviewScale = mobileRoomMode && roomOverview && roomViewport.width > 0 && roomViewport.height > 0
-    ? Math.min(1, roomViewport.width / (roomViewport.height * 1.6))
+    ? Math.min(1, roomViewport.width / mobileWorldWidth)
     : 1;
   // The world is scaled around cameraOrigin during a talk. Project the
   // character's center into screen space and put the UI on the opposite side.
@@ -3157,9 +3192,12 @@ export function SuuhimochiGame() {
   );
 
   if (!hydrated || !appReady) return <StartupLoadingScreen progress={startupProgress} />;
+  if (isMobileDevice && isMobilePortrait) return <RotateDeviceScreen />;
+
+  const mobileLandscapeClass = isMobileDevice ? ' mobile-landscape' : '';
 
   if (phase === 'title') return (
-    <main className="title-screen startup-content-ready">
+    <main className={`title-screen startup-content-ready${mobileLandscapeClass}`}>
       <div className="title-dust" aria-hidden="true" />
       <section className="title-content">
         <span className="title-moon" aria-hidden="true">○</span>
@@ -3172,7 +3210,7 @@ export function SuuhimochiGame() {
   );
 
   if (phase === 'birthday') return (
-    <main className="birthday-screen startup-content-ready">
+    <main className={`birthday-screen startup-content-ready${mobileLandscapeClass}`}>
       <section className="birthday-card">
         <div className="birthday-companion" aria-hidden="true">
           <span className="birthday-companion-speech">こんにちはなの</span>
@@ -3201,7 +3239,7 @@ export function SuuhimochiGame() {
   );
 
   return (
-    <main className={`game-shell startup-content-ready time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
+    <main className={`game-shell startup-content-ready${mobileLandscapeClass} time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
       <style>{`
         .mochi.mochi-conversation {
           z-index: 4 !important;
@@ -3314,15 +3352,15 @@ export function SuuhimochiGame() {
           transition: transform ${TALK_CAMERA_TRANSITION_MS}ms cubic-bezier(.22,.75,.28,1), translate 0ms linear;
         }
 
-        @media (max-width: 700px) and (orientation: portrait) {
-          .world-layer {
-            width: 160svh;
-            height: 100svh;
+        @media (max-width: 1024px) and (orientation: landscape) {
+          .mobile-landscape .world-layer {
+            width: max(100%, 160dvh);
+            height: 100dvh;
             bottom: auto;
             touch-action: none;
           }
 
-          .world-layer .room-clock {
+          .mobile-landscape .world-layer .room-clock {
             width: 13%;
           }
         }
@@ -3997,6 +4035,49 @@ export function SuuhimochiGame() {
             min-height: 54px !important;
             border-radius: 14px !important;
             padding: 9px 12px !important;
+          }
+        }
+
+        @media (max-width: 1024px) and (orientation: landscape) {
+          .mobile-landscape .face-talk {
+            display: block;
+            padding: 0;
+          }
+
+          .mobile-landscape .face-talk-close {
+            top: max(42px, calc(env(safe-area-inset-top) + 8px));
+            right: max(12px, env(safe-area-inset-right));
+          }
+
+          .mobile-landscape .face-talk-bubble,
+          .mobile-landscape .face-talk-left,
+          .mobile-landscape .face-talk-right {
+            position: absolute;
+            left: auto;
+            right: max(14px, env(safe-area-inset-right));
+            bottom: max(60px, calc(env(safe-area-inset-bottom) + 55px));
+            width: min(47vw, 440px);
+            max-height: calc(100dvh - 112px);
+            overflow-y: auto;
+            transform: none;
+            overscroll-behavior: contain;
+          }
+
+          .mobile-landscape .face-talk-ui-left .face-talk-bubble,
+          .mobile-landscape .face-talk-ui-left .face-talk-left,
+          .mobile-landscape .face-talk-ui-left .face-talk-right {
+            right: auto;
+            left: max(14px, env(safe-area-inset-left));
+          }
+
+          .mobile-landscape .face-talk-bubble {
+            min-height: 112px;
+            padding: 17px 18px 35px;
+          }
+
+          .mobile-landscape .face-talk-input textarea {
+            min-height: 68px;
+            max-height: 22dvh;
           }
         }
 
