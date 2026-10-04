@@ -615,6 +615,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     pointer-events: none;
   }
 
+  /* The opening keeps the full stage visible. The home room is full-bleed,
+     including the single frame before visualViewport measurement finishes. */
+  .mobile-landscape .room.room-home .mobile-room-background {
+    background-size: cover;
+  }
+
   /* Once visualViewport has been measured, make the background itself the
      exact contained stage. This keeps its top edge, the object world and the
      opening dialogue on one coordinate system even while browser UI moves. */

@@ -3283,14 +3283,16 @@ export function SuuhimochiGame() {
         const visibleWidth = Math.max(1, visibleRight - visibleLeft);
         const visibleHeight = Math.max(1, visibleBottom - visibleTop);
 
-        // Match the mobile canvas's background-size: contain. The 1672 x 941
-        // object world stays centered inside the 2196 x 941 background and
-        // shares this scale, so the full room is visible without migrating
-        // any saved furniture coordinates.
-        const scale = Math.min(
-          visibleWidth / ROOM_BACKGROUND_WIDTH,
-          visibleHeight / ROOM_BACKGROUND_HEIGHT,
-        );
+        // Keep the complete 2196 x 941 stage visible during the opening so its
+        // dialogue cannot be cropped. Once the user reaches the room, fill the
+        // viewport instead: the original 1672 x 941 gameplay area remains
+        // centered and shares the same scale, while only the extended side
+        // scenery may be cropped on narrower phones.
+        const widthScale = visibleWidth / ROOM_BACKGROUND_WIDTH;
+        const heightScale = visibleHeight / ROOM_BACKGROUND_HEIGHT;
+        const scale = phase === 'home'
+          ? Math.max(widthScale, heightScale)
+          : Math.min(widthScale, heightScale);
         const canvasWidth = ROOM_BACKGROUND_WIDTH * scale;
         const canvasHeight = ROOM_BACKGROUND_HEIGHT * scale;
         const canvasLeft = visibleLeft + (visibleWidth - canvasWidth) / 2;
@@ -4287,7 +4289,7 @@ export function SuuhimochiGame() {
       <div className="room-stage">
       <div
         ref={roomRef}
-        className={`room${roomOverview ? ' room-overview-active' : ''}${mobileRoomFit.ready ? ' mobile-room-fit-ready' : ''}`}
+        className={`room${phase === 'home' ? ' room-home' : ''}${roomOverview ? ' room-overview-active' : ''}${mobileRoomFit.ready ? ' mobile-room-fit-ready' : ''}`}
         aria-label="夜の小さな部屋"
         style={{
           backgroundColor: '#17130f',
