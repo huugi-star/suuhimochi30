@@ -4581,39 +4581,20 @@ export function SuuhimochiGame() {
 
         {['intro', 'permission', 'welcome', 'callName', 'persona', 'goalIntro', 'goal', 'goalType', 'goalReply'].includes(phase) && (
           <section className="dialogue-box initial-dialogue-box" aria-live="polite">
-            <span className="speaker">すうひもち</span>
             <p className={phase === 'permission' && permissionStep === 0 ? 'permission-line' : ''}>{replaceCallName(initialDialogueText, getPreferredCallName(save))}</p>
             {initialDialogueReady && ['intro', 'welcome', 'persona', 'goalIntro'].includes(phase) && <button className="dialogue-next" onClick={advanceInitialDialogue} aria-label="次の言葉へ">●</button>}
             {initialDialogueReady && phase === 'permission' && permissionStep === 0 && <div className="choices"><button onClick={accept}>いいよ</button><button onClick={() => setPermissionStep(1)}>どうしようかな</button></div>}
             {initialDialogueReady && phase === 'permission' && permissionStep > 0 && <button className="soft-accept" onClick={() => permissionStep === 1 ? setPermissionStep(2) : accept()}>{permissionStep === 1 ? '……' : 'それなら、いいよ'}</button>}
-            {initialDialogueReady && phase === 'callName' && <form className="initial-goal-form" onSubmit={submitInitialCallName}>
-              {mobileRoomMode ? <SuuhimochiKeyboard
-                value={initialCallName}
-                onChange={setInitialCallName}
-                onDecide={commitInitialCallName}
-                maxLength={20}
-                placeholder="呼ばれたい名前"
-                ariaLabel="呼ばれたい名前"
-              /> : <>
-                <input aria-label="呼ばれたい名前" value={initialCallName} onChange={(event) => setInitialCallName(event.target.value)} maxLength={20} placeholder="呼ばれたい名前" autoFocus />
-                <div className="choices"><button type="submit" disabled={!initialCallName.trim()}>この呼ばれ方にする</button></div>
-              </>}
+            {initialDialogueReady && phase === 'callName' && !mobileRoomMode && <form className="initial-goal-form" onSubmit={submitInitialCallName}>
+              <input aria-label="呼ばれたい名前" value={initialCallName} onChange={(event) => setInitialCallName(event.target.value)} maxLength={20} placeholder="呼ばれたい名前" autoFocus />
+              <div className="choices"><button type="submit" disabled={!initialCallName.trim()}>この呼ばれ方にする</button></div>
             </form>}
-            {initialDialogueReady && phase === 'goal' && <form className="initial-goal-form" onSubmit={submitInitialGoal}>
-              {mobileRoomMode ? <>
-                <SuuhimochiKeyboard
-                  value={initialGoalText}
-                  onChange={setInitialGoalText}
-                  onDecide={commitInitialGoal}
-                  maxLength={100}
-                  placeholder="見たい景色や、やってみたいこと"
-                  ariaLabel="30日間の目標"
-                />
-                <div className="choices"><button type="button" onClick={chooseUndecidedGoal}>まだ決まっていない</button></div>
-              </> : <>
-                <input aria-label="30日間の目標" value={initialGoalText} onChange={(event) => setInitialGoalText(event.target.value)} maxLength={100} placeholder="見たい景色や、やってみたいこと" autoFocus />
-                <div className="choices"><button type="submit" disabled={!initialGoalText.trim()}>この景色を見にいく</button><button type="button" onClick={chooseUndecidedGoal}>まだ決まっていない</button></div>
-              </>}
+            {initialDialogueReady && phase === 'goal' && mobileRoomMode && <div className="initial-goal-form">
+              <div className="choices"><button type="button" onClick={chooseUndecidedGoal}>まだ決まっていない</button></div>
+            </div>}
+            {initialDialogueReady && phase === 'goal' && !mobileRoomMode && <form className="initial-goal-form" onSubmit={submitInitialGoal}>
+              <input aria-label="30日間の目標" value={initialGoalText} onChange={(event) => setInitialGoalText(event.target.value)} maxLength={100} placeholder="見たい景色や、やってみたいこと" autoFocus />
+              <div className="choices"><button type="submit" disabled={!initialGoalText.trim()}>この景色を見にいく</button><button type="button" onClick={chooseUndecidedGoal}>まだ決まっていない</button></div>
             </form>}
             {initialDialogueReady && phase === 'goalType' && <div className="goal-type-choices" aria-label="30日の目標タイプ">
               {TWO_DAY_REVIEW_GOAL_TYPES.map((type) => <button type="button" key={type.value} onClick={() => chooseInitialGoalType(type.value)}><span aria-hidden="true">{type.icon}</span><span>{type.label}</span></button>)}
@@ -4627,6 +4608,23 @@ export function SuuhimochiGame() {
             {initialDialogueReady && phase === 'goalReply' && <button className="dialogue-next" type="button" onClick={finishUndecidedGoal} aria-label="部屋へ進む">●</button>}
           </section>
         )}
+
+        {initialDialogueReady && mobileRoomMode && phase === 'callName' && <SuuhimochiKeyboard
+          value={initialCallName}
+          onChange={setInitialCallName}
+          onDecide={commitInitialCallName}
+          maxLength={20}
+          placeholder="呼ばれたい名前"
+          ariaLabel="呼ばれたい名前"
+        />}
+        {initialDialogueReady && mobileRoomMode && phase === 'goal' && <SuuhimochiKeyboard
+          value={initialGoalText}
+          onChange={setInitialGoalText}
+          onDecide={commitInitialGoal}
+          maxLength={100}
+          placeholder="見たい景色や、やってみたいこと"
+          ariaLabel="30日間の目標"
+        />}
 
         {phase === 'home' && <>
           <header className="game-status"><div><strong>DAY {conversationDay}</strong><span>{conversationPhase}</span></div><div className="game-status-actions"><button className="room-light-toggle" type="button" onClick={() => setLightsOut((value) => !value)} disabled={dailyProgressOpen || !isDarkPeriod} aria-pressed={isDarkPeriod && lightsOut}>{isDarkPeriod && lightsOut ? '点灯' : '消灯'}</button><span className="time-label">{TIME_LABELS[currentTime]}</span></div></header>

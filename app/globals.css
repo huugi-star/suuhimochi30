@@ -1561,10 +1561,13 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     left: var(--mobile-room-dialogue-center-x, 50%);
     width: min(var(--mobile-room-dialogue-width, 70%), calc(100% - 28px));
     min-height: 0;
-    max-height: min(31dvh, calc(100% - var(--mobile-room-dialogue-top, 6%) - 14px));
+    max-height: none;
     padding: 13px 16px 12px;
     border-radius: 20px;
-    overflow-y: auto;
+    /* The speaker tag and tail intentionally extend beyond the white body.
+       Scrolling here clipped both and made the bubble look like a screen
+       frame on first launch. Opening text is paged, so let the body grow. */
+    overflow: visible;
     transform: translateX(-50%);
     visibility: hidden;
   }
