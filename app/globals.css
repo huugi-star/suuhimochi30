@@ -94,6 +94,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .game-shell.blackout { filter: brightness(0); }
 .room-stage { position: relative; width: min(100vw, calc(100svh * 1.6)); aspect-ratio: 16 / 10; max-height: 100svh; }
 .room { position: relative; width: 100%; height: 100%; overflow: hidden; background: #17130f url('/assets/room-evening.png') center/cover no-repeat; box-shadow: 0 0 80px #000; }
+.mobile-room-background { display: none; }
 .room-tint { position: absolute; inset: 0; pointer-events: none; transition: background 1s; }
 .room-items { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: visible; }
 .room-item { position: absolute; display: block; height: auto; user-select: none; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 4px 4px rgba(43, 23, 11, .22)); }
@@ -596,6 +597,26 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     max-height: none;
     aspect-ratio: auto;
     overflow: hidden;
+  }
+
+  /* The phone background is a 2196 x 941 cover canvas. The gameplay layer
+     above it is the original 1672 x 941 safe area, centered and scaled with
+     the same factor by SuuhimochiGame. */
+  .mobile-landscape .mobile-room-background {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    overflow: hidden;
+    background-color: #17130f;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    pointer-events: none;
+  }
+
+  .mobile-landscape .mobile-room-background .room-tint {
+    z-index: 1;
   }
 
   .mobile-landscape .game-status {

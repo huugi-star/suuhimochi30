@@ -52,8 +52,12 @@ type ZoomEyeFrame = 'open' | 'half' | 'closed';
 type ZoomMouthFrame = 'closed' | 'small' | 'open';
 type ZoomArmPose = 'down' | 'up' | 'open' | 'chest';
 
-const ROOM_WORLD_WIDTH = 1600;
-const ROOM_WORLD_HEIGHT = 1000;
+// The room objects keep using the original central coordinate space. The
+// wider background only adds scenery outside this safe area on wide phones.
+const ROOM_WORLD_WIDTH = 1672;
+const ROOM_WORLD_HEIGHT = 941;
+const ROOM_BACKGROUND_WIDTH = 2196;
+const ROOM_BACKGROUND_HEIGHT = 941;
 
 function getDisplayedSpriteMetrics(room: DOMRect, mobileRoomMode: boolean) {
   const scale = mobileRoomMode ? room.width / ROOM_WORLD_WIDTH : 1;
@@ -3264,25 +3268,15 @@ export function SuuhimochiGame() {
         const visibleWidth = Math.max(1, visibleRight - visibleLeft);
         const visibleHeight = Math.max(1, visibleBottom - visibleTop);
 
-        const keyboard = mobileKeyboardVisible
-          ? document.querySelector<HTMLElement>('.suuhimochi-keyboard:not(.is-native)')
-          : null;
-        const keyboardRect = keyboard?.getBoundingClientRect();
-        const keyboardReserve = keyboardRect
-          ? Math.max(0, visibleRight - Math.max(visibleLeft, keyboardRect.left) + 6)
-          : 0;
-        const navElement = mobileNavOpen ? mobileNavRef.current : mobileNavHandleRef.current;
-        const navRect = navElement?.getBoundingClientRect();
-        const bottomReserve = navRect
-          ? mobileNavOpen
-            ? navRect.height + 4
-            : Math.max(0, visibleBottom - Math.max(visibleTop, navRect.top) + 4)
-          : 0;
-        const availableWidth = Math.max(1, visibleWidth - keyboardReserve);
-        const availableHeight = Math.max(1, visibleHeight - bottomReserve);
-        const scale = Math.min(availableWidth / ROOM_WORLD_WIDTH, availableHeight / ROOM_WORLD_HEIGHT);
-        const availableCenterX = visibleLeft + availableWidth / 2;
-        const availableCenterY = visibleTop + availableHeight / 2;
+        // Match CSS background-size: cover exactly. The 1672 x 941 object
+        // world is centered inside the 2196 x 941 background and uses this
+        // same scale, so existing furniture coordinates never need migrating.
+        const scale = Math.max(
+          visibleWidth / ROOM_BACKGROUND_WIDTH,
+          visibleHeight / ROOM_BACKGROUND_HEIGHT,
+        );
+        const availableCenterX = visibleLeft + visibleWidth / 2;
+        const availableCenterY = visibleTop + visibleHeight / 2;
         const roomCenterX = room.left + room.width / 2;
         const roomCenterY = room.top + room.height / 2;
 
@@ -3304,10 +3298,6 @@ export function SuuhimochiGame() {
     syncRoomFit();
     resizeObserver = new ResizeObserver(syncRoomFit);
     if (roomRef.current) resizeObserver.observe(roomRef.current);
-    const keyboard = document.querySelector<HTMLElement>('.suuhimochi-keyboard:not(.is-native)');
-    if (keyboard) resizeObserver.observe(keyboard);
-    if (mobileNavRef.current) resizeObserver.observe(mobileNavRef.current);
-    if (mobileNavHandleRef.current) resizeObserver.observe(mobileNavHandleRef.current);
     window.visualViewport?.addEventListener('resize', syncRoomFit);
     window.visualViewport?.addEventListener('scroll', syncRoomFit);
     window.addEventListener('resize', syncRoomFit);
@@ -3320,7 +3310,7 @@ export function SuuhimochiGame() {
       window.removeEventListener('resize', syncRoomFit);
       window.removeEventListener('orientationchange', syncRoomFit);
     };
-  }, [appReady, isMobilePortrait, mobileKeyboardVisible, mobileNavOpen, mobileRoomMode]);
+  }, [appReady, isMobilePortrait, mobileRoomMode]);
 
   if (!hydrated || !appReady) return <StartupLoadingScreen progress={startupProgress} />;
   if (isMobileDevice && isMobilePortrait) return <RotateDeviceScreen />;
@@ -3410,6 +3400,14 @@ export function SuuhimochiGame() {
           width: 100%;
           aspect-ratio: 1;
           isolation: isolate;
+          /* The zoom body is assembled from transparent layers. Keep a
+             quiet, continuous outline around the finished silhouette so it
+             stays readable against every room background. */
+          filter:
+            drop-shadow(1.25px 0 0 rgba(62, 43, 35, .92))
+            drop-shadow(-1.25px 0 0 rgba(62, 43, 35, .92))
+            drop-shadow(0 1.25px 0 rgba(62, 43, 35, .92))
+            drop-shadow(0 -1.25px 0 rgba(62, 43, 35, .92));
           /* Conversation-only enlargement. The wrapper keeps its world
              anchor, while the assembled character grows around its feet. */
           transform: scale(1.28);
@@ -3496,6 +3494,12 @@ export function SuuhimochiGame() {
             transform-origin: 50% 50%;
             translate: -50% -50%;
             touch-action: manipulation;
+            background-color: transparent !important;
+            background-image: none !important;
+          }
+
+          .mobile-landscape .world-layer > .room-tint {
+            display: none;
           }
 
           .mobile-landscape .world-layer .room-clock {
@@ -4239,6 +4243,13 @@ export function SuuhimochiGame() {
       `}</style>
       <div className="room-stage">
       <div ref={roomRef} className={`room${roomOverview ? ' room-overview-active' : ''}`} aria-label="夜の小さな部屋" style={{ backgroundColor: '#17130f', backgroundImage: 'none' }}>
+        <div
+          className="mobile-room-background"
+          aria-hidden="true"
+          style={{ backgroundImage: `url('${roomBackground}')` }}
+        >
+          <div className="room-tint" />
+        </div>
         <div
           ref={worldRef}
           className={`world-layer${talkOpen || isMonologueZoom ? ' world-layer-talk' : ''}${roomOverview ? ' room-world-overview' : ''}${isRoomPanning ? ' room-world-panning' : ''}${isDarkPeriod && lightsOut ? ' world-layer-lights-out' : ''}${phase === 'home' && !dailyProgressOpen && !bubble && !talkReturning && !foodOpen && !minigameOpen && !potenoOpen && !settingsOpen ? ' world-layer-walkable' : ''}`}
