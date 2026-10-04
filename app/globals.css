@@ -615,6 +615,26 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     pointer-events: none;
   }
 
+  /* Once visualViewport has been measured, make the background itself the
+     exact contained stage. This keeps its top edge, the object world and the
+     opening dialogue on one coordinate system even while browser UI moves. */
+  .mobile-landscape .room.mobile-room-fit-ready .mobile-room-background {
+    inset: auto;
+    left: var(--mobile-room-canvas-left);
+    top: var(--mobile-room-canvas-top);
+    width: var(--mobile-room-canvas-width);
+    height: var(--mobile-room-canvas-height);
+    background-size: 100% 100%;
+  }
+
+  .mobile-landscape .world-layer {
+    visibility: hidden;
+  }
+
+  .mobile-landscape .room.mobile-room-fit-ready .world-layer {
+    visibility: visible;
+  }
+
   .mobile-landscape .mobile-room-background .room-tint {
     z-index: 1;
   }
@@ -1546,6 +1566,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     border-radius: 20px;
     overflow-y: auto;
     transform: translateX(-50%);
+    visibility: hidden;
+  }
+
+  .mobile-landscape .room.mobile-room-fit-ready .initial-dialogue-box {
+    visibility: visible;
   }
 
   .mobile-landscape .initial-dialogue-box p {

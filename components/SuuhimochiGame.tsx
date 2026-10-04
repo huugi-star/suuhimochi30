@@ -579,6 +579,7 @@ export function SuuhimochiGame() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [embeddedMobileKeyboardOpen, setEmbeddedMobileKeyboardOpen] = useState(false);
   const [mobileRoomFit, setMobileRoomFit] = useState({
+    ready: false,
     scale: 0.3,
     offsetX: 0,
     offsetY: 0,
@@ -3299,11 +3300,12 @@ export function SuuhimochiGame() {
         const availableCenterY = canvasTop + canvasHeight / 2;
         const roomCenterX = room.left + room.width / 2;
         const roomCenterY = room.top + room.height / 2;
-        const dialogueWidth = Math.min(canvasWidth * 0.7, visibleWidth - 28);
+        const dialogueWidth = Math.min(canvasWidth * 0.68, visibleWidth - 32);
         const keyboardDialogueWidth = Math.min(canvasWidth * 0.54, visibleWidth * 0.53);
 
         setMobileRoomFit((current) => {
           const next = {
+            ready: true,
             scale,
             offsetX: availableCenterX - roomCenterX,
             offsetY: availableCenterY - roomCenterY,
@@ -3313,12 +3315,13 @@ export function SuuhimochiGame() {
             canvasWidth,
             canvasHeight,
             dialogueCenterX: availableCenterX - room.left,
-            dialogueTop: canvasTop - room.top + canvasHeight * 0.065,
+            dialogueTop: canvasTop - room.top + Math.max(16, canvasHeight * 0.075),
             dialogueWidth,
             keyboardDialogueCenterX: canvasLeft - room.left + canvasWidth * 0.31,
             keyboardDialogueWidth,
           };
-          return Math.abs(current.scale - next.scale) < 0.0005
+          return current.ready === next.ready
+            && Math.abs(current.scale - next.scale) < 0.0005
             && Math.abs(current.offsetX - next.offsetX) < 0.5
             && Math.abs(current.offsetY - next.offsetY) < 0.5
             && Math.abs(current.canvasTop - next.canvasTop) < 0.5
@@ -4281,21 +4284,23 @@ export function SuuhimochiGame() {
       <div className="room-stage">
       <div
         ref={roomRef}
-        className={`room${roomOverview ? ' room-overview-active' : ''}`}
+        className={`room${roomOverview ? ' room-overview-active' : ''}${mobileRoomFit.ready ? ' mobile-room-fit-ready' : ''}`}
         aria-label="夜の小さな部屋"
         style={{
           backgroundColor: '#17130f',
           backgroundImage: 'none',
-          '--mobile-room-canvas-left': `${mobileRoomFit.canvasLeft}px`,
-          '--mobile-room-canvas-top': `${mobileRoomFit.canvasTop}px`,
-          '--mobile-room-canvas-bottom': `${mobileRoomFit.canvasBottom}px`,
-          '--mobile-room-canvas-width': `${mobileRoomFit.canvasWidth}px`,
-          '--mobile-room-canvas-height': `${mobileRoomFit.canvasHeight}px`,
-          '--mobile-room-dialogue-center-x': `${mobileRoomFit.dialogueCenterX}px`,
-          '--mobile-room-dialogue-top': `${mobileRoomFit.dialogueTop}px`,
-          '--mobile-room-dialogue-width': `${mobileRoomFit.dialogueWidth}px`,
-          '--mobile-room-keyboard-dialogue-center-x': `${mobileRoomFit.keyboardDialogueCenterX}px`,
-          '--mobile-room-keyboard-dialogue-width': `${mobileRoomFit.keyboardDialogueWidth}px`,
+          ...(mobileRoomFit.ready ? {
+            '--mobile-room-canvas-left': `${mobileRoomFit.canvasLeft}px`,
+            '--mobile-room-canvas-top': `${mobileRoomFit.canvasTop}px`,
+            '--mobile-room-canvas-bottom': `${mobileRoomFit.canvasBottom}px`,
+            '--mobile-room-canvas-width': `${mobileRoomFit.canvasWidth}px`,
+            '--mobile-room-canvas-height': `${mobileRoomFit.canvasHeight}px`,
+            '--mobile-room-dialogue-center-x': `${mobileRoomFit.dialogueCenterX}px`,
+            '--mobile-room-dialogue-top': `${mobileRoomFit.dialogueTop}px`,
+            '--mobile-room-dialogue-width': `${mobileRoomFit.dialogueWidth}px`,
+            '--mobile-room-keyboard-dialogue-center-x': `${mobileRoomFit.keyboardDialogueCenterX}px`,
+            '--mobile-room-keyboard-dialogue-width': `${mobileRoomFit.keyboardDialogueWidth}px`,
+          } : {}),
         } as React.CSSProperties}
       >
         <div
