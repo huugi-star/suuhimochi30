@@ -4,11 +4,13 @@ import { useRef, useState } from 'react';
 import { Coffee, Footprints, Sparkles, TrendingUp } from 'lucide-react';
 import type { DailyProgressRecord, YesterdayProgressLevel } from '@/lib/dailyProgress';
 import { normalizeDoneItems } from '@/lib/dailyProgress';
+import { SuuhimochiKeyboard } from '@/components/SuuhimochiKeyboard';
 
 type DailyProgressCheckProps = {
   activityDate: string;
   reviewedDate: string;
   onComplete: (record: DailyProgressRecord) => void;
+  useSuuhimochiKeyboard?: boolean;
 };
 
 const YESTERDAY_CHOICES = [
@@ -52,6 +54,7 @@ export function DailyProgressCheck({
   activityDate,
   reviewedDate,
   onComplete,
+  useSuuhimochiKeyboard = false,
 }: DailyProgressCheckProps) {
   const [stage, setStage] = useState<'yesterday' | 'details'>('yesterday');
   const [evaluation, setEvaluation] = useState<YesterdayProgressLevel | null>(
@@ -59,6 +62,7 @@ export function DailyProgressCheck({
   );
   const [doneItems, setDoneItems] = useState<string[]>(['']);
   const [wasHard, setWasHard] = useState(false);
+  const [activeItemIndex, setActiveItemIndex] = useState<number | null>(null);
   const doneItemRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const chooseYesterday = (value: YesterdayProgressLevel) => {
@@ -66,6 +70,7 @@ export function DailyProgressCheck({
     setEvaluation(value);
     setDoneItems(['']);
     setWasHard(false);
+    if (useSuuhimochiKeyboard) setActiveItemIndex(0);
     window.setTimeout(() => setStage('details'), 220);
   };
 
@@ -88,7 +93,8 @@ export function DailyProgressCheck({
 
   const insertDoneItemAfter = (index: number) => {
     setDoneItems((items) => [...items.slice(0, index + 1), '', ...items.slice(index + 1)]);
-    window.setTimeout(() => doneItemRefs.current[index + 1]?.focus(), 0);
+    if (useSuuhimochiKeyboard) setActiveItemIndex(index + 1);
+    else window.setTimeout(() => doneItemRefs.current[index + 1]?.focus(), 0);
   };
 
   const removeDoneItem = (index: number) => {
@@ -96,11 +102,14 @@ export function DailyProgressCheck({
       const next = items.filter((_, itemIndex) => itemIndex !== index);
       return next.length > 0 ? next : [''];
     });
+    if (useSuuhimochiKeyboard) {
+      setActiveItemIndex((current) => current === null ? null : Math.max(0, current > index ? current - 1 : Math.min(current, doneItems.length - 2)));
+    }
   };
 
   return (
     <section
-      className="daily-progress-overlay"
+      className={`daily-progress-overlay${useSuuhimochiKeyboard && activeItemIndex !== null ? ' has-suuhimochi-keyboard' : ''}`}
       aria-label="昨日の足あとを記録する"
     >
       <div className="daily-progress-card">
@@ -162,8 +171,12 @@ export function DailyProgressCheck({
               </small>
               <div className="daily-progress-item-list">
                 {doneItems.map((item, index) => (
-                  <label key={index} className="daily-progress-item">
-                    <input
+                  <div key={index} className="daily-progress-item">
+                    {useSuuhimochiKeyboard ? <button
+                      type="button"
+                      className={`daily-progress-keyboard-field${activeItemIndex === index ? ' is-active' : ''}`}
+                      onClick={() => setActiveItemIndex(index)}
+                    >{item || (evaluation === 'BREATH' ? 'あったことを書く' : 'やったことを書く')}</button> : <input
                       ref={(element) => { doneItemRefs.current[index] = element; }}
                       value={item}
                       onChange={(event) => updateDoneItem(index, event.target.value)}
@@ -176,12 +189,12 @@ export function DailyProgressCheck({
                       maxLength={160}
                       placeholder={evaluation === 'BREATH' ? 'あったことを書く' : 'やったことを書く'}
                       autoFocus={index === 0}
-                    />
+                    />}
                     <button type="button" onClick={() => removeDoneItem(index)} aria-label={`${index + 1}件目を削除`}>×</button>
-                  </label>
+                  </div>
                 ))}
               </div>
-              <button className="daily-progress-add-item" type="button" onClick={() => { const nextIndex = doneItems.length; setDoneItems((items) => [...items, '']); window.setTimeout(() => doneItemRefs.current[nextIndex]?.focus(), 0); }}>＋ やったことを追加</button>
+              <button className="daily-progress-add-item" type="button" onClick={() => { const nextIndex = doneItems.length; setDoneItems((items) => [...items, '']); if (useSuuhimochiKeyboard) setActiveItemIndex(nextIndex); else window.setTimeout(() => doneItemRefs.current[nextIndex]?.focus(), 0); }}>＋ やったことを追加</button>
             </div>
             <div className="daily-progress-actions">
               <button
@@ -202,6 +215,15 @@ export function DailyProgressCheck({
           </>
         )}
       </div>
+
+      {stage === 'details' && evaluation && useSuuhimochiKeyboard && activeItemIndex !== null && <SuuhimochiKeyboard
+        value={doneItems[activeItemIndex] ?? ''}
+        onChange={(value) => updateDoneItem(activeItemIndex, value)}
+        onDecide={() => setActiveItemIndex(null)}
+        maxLength={160}
+        placeholder={evaluation === 'BREATH' ? 'あったことを書く' : 'やったことを書く'}
+        ariaLabel={`${activeItemIndex + 1}件目の記録`}
+      />}
 
       <style>{`
         .daily-progress-overlay { position: absolute; z-index: 140; inset: 0; display: grid; place-items: center; padding: max(18px, env(safe-area-inset-top)) 14px max(82px, calc(env(safe-area-inset-bottom) + 72px)); background: rgba(27, 22, 19, .38); backdrop-filter: blur(2px); }
@@ -230,6 +252,8 @@ export function DailyProgressCheck({
         .daily-progress-item { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 7px; }
         .daily-progress-item input { min-width: 0; border: 2px solid #cfb18b; border-radius: 11px; padding: 10px 11px; color: #49372c; background: rgba(255,254,247,.9); box-shadow: inset 0 2px 5px rgba(75,48,29,.08); font: .91rem/1.45 'Yu Gothic', sans-serif; }
         .daily-progress-item button { border: 1px solid #c79b81; border-radius: 10px; color: #9b5c4c; background: #fff6e9; font-size: 1.1rem; font-weight: 900; }
+        .daily-progress-item .daily-progress-keyboard-field { min-width: 0; min-height: 42px; overflow: hidden; padding: 8px 10px; border: 2px solid #cfb18b; color: #8b796b; background: rgba(255,254,247,.9); box-shadow: inset 0 2px 5px rgba(75,48,29,.08); font: .86rem/1.35 'Yu Gothic', sans-serif; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+        .daily-progress-item .daily-progress-keyboard-field.is-active { border-color: #b76545; color: #49372c; box-shadow: 0 0 0 3px rgba(183,101,69,.16); }
         .daily-progress-add-item { justify-self: start; min-height: 33px; padding: 5px 10px; border: 1px dashed #9d765c; border-radius: 9px; color: #765340; background: #fffaf0; font-size: .75rem; font-weight: 850; }
         .daily-progress-actions { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
         .daily-progress-actions button { min-height: 46px; border-radius: 12px; font-weight: 900; letter-spacing: .07em; }
@@ -244,6 +268,10 @@ export function DailyProgressCheck({
           .daily-progress-option-copy { gap: 3px; }
           .daily-progress-actions { grid-template-columns: 1fr; }
           .daily-progress-question { margin-block: 16px; }
+        }
+        @media (max-width: 1024px) and (orientation: landscape) {
+          .mobile-landscape .daily-progress-overlay.has-suuhimochi-keyboard { place-items: center start; padding-right: calc(min(34vw, 440px) + max(10px, env(safe-area-inset-right))) !important; }
+          .mobile-landscape .daily-progress-overlay.has-suuhimochi-keyboard .daily-progress-card { width: min(100%, 520px); }
         }
       `}</style>
     </section>

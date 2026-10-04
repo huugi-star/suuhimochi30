@@ -22,6 +22,7 @@ import { STRATEGIST_PROFILES, type StrategyRecord } from '@/lib/potenoLink';
 import { DIVINATION_MASTER_PROFILES, type IChingResult, type LegacyTamamoResult, type SixDivinationRecord, type TaikoboResult, type TamamoResult } from '@/lib/potenoSixDivination';
 import type { ConversationMemory, WordEntry } from '@/lib/wordMemory';
 import type { ThirtyDayCycleArchive } from '@/lib/graduation';
+import { SuuhimochiKeyboard } from '@/components/SuuhimochiKeyboard';
 import {
   TWO_DAY_REVIEW_GOAL_TYPES,
   TWO_DAY_REVIEW_GOAL_TYPE_LABELS,
@@ -47,6 +48,7 @@ type JournalPanelProps = {
   onSaveDoneItems: (date: string, doneItems: string[]) => void;
   onConfirmNoExperience: (date: string) => void;
   onChangeGoalType: (goalType: TwoDayReviewGoalType) => void;
+  useSuuhimochiKeyboard?: boolean;
 };
 
 function taikoboJournalSummary(result: IChingResult) {
@@ -107,6 +109,7 @@ export function JournalPanel({
   onSaveDoneItems,
   onConfirmNoExperience,
   onChangeGoalType,
+  useSuuhimochiKeyboard = false,
 }: JournalPanelProps) {
   const safeCurrentDay = Math.min(30, Math.max(1, currentDay));
   const [selectedDay, setSelectedDay] = useState(safeCurrentDay);
@@ -119,6 +122,7 @@ export function JournalPanel({
   const [editingGoalType, setEditingGoalType] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [confirmingNoExperience, setConfirmingNoExperience] = useState(false);
+  const [activeDraftIndex, setActiveDraftIndex] = useState<number | null>(null);
 
   const selectedDate = moveDate(
     currentActivityDate,
@@ -172,6 +176,7 @@ export function JournalPanel({
     setSelectedDay(nextDay);
     setEditing(false);
     setDraftItems(['']);
+    setActiveDraftIndex(null);
     setConfirmingNoExperience(false);
   };
 
@@ -179,17 +184,20 @@ export function JournalPanel({
     setConfirmingNoExperience(false);
     setDraftItems(lines.length > 0 ? lines : ['']);
     setEditing(true);
+    if (useSuuhimochiKeyboard) setActiveDraftIndex(0);
   };
 
   const saveDoneItems = () => {
     onSaveDoneItems(selectedDate, normalizeDoneItems(draftItems));
     setEditing(false);
+    setActiveDraftIndex(null);
   };
 
   const deleteDoneItems = () => {
     onSaveDoneItems(selectedDate, []);
     setDraftItems(['']);
     setEditing(false);
+    setActiveDraftIndex(null);
   };
 
   const updateDraftItem = (index: number, value: string) => {
@@ -198,7 +206,8 @@ export function JournalPanel({
 
   const insertDraftItem = (index: number) => {
     setDraftItems((items) => [...items.slice(0, index + 1), '', ...items.slice(index + 1)]);
-    window.setTimeout(() => itemInputRefs.current[index + 1]?.focus(), 0);
+    if (useSuuhimochiKeyboard) setActiveDraftIndex(index + 1);
+    else window.setTimeout(() => itemInputRefs.current[index + 1]?.focus(), 0);
   };
 
   const removeDraftItem = (index: number) => {
@@ -206,6 +215,9 @@ export function JournalPanel({
       const next = items.filter((_, itemIndex) => itemIndex !== index);
       return next.length > 0 ? next : [''];
     });
+    if (useSuuhimochiKeyboard) {
+      setActiveDraftIndex((current) => current === null ? null : Math.max(0, current > index ? current - 1 : Math.min(current, draftItems.length - 2)));
+    }
   };
 
   const renderTab = (day: number, side: 'left' | 'right') => (
@@ -223,7 +235,7 @@ export function JournalPanel({
   );
 
   return (
-    <section className="journal-overlay" aria-label="30日間の日誌">
+    <section className={`journal-overlay${useSuuhimochiKeyboard && activeDraftIndex !== null ? ' has-suuhimochi-keyboard' : ''}`} aria-label="30日間の日誌">
       <div className="journal-book">
         <button
           className="journal-close"
@@ -411,8 +423,12 @@ export function JournalPanel({
                 <div className="journal-editor">
                   <div className="journal-item-editor-list">
                     {draftItems.map((item, index) => (
-                      <label className="journal-item-editor-row" key={index}>
-                        <input
+                      <div className="journal-item-editor-row" key={index}>
+                        {useSuuhimochiKeyboard ? <button
+                          type="button"
+                          className={`journal-keyboard-field${activeDraftIndex === index ? ' is-active' : ''}`}
+                          onClick={() => setActiveDraftIndex(index)}
+                        >{item || 'やったことを書く'}</button> : <input
                           ref={(element) => { itemInputRefs.current[index] = element; }}
                           value={item}
                           onChange={(event) => updateDraftItem(index, event.target.value)}
@@ -425,12 +441,12 @@ export function JournalPanel({
                           maxLength={160}
                           placeholder="やったことを書く"
                           autoFocus={index === 0}
-                        />
+                        />}
                         <button type="button" onClick={() => removeDraftItem(index)} aria-label={`${index + 1}件目を削除`}>×</button>
-                      </label>
+                      </div>
                     ))}
                   </div>
-                  <button className="journal-add-item" type="button" onClick={() => { setDraftItems((items) => [...items, '']); window.setTimeout(() => itemInputRefs.current[draftItems.length]?.focus(), 0); }}>＋ やったことを追加</button>
+                  <button className="journal-add-item" type="button" onClick={() => { const nextIndex = draftItems.length; setDraftItems((items) => [...items, '']); if (useSuuhimochiKeyboard) setActiveDraftIndex(nextIndex); else window.setTimeout(() => itemInputRefs.current[nextIndex]?.focus(), 0); }}>＋ やったことを追加</button>
                   <div className="journal-editor-actions">
                     <button
                       className="journal-save"
@@ -439,7 +455,7 @@ export function JournalPanel({
                     >
                       保存する
                     </button>
-                    <button type="button" onClick={() => setEditing(false)}>
+                    <button type="button" onClick={() => { setEditing(false); setActiveDraftIndex(null); }}>
                       やめる
                     </button>
                     <button
@@ -583,6 +599,14 @@ export function JournalPanel({
             </button>
           </footer>
         </article>
+        {editing && useSuuhimochiKeyboard && activeDraftIndex !== null && <SuuhimochiKeyboard
+          value={draftItems[activeDraftIndex] ?? ''}
+          onChange={(value) => updateDraftItem(activeDraftIndex, value)}
+          onDecide={() => setActiveDraftIndex(null)}
+          maxLength={160}
+          placeholder="やったことを書く"
+          ariaLabel={`${activeDraftIndex + 1}件目のやったこと`}
+        />}
       </div>
 
       <style>{`
@@ -665,6 +689,8 @@ export function JournalPanel({
         .journal-item-editor-row { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 7px; }
         .journal-item-editor-row input { min-width: 0; border: 2px solid #c7aa83; border-radius: 10px; padding: 9px 10px; color: #46372d; background: rgba(255,255,255,.76); font: .88rem/1.45 'Yu Gothic', sans-serif; }
         .journal-item-editor-row button { border: 1px solid #c49d83; border-radius: 9px; color: #985c4d; background: #fff8ec; font-weight: 900; }
+        .journal-item-editor-row .journal-keyboard-field { min-width: 0; min-height: 41px; overflow: hidden; padding: 8px 10px; border: 2px solid #c7aa83; color: #8a786a; background: rgba(255,255,255,.76); font: .84rem/1.4 'Yu Gothic', sans-serif; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+        .journal-item-editor-row .journal-keyboard-field.is-active { border-color: #b96b4b; color: #46372d; box-shadow: 0 0 0 3px rgba(185,107,75,.14); }
         .journal-add-item { justify-self: start; min-height: 32px; padding: 5px 10px; border: 1px dashed #a17a5e; border-radius: 9px; color: #70513f; background: #fffaf0; font-size: .74rem; font-weight: 850; }
         .journal-editor-actions { display: flex; flex-wrap: wrap; gap: 7px; }
         .journal-editor-actions button { display: inline-flex; min-height: 34px; align-items: center; gap: 4px; padding: 6px 12px; border: 1px solid #b79a78; border-radius: 9px; color: #67513f; background: #fffaf0; font-weight: 800; }
@@ -730,6 +756,10 @@ export function JournalPanel({
           .journal-page-navigation button { min-height: 42px; font-size: .76rem; }
           .journal-editor-actions { display: grid; grid-template-columns: 1fr 1fr; }
           .journal-editor-actions .journal-delete { grid-column: 1 / -1; margin-left: 0; justify-content: center; }
+        }
+        @media (max-width: 1024px) and (orientation: landscape) {
+          .mobile-landscape .journal-overlay.has-suuhimochi-keyboard { padding-right: calc(min(34vw, 440px) + max(12px, env(safe-area-inset-right))) !important; }
+          .mobile-landscape .journal-overlay.has-suuhimochi-keyboard .journal-book { width: 100% !important; }
         }
         @media (prefers-reduced-motion: reduce) {
           .journal-page-next, .journal-page-previous { animation: none; }

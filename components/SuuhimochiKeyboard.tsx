@@ -86,6 +86,13 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   const [conversions, setConversions] = useState<SuuhimochiConversion[]>(() => loadSuuhimochiConversions());
   const [activeFlick, setActiveFlick] = useState<{ key: FlickKey; direction: FlickDirection } | null>(null);
   const [visualViewport, setVisualViewport] = useState<{ top: number; height: number } | null>(null);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('suuhimochi-keyboard-visibility', { detail: true }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('suuhimochi-keyboard-visibility', { detail: false }));
+    };
+  }, []);
   const [caretPosition, setCaretPosition] = useState(value.length);
   const displayRef = useRef<HTMLTextAreaElement>(null);
   const displayMirrorRef = useRef<HTMLDivElement>(null);
@@ -358,15 +365,17 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
           <span className={activeFlick.direction === 'down' ? 'is-active' : ''}>{activeFlick.key.modifier ? (mode === 'katakana' ? 'ッ' : 'っ') : activeFlick.key.values?.[4]}</span>
         </div>}
 
-        <div className="suuhimochi-keyboard-functions">
-          <button type="button" onClick={deletePrevious}>←<small>削除</small></button>
-          <button type="button" onClick={() => replaceSelection(' ')}>空白</button>
-          <button type="button" className="is-decide" disabled={!value.trim()} onClick={onDecide}>決定</button>
-        </div>
+        <div className="suuhimochi-keyboard-controls">
+          <div className="suuhimochi-keyboard-functions">
+            <button type="button" onClick={deletePrevious}>←<small>削除</small></button>
+            <button type="button" onClick={() => replaceSelection(' ')}>空白</button>
+            <button type="button" className="is-decide" disabled={!value.trim()} onClick={onDecide}>決定</button>
+          </div>
 
-        <div className="suuhimochi-kanji-actions">
-          <button type="button" onClick={() => setShowCandidates(true)}><b>漢字変換</b><small>覚えている変換を使う</small></button>
-          <button type="button" onClick={enterNativeMode}><b>漢字を手に入れる</b><small>標準キーボードを使う</small></button>
+          <div className="suuhimochi-kanji-actions">
+            <button type="button" onClick={() => setShowCandidates(true)}><b>漢字変換</b><small>覚えている変換</small></button>
+            <button type="button" onClick={enterNativeMode}><b>漢字を手に入れる</b><small>標準IME</small></button>
+          </div>
         </div>
       </>}
     </section>

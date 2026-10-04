@@ -308,6 +308,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .room-nav button:hover, .room-nav button.active { color: #fff; background: rgba(255,255,255,.12); }
 .room-nav span { font-size: .68rem; }
 .room-nav-label-short { display: none; }
+.mobile-room-menu-handle { display: none; }
 .item-note { position: absolute; left: 3%; top: 13%; z-index: 20; width: min(32%, 350px); max-height: 64%; display: flex; flex-direction: column; padding: 17px; border: 1px solid rgba(119, 89, 62, .42); border-radius: 18px; color: #3f3027; background: rgba(255,248,231,.58); box-shadow: 0 12px 28px rgba(44,27,16,.3); backdrop-filter: blur(2px); cursor: grab; touch-action: pan-y; }
 .item-note:active { cursor: grabbing; }
 .item-note > strong { display: block; margin-bottom: 4px; font-family: "Yu Mincho", serif; font-size: 1.2rem; }
@@ -562,9 +563,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   }
 
-  /* Keep the room and navigation as separate vertical regions on phones.
-     The navigation used to live inside .room as an overlay, which hid the
-     lower part of the world and the character's walkable space. */
+  /* The phone uses the full visible viewport for the room. Navigation is a
+     compact drawer, so a closed menu does not permanently consume height. */
   .game-shell.mobile-landscape {
     display: flex;
     flex-direction: column;
@@ -606,28 +606,75 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   }
 
   .mobile-landscape .room-nav {
-    position: relative;
-    left: auto;
-    bottom: auto;
-    flex: 0 0 calc(60px + env(safe-area-inset-bottom));
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 42;
     box-sizing: border-box;
     width: 100%;
     max-width: none;
+    height: calc(60px + env(safe-area-inset-bottom));
     min-height: calc(60px + env(safe-area-inset-bottom));
     margin: 0;
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
     border-radius: 0;
-    transform: none;
+    transform: translateY(calc(100% + 4px));
     justify-content: flex-start;
     gap: 0;
     overflow-x: hidden;
     overflow-y: hidden;
     padding: 2px 2px env(safe-area-inset-bottom);
+    opacity: 0;
+    pointer-events: none;
     scrollbar-width: none;
     overscroll-behavior-x: contain;
     box-shadow: 0 -4px 14px rgba(0,0,0,.24);
+    transition: transform .22s cubic-bezier(.22,.75,.28,1), opacity .16s ease;
+  }
+
+  .mobile-landscape .room-nav.mobile-nav-open {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mobile-landscape .mobile-room-menu-handle {
+    position: absolute;
+    left: 50%;
+    bottom: max(3px, env(safe-area-inset-bottom));
+    z-index: 43;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 116px;
+    min-height: 25px;
+    border: 1px solid rgba(255,255,255,.38);
+    border-radius: 999px;
+    padding: 2px 12px 3px;
+    color: #fff8e7;
+    background: rgba(18,23,28,.76);
+    box-shadow: 0 3px 12px rgba(0,0,0,.3);
+    transform: translateX(-50%);
+    backdrop-filter: blur(7px);
+    font-size: .63rem;
+    line-height: 1;
+  }
+
+  .mobile-landscape .mobile-room-menu-handle span {
+    font-size: .8rem;
+    line-height: .8;
+  }
+
+  .mobile-landscape .mobile-room-menu-handle b { font-size: .62rem; letter-spacing: .04em; }
+
+  .mobile-landscape .mobile-room-menu-handle.is-open {
+    bottom: calc(60px + env(safe-area-inset-bottom));
+    border-radius: 10px 10px 0 0;
+    background: rgba(21,26,30,.92);
   }
 
   .mobile-landscape .room-nav::-webkit-scrollbar { display: none; }
@@ -977,23 +1024,25 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-landscape .suuhimochi-keyboard {
     position: fixed;
     z-index: 280;
-    top: max(6px, env(safe-area-inset-top));
-    right: max(6px, env(safe-area-inset-right));
-    bottom: max(6px, env(safe-area-inset-bottom));
+    top: max(5px, env(safe-area-inset-top));
+    right: max(5px, env(safe-area-inset-right));
+    bottom: auto;
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-    gap: 5px;
-    width: min(43vw, 430px);
-    min-width: 310px;
-    padding: 7px;
-    overflow-y: auto;
-    border: 2px solid rgba(91, 60, 38, .62);
-    border-radius: 15px;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: 3px;
+    width: min(32vw, 430px);
+    min-width: 225px;
+    height: min(340px, calc(var(--app-visible-height, 100dvh) - 10px - env(safe-area-inset-top)));
+    max-height: calc(var(--app-visible-height, 100dvh) - 10px - env(safe-area-inset-top));
+    padding: 5px;
+    overflow: hidden;
+    border: 1px solid rgba(91, 60, 38, .62);
+    border-radius: 11px;
     color: #403025;
     background:
       linear-gradient(rgba(255, 253, 244, .95), rgba(244, 226, 191, .96)),
       repeating-linear-gradient(0deg, transparent 0 15px, rgba(111, 74, 43, .04) 16px);
-    box-shadow: 0 7px 0 rgba(74, 45, 27, .2), 0 16px 35px rgba(39, 24, 14, .34);
+    box-shadow: 0 4px 0 rgba(74, 45, 27, .18), 0 10px 24px rgba(39, 24, 14, .3);
     pointer-events: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
@@ -1005,7 +1054,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     -webkit-appearance: none;
     min-width: 0;
     border: 1px solid rgba(112, 76, 48, .42);
-    border-radius: 9px;
+    border-radius: 7px;
     color: #443226;
     background: linear-gradient(#fffdf7, #f1dfbd);
     box-shadow: 0 2px 0 rgba(86, 54, 34, .2);
@@ -1034,10 +1083,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     position: relative;
     display: block;
     width: 100%;
-    height: 44px;
-    min-height: 44px;
+    height: 38px;
+    min-height: 38px;
     border: 1px solid rgba(104, 70, 46, .5);
-    border-radius: 9px;
+    border-radius: 7px;
     background: rgba(255, 255, 252, .92);
     overflow: hidden;
   }
@@ -1055,13 +1104,13 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     width: 100%;
     height: 100%;
     margin: 0;
-    padding: 8px 10px;
+    padding: 5px 7px;
     overflow: auto;
     border: 0;
     border-radius: inherit;
     font: inherit;
-    font-size: clamp(.82rem, 1.75vw, 1rem);
-    line-height: 1.4;
+    font-size: clamp(.75rem, 1.35vw, .9rem);
+    line-height: 1.3;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: normal;
@@ -1121,27 +1170,28 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-landscape .suuhimochi-keyboard-modes {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
+    gap: 2px;
   }
 
   .mobile-landscape .suuhimochi-keyboard-modes button {
-    min-height: 25px;
-    padding: 3px 5px;
-    font-size: .72rem;
+    min-height: 30px;
+    height: 30px;
+    padding: 2px 3px;
+    font-size: .66rem;
   }
 
   .mobile-landscape .suuhimochi-flick-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(4, minmax(29px, 1fr));
-    gap: 4px;
-    min-height: 132px;
+    grid-template-rows: repeat(4, minmax(38px, 1fr));
+    gap: 2px;
+    min-height: 158px;
   }
 
   .mobile-landscape .suuhimochi-flick-grid button {
-    min-height: 29px;
-    padding: 2px;
-    font-size: clamp(.82rem, 2vw, 1.02rem);
+    min-height: 38px;
+    padding: 1px;
+    font-size: clamp(.76rem, 1.7vw, .94rem);
     touch-action: none;
   }
 
@@ -1149,8 +1199,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     display: grid;
     grid-template-columns: repeat(9, minmax(0, 1fr));
     align-content: start;
-    gap: 4px;
-    min-height: 132px;
+    gap: 2px;
+    min-height: 158px;
   }
 
   .mobile-landscape .suuhimochi-direct-grid.is-abc {
@@ -1158,21 +1208,30 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   }
 
   .mobile-landscape .suuhimochi-direct-grid button {
-    min-height: 31px;
-    padding: 2px;
-    font-size: .74rem;
+    min-height: 30px;
+    padding: 1px;
+    font-size: .68rem;
   }
 
   .mobile-landscape .suuhimochi-keyboard-functions {
     display: grid;
     grid-template-columns: 1fr 1.15fr 1.35fr;
-    gap: 5px;
+    gap: 3px;
+  }
+
+  .mobile-landscape .suuhimochi-keyboard-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    gap: 3px;
+    min-height: 76px;
   }
 
   .mobile-landscape .suuhimochi-keyboard-functions button {
-    min-height: 30px;
-    padding: 4px 6px;
-    font-size: .76rem;
+    min-height: 34px;
+    height: 34px;
+    padding: 3px 4px;
+    font-size: .7rem;
   }
 
   .mobile-landscape .suuhimochi-keyboard-functions button small {
@@ -1194,31 +1253,37 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-landscape .suuhimochi-kanji-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 5px;
+    gap: 3px;
   }
 
   .mobile-landscape .suuhimochi-kanji-actions button {
     display: grid;
     place-content: center;
-    gap: 3px;
-    min-height: 38px;
-    padding: 4px 7px;
+    gap: 1px;
+    min-height: 39px;
+    height: 39px;
+    padding: 3px 4px;
   }
 
   .mobile-landscape .suuhimochi-kanji-actions b {
-    font-size: .74rem;
+    font-size: .66rem;
+    white-space: nowrap;
   }
 
   .mobile-landscape .suuhimochi-kanji-actions small {
     color: #806b5a;
-    font-size: .58rem;
+    font-size: .51rem;
     font-weight: 600;
     line-height: 1.15;
   }
 
   .mobile-landscape .suuhimochi-conversion-candidates {
+    position: absolute;
+    z-index: 4;
+    top: 45px;
+    right: 5px;
+    left: 5px;
     display: flex;
-    grid-row: 2;
     gap: 5px;
     min-height: 31px;
     padding: 3px;
@@ -1253,7 +1318,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     position: fixed;
     z-index: 310;
     top: 50%;
-    right: calc(min(43vw, 430px) / 2);
+    right: calc(min(32vw, 430px) / 2);
     display: grid;
     grid-template: repeat(3, 38px) / repeat(3, 38px);
     place-items: center;
@@ -1393,8 +1458,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 @media (max-width: 1024px) and (orientation: landscape) and (max-height: 390px) {
   .mobile-landscape .suuhimochi-keyboard {
-    gap: 3px;
-    padding: 5px;
+    gap: 2px;
+    padding: 4px;
   }
 
   .mobile-landscape .suuhimochi-keyboard-display-shell {
@@ -1409,17 +1474,19 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
   .mobile-landscape .suuhimochi-flick-grid,
   .mobile-landscape .suuhimochi-direct-grid {
-    min-height: 112px;
+    min-height: 96px;
   }
 
   .mobile-landscape .suuhimochi-flick-grid {
-    grid-template-rows: repeat(4, minmax(25px, 1fr));
+    grid-template-rows: repeat(4, minmax(22px, 1fr));
   }
 
   .mobile-landscape .suuhimochi-flick-grid button,
   .mobile-landscape .suuhimochi-direct-grid button {
-    min-height: 25px;
+    min-height: 22px;
   }
+
+  .mobile-landscape .suuhimochi-keyboard-controls { min-height: 68px; }
 
   .mobile-landscape .suuhimochi-kanji-actions button {
     min-height: 31px;
@@ -1445,9 +1512,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-landscape .initial-dialogue-box {
     left: 41%;
     bottom: 50%;
-    width: min(52vw, 580px);
+    width: min(58vw, 580px);
     min-height: 0;
-    max-height: 44dvh;
+    max-height: 35dvh;
     padding: 16px 18px 14px;
     overflow-y: auto;
   }

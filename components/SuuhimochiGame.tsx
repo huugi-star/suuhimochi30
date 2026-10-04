@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Apple, BookOpen, Gamepad2, Home, MessageCircle, NotebookTabs, PackageOpen, RotateCcw, Settings, Sparkles, UserRoundPlus, X } from 'lucide-react';
 import { MiniGamePanel } from '@/components/minigames/MiniGamePanel';
 import { PotenoPanel } from '@/components/PotenoPanel';
@@ -51,6 +51,14 @@ type ZoomFaceEmotion = 'neutral' | 'happy' | 'nervous' | 'sad' | 'surprised' | '
 type ZoomEyeFrame = 'open' | 'half' | 'closed';
 type ZoomMouthFrame = 'closed' | 'small' | 'open';
 type ZoomArmPose = 'down' | 'up' | 'open' | 'chest';
+
+const ROOM_WORLD_WIDTH = 1600;
+const ROOM_WORLD_HEIGHT = 1000;
+
+function getDisplayedSpriteMetrics(room: DOMRect, mobileRoomMode: boolean) {
+  const scale = mobileRoomMode ? room.width / ROOM_WORLD_WIDTH : 1;
+  return { half: 64 * scale, foot: 122 * scale };
+}
 
 type InitialPreviewSnapshot = {
   save: GameSave;
@@ -564,6 +572,9 @@ export function SuuhimochiGame() {
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [isMobilePortrait, setIsMobilePortrait] = useState(false);
   const [mobileRoomMode, setMobileRoomMode] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [embeddedMobileKeyboardOpen, setEmbeddedMobileKeyboardOpen] = useState(false);
+  const [mobileRoomFit, setMobileRoomFit] = useState({ scale: 0.3, offsetX: 0, offsetY: 0 });
   const [roomPanX, setRoomPanX] = useState(0);
   const [roomOverview, setRoomOverview] = useState(false);
   const [roomViewport, setRoomViewport] = useState({ width: 0, height: 0 });
@@ -638,6 +649,8 @@ export function SuuhimochiGame() {
   const twoDayReviewOfferDateRef = useRef('');
   const roomRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
+  const mobileNavRef = useRef<HTMLElement>(null);
+  const mobileNavHandleRef = useRef<HTMLButtonElement>(null);
   const roomPanRef = useRef(0);
   const roomPanDragRef = useRef<{ pointerId: number; clientX: number; panX: number; moved: boolean } | null>(null);
   const walkOffsetRef = useRef({ x: 0, y: 0 });
@@ -705,11 +718,12 @@ export function SuuhimochiGame() {
       setIsMobileDevice(mobile);
       setIsMobilePortrait(mobile && portrait);
       setMobileRoomMode(mobile && !portrait);
-      if (!mobile) {
+      if (!mobile || !portrait) {
         roomPanRef.current = 0;
         setRoomPanX(0);
         setRoomOverview(false);
       }
+      if (!mobile || portrait) setMobileNavOpen(false);
     };
     syncDeviceOrientation();
     portraitQuery.addEventListener?.('change', syncDeviceOrientation);
@@ -740,13 +754,28 @@ export function SuuhimochiGame() {
     };
   }, []);
 
+  useEffect(() => {
+    const syncKeyboardVisibility = (event?: Event) => {
+      const customEvent = event as CustomEvent<boolean> | undefined;
+      setEmbeddedMobileKeyboardOpen(
+        typeof customEvent?.detail === 'boolean'
+          ? customEvent.detail
+          : Boolean(document.querySelector('.suuhimochi-keyboard')),
+      );
+    };
+    syncKeyboardVisibility();
+    window.addEventListener('suuhimochi-keyboard-visibility', syncKeyboardVisibility);
+    return () => window.removeEventListener('suuhimochi-keyboard-visibility', syncKeyboardVisibility);
+  }, []);
+
   const clampRoomPan = useCallback((value: number) => {
+    if (mobileRoomMode) return 0;
     const viewport = roomRef.current?.getBoundingClientRect();
     const world = worldRef.current?.getBoundingClientRect();
     if (!viewport || !world || roomOverview) return 0;
     const maxPan = Math.max(0, (world.width - viewport.width) / 2);
     return Math.max(-maxPan, Math.min(maxPan, value));
-  }, [roomOverview]);
+  }, [mobileRoomMode, roomOverview]);
 
   useEffect(() => {
     if (!appReady || isMobilePortrait) return;
@@ -771,28 +800,12 @@ export function SuuhimochiGame() {
     };
   }, [appReady, clampRoomPan, isMobilePortrait, mobileRoomMode]);
 
-  useEffect(() => {
-    if (!mobileRoomMode || roomOverview || talkOpen || isRoomPanning || mochiState !== 'walk') return;
-    const viewport = roomRef.current?.getBoundingClientRect();
-    const world = worldRef.current?.getBoundingClientRect();
-    if (!viewport || !world) return;
-    const mochiScreenX = world.left + world.width * (0.41 + walkOffset.x / 100) + 64;
-    const safeLeft = viewport.left + viewport.width * 0.28;
-    const safeRight = viewport.right - viewport.width * 0.28;
-    let correction = 0;
-    if (mochiScreenX < safeLeft) correction = safeLeft - mochiScreenX;
-    else if (mochiScreenX > safeRight) correction = safeRight - mochiScreenX;
-    if (Math.abs(correction) < 1) return;
-    const nextPan = clampRoomPan(roomPanRef.current + correction);
-    roomPanRef.current = nextPan;
-    setRoomPanX(nextPan);
-  }, [clampRoomPan, isRoomPanning, mobileRoomMode, mochiState, roomOverview, talkOpen, walkOffset.x]);
-
   const isWalkOffsetBlocked = useCallback((offset: { x: number; y: number }, room: DOMRect) => {
     const ratio = room.width / Math.max(1, room.height);
+    const sprite = getDisplayedSpriteMetrics(room, mobileRoomMode);
     // Collision is based on the two feet, not the full sprite rectangle.
-    const footX = 41 + offset.x + (64 / room.width) * 100;
-    const footY = 54 + offset.y + (122 / room.height) * 100;
+    const footX = 41 + offset.x + (sprite.half / room.width) * 100;
+    const footY = 54 + offset.y + (sprite.foot / room.height) * 100;
     const footHalfX = (9 / room.width) * 100;
     const footHalfY = (6 / room.height) * 100;
     if (!storedItemIdsRef.current.includes('clock')) {
@@ -820,7 +833,7 @@ export function SuuhimochiGame() {
       if (footX + footHalfX > left && footX - footHalfX < left + width && footY + footHalfY > top && footY - footHalfY < top + height) return true;
     }
     return false;
-  }, []);
+  }, [mobileRoomMode]);
 
   const walkInSteps = useCallback((target: { x: number; y: number }, direction: SpriteDirection, distance: number, isManual = false, onComplete?: () => void, stepDurationMs = 150, onBlocked?: () => void) => {
     const start = walkOffsetRef.current;
@@ -923,8 +936,9 @@ export function SuuhimochiGame() {
     if (!room || !position || !collider) return;
     const ratio = room.width / Math.max(1, room.height);
     const current = walkOffsetRef.current;
-    const baseFootX = room.width * 0.41 + 64;
-    const baseFootY = room.height * 0.54 + 122;
+    const sprite = getDisplayedSpriteMetrics(room, mobileRoomMode);
+    const baseFootX = room.width * 0.41 + sprite.half;
+    const baseFootY = room.height * 0.54 + sprite.foot;
     const currentFootX = baseFootX + current.x * room.width / 100;
     const currentFootY = baseFootY + current.y * room.height / 100;
 
@@ -1002,7 +1016,7 @@ export function SuuhimochiGame() {
         window.requestAnimationFrame(() => setBedHandoff(false));
       });
     });
-  }, [dailyProgressOpen, foodOpen, isScheduledSleepTimeNow, itemOpen, itemPositions, minigameOpen, phase, potenoOpen, settingsOpen, talkOpen, talkReturning, walkInSteps]);
+  }, [dailyProgressOpen, foodOpen, isScheduledSleepTimeNow, itemOpen, itemPositions, minigameOpen, mobileRoomMode, phase, potenoOpen, settingsOpen, talkOpen, talkReturning, walkInSteps]);
 
   const wakeFromBed = useCallback((manual = true) => {
     if (manual && isScheduledSleepTimeNow) {
@@ -1033,8 +1047,9 @@ export function SuuhimochiGame() {
       // point was still inside the bed footprint, which could trap movement.
       const wakeRoomX = bedRect.left - room.left + bedRect.width * (exitRight ? 1.04 : -0.04);
       const wakeRoomY = bedRect.top - room.top + bedRect.height * 0.76;
-      const baseFootX = room.width * 0.41 + 64;
-      const baseFootY = room.height * 0.54 + 122;
+      const sprite = getDisplayedSpriteMetrics(room, mobileRoomMode);
+      const baseFootX = room.width * 0.41 + sprite.half;
+      const baseFootY = room.height * 0.54 + sprite.foot;
       wakeOffset = {
         x: Math.max(WALK_BOUNDS.minX, Math.min(WALK_BOUNDS.maxX, (wakeRoomX - baseFootX) / room.width * 100)),
         y: Math.max(WALK_BOUNDS.minY, Math.min(WALK_BOUNDS.maxY, (wakeRoomY - baseFootY) / room.height * 100)),
@@ -1074,7 +1089,7 @@ export function SuuhimochiGame() {
         });
       });
     }, 430);
-  }, [isScheduledSleepTimeNow, mochiState, sleepingBedId, wakingUp]);
+  }, [isScheduledSleepTimeNow, mobileRoomMode, mochiState, sleepingBedId, wakingUp]);
 
   const walkToClickedPoint = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (bubbleRef.current) {
@@ -1106,7 +1121,7 @@ export function SuuhimochiGame() {
 
     const room = event.currentTarget.getBoundingClientRect();
     const current = walkOffsetRef.current;
-    const spriteHalf = 64;
+    const spriteHalf = getDisplayedSpriteMetrics(room, mobileRoomMode).half;
     const currentX = room.width * (0.41 + current.x / 100) + spriteHalf;
     const currentY = room.height * (0.54 + current.y / 100) + spriteHalf;
     const desiredX = event.clientX - room.left;
@@ -1128,7 +1143,7 @@ export function SuuhimochiGame() {
         : closest;
     }, 'south' as SpriteDirection);
     walkInSteps(next, direction, distance, true);
-  }, [advanceBubblePage, bedPromptId, dailyProgressOpen, foodOpen, itemOpen, minigameOpen, mochiState, openPromptedTalk, openTwoDayReviewTalk, phase, potenoOpen, promptedQuestionOffer, settingsOpen, talkOpen, talkReturning, twoDayReviewOffer, twoDayReviewTalkOpen, walkInSteps]);
+  }, [advanceBubblePage, bedPromptId, dailyProgressOpen, foodOpen, itemOpen, minigameOpen, mobileRoomMode, mochiState, openPromptedTalk, openTwoDayReviewTalk, phase, potenoOpen, promptedQuestionOffer, settingsOpen, talkOpen, talkReturning, twoDayReviewOffer, twoDayReviewTalkOpen, walkInSteps]);
 
   const updateClockPosition = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const drag = clockDragRef.current;
@@ -1153,19 +1168,8 @@ export function SuuhimochiGame() {
   const handleWorldPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (dailyProgressOpen) return;
     if (roomOverview) return;
-    if (mobileRoomMode && !roomOverview && event.pointerType === 'touch') {
-      roomPanDragRef.current = {
-        pointerId: event.pointerId,
-        clientX: event.clientX,
-        panX: roomPanRef.current,
-        moved: false,
-      };
-      setIsRoomPanning(true);
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-      return;
-    }
     walkToClickedPoint(event);
-  }, [dailyProgressOpen, mobileRoomMode, roomOverview, walkToClickedPoint]);
+  }, [dailyProgressOpen, roomOverview, walkToClickedPoint]);
 
   const handleWorldPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     updateClockPosition(event);
@@ -1851,11 +1855,14 @@ export function SuuhimochiGame() {
     left: `${Math.max(2, Math.min(66, sleepPose.left - 16))}%`,
     top: `${Math.max(4, sleepPose.top - 40)}%`,
   } : undefined;
-  const potenoWorldWidth = mobileRoomMode ? Math.max(roomViewport.width, roomViewport.height * 1.6) : roomViewport.width;
-  const potenoWorldLeft = mobileRoomMode ? (roomViewport.width - potenoWorldWidth) / 2 + roomPanX : 0;
+  const currentWorldBounds = worldRef.current?.getBoundingClientRect();
+  const roomBounds = roomRef.current?.getBoundingClientRect();
+  const displayedSprite = currentWorldBounds ? getDisplayedSpriteMetrics(currentWorldBounds, mobileRoomMode) : { half: 64, foot: 122 };
+  const worldLeftInRoom = currentWorldBounds && roomBounds ? currentWorldBounds.left - roomBounds.left : 0;
+  const worldTopInRoom = currentWorldBounds && roomBounds ? currentWorldBounds.top - roomBounds.top : 0;
   const potenoWelcomeBubbleStyle = isPotenoWelcomeBubble ? {
-    left: `${potenoWorldLeft + potenoWorldWidth * (0.41 + walkOffset.x / 100) + 64}px`,
-    top: `${roomViewport.height * (0.54 + walkOffset.y / 100) + 64}px`,
+    left: `${worldLeftInRoom + (currentWorldBounds?.width ?? roomViewport.width) * (0.41 + walkOffset.x / 100) + displayedSprite.half}px`,
+    top: `${worldTopInRoom + (currentWorldBounds?.height ?? roomViewport.height) * (0.54 + walkOffset.y / 100) + displayedSprite.half}px`,
   } : undefined;
   // Keep the last walking heading for idle/looking poses so the character
   // settles facing the direction it just walked toward.
@@ -1870,8 +1877,9 @@ export function SuuhimochiGame() {
     const room = worldRef.current?.getBoundingClientRect();
     if (!room) return;
     const current = walkOffsetRef.current;
-    const baseFootX = room.width * 0.41 + 64;
-    const baseFootY = room.height * 0.54 + 122;
+    const sprite = getDisplayedSpriteMetrics(room, mobileRoomMode);
+    const baseFootX = room.width * 0.41 + sprite.half;
+    const baseFootY = room.height * 0.54 + sprite.foot;
     // First move to the left of the table while staying above its collider,
     // then come forward. This keeps the pair side by side instead of stopping
     // diagonally behind the table.
@@ -1919,7 +1927,7 @@ export function SuuhimochiGame() {
       return;
     }
     walkInSteps(waypoint, directionFor(current, waypoint), waypointDistance, false, moveForward, 230, finish);
-  }, [mochiState, potenoOpen, walkInSteps]);
+  }, [mobileRoomMode, mochiState, potenoOpen, walkInSteps]);
 
   useEffect(() => {
     if (!potenoOpen || bubble !== 'ポテノが来たよ。' || mochiState === 'sleep') return;
@@ -3177,17 +3185,18 @@ export function SuuhimochiGame() {
   const measuredRoom = worldRef.current?.getBoundingClientRect();
   const measuredRoomHeight = measuredRoom?.height ?? (typeof window !== 'undefined' ? window.innerHeight : 1000);
   const roomRatio = measuredRoom ? measuredRoom.width / Math.max(1, measuredRoom.height) : 1.6;
-  const mochiFootY = 54 + walkOffset.y + (122 / measuredRoomHeight) * 100;
+  const measuredSprite = measuredRoom ? getDisplayedSpriteMetrics(measuredRoom, mobileRoomMode) : { half: 64, foot: 122 };
+  const mochiFootY = 54 + walkOffset.y + (measuredSprite.foot / measuredRoomHeight) * 100;
   const lowTableFrontY = lowTablePosition.y + LOW_TABLE_COLLIDER.offsetY + LOW_TABLE_COLLIDER.height;
   const tableShouldOverlayMochi = mochiFootY < lowTableFrontY;
   const cameraOrigin = (() => {
     if ((!talkOpen && !isMonologueZoom) || !measuredRoom) return { x: 48, y: 63 };
-    const x = 41 + walkOffset.x + (64 / measuredRoom.width) * 100;
-    const y = 54 + walkOffset.y + (64 / measuredRoom.height) * 100;
+    const x = 41 + walkOffset.x + (measuredSprite.half / measuredRoom.width) * 100;
+    const y = 54 + walkOffset.y + (measuredSprite.half / measuredRoom.height) * 100;
     return { x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) };
   })();
   const mochiWorldX = measuredRoom
-    ? 41 + walkOffset.x + (64 / measuredRoom.width) * 100
+    ? 41 + walkOffset.x + (measuredSprite.half / measuredRoom.width) * 100
     : 48;
   const mobileWorldWidth = Math.max(roomViewport.width, roomViewport.height * 1.6);
   const roomOverviewScale = mobileRoomMode && roomOverview && roomViewport.width > 0 && roomViewport.height > 0
@@ -3230,6 +3239,88 @@ export function SuuhimochiGame() {
     && talkStage !== 'ended'
     && talkInputEnabled;
   const mobileKeyboardOpen = mobileInitialKeyboardOpen || mobileTalkKeyboardOpen;
+  const mobileKeyboardVisible = mobileKeyboardOpen || embeddedMobileKeyboardOpen;
+
+  useLayoutEffect(() => {
+    if (!mobileRoomMode || !appReady || isMobilePortrait) return;
+
+    let frame = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    const syncRoomFit = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const room = roomRef.current?.getBoundingClientRect();
+        if (!room) return;
+
+        const visualViewport = window.visualViewport;
+        const viewportLeft = visualViewport?.offsetLeft ?? 0;
+        const viewportTop = visualViewport?.offsetTop ?? 0;
+        const viewportRight = viewportLeft + (visualViewport?.width ?? window.innerWidth);
+        const viewportBottom = viewportTop + (visualViewport?.height ?? window.innerHeight);
+        const visibleLeft = Math.max(room.left, viewportLeft);
+        const visibleTop = Math.max(room.top, viewportTop);
+        const visibleRight = Math.min(room.right, viewportRight);
+        const visibleBottom = Math.min(room.bottom, viewportBottom);
+        const visibleWidth = Math.max(1, visibleRight - visibleLeft);
+        const visibleHeight = Math.max(1, visibleBottom - visibleTop);
+
+        const keyboard = mobileKeyboardVisible
+          ? document.querySelector<HTMLElement>('.suuhimochi-keyboard:not(.is-native)')
+          : null;
+        const keyboardRect = keyboard?.getBoundingClientRect();
+        const keyboardReserve = keyboardRect
+          ? Math.max(0, visibleRight - Math.max(visibleLeft, keyboardRect.left) + 6)
+          : 0;
+        const navElement = mobileNavOpen ? mobileNavRef.current : mobileNavHandleRef.current;
+        const navRect = navElement?.getBoundingClientRect();
+        const bottomReserve = navRect
+          ? mobileNavOpen
+            ? navRect.height + 4
+            : Math.max(0, visibleBottom - Math.max(visibleTop, navRect.top) + 4)
+          : 0;
+        const availableWidth = Math.max(1, visibleWidth - keyboardReserve);
+        const availableHeight = Math.max(1, visibleHeight - bottomReserve);
+        const scale = Math.min(availableWidth / ROOM_WORLD_WIDTH, availableHeight / ROOM_WORLD_HEIGHT);
+        const availableCenterX = visibleLeft + availableWidth / 2;
+        const availableCenterY = visibleTop + availableHeight / 2;
+        const roomCenterX = room.left + room.width / 2;
+        const roomCenterY = room.top + room.height / 2;
+
+        setMobileRoomFit((current) => {
+          const next = {
+            scale,
+            offsetX: availableCenterX - roomCenterX,
+            offsetY: availableCenterY - roomCenterY,
+          };
+          return Math.abs(current.scale - next.scale) < 0.0005
+            && Math.abs(current.offsetX - next.offsetX) < 0.5
+            && Math.abs(current.offsetY - next.offsetY) < 0.5
+            ? current
+            : next;
+        });
+      });
+    };
+
+    syncRoomFit();
+    resizeObserver = new ResizeObserver(syncRoomFit);
+    if (roomRef.current) resizeObserver.observe(roomRef.current);
+    const keyboard = document.querySelector<HTMLElement>('.suuhimochi-keyboard:not(.is-native)');
+    if (keyboard) resizeObserver.observe(keyboard);
+    if (mobileNavRef.current) resizeObserver.observe(mobileNavRef.current);
+    if (mobileNavHandleRef.current) resizeObserver.observe(mobileNavHandleRef.current);
+    window.visualViewport?.addEventListener('resize', syncRoomFit);
+    window.visualViewport?.addEventListener('scroll', syncRoomFit);
+    window.addEventListener('resize', syncRoomFit);
+    window.addEventListener('orientationchange', syncRoomFit);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.visualViewport?.removeEventListener('resize', syncRoomFit);
+      window.visualViewport?.removeEventListener('scroll', syncRoomFit);
+      window.removeEventListener('resize', syncRoomFit);
+      window.removeEventListener('orientationchange', syncRoomFit);
+    };
+  }, [appReady, isMobilePortrait, mobileKeyboardVisible, mobileNavOpen, mobileRoomMode]);
 
   if (!hydrated || !appReady) return <StartupLoadingScreen progress={startupProgress} />;
   if (isMobileDevice && isMobilePortrait) return <RotateDeviceScreen />;
@@ -3279,7 +3370,7 @@ export function SuuhimochiGame() {
   );
 
   return (
-    <main className={`game-shell startup-content-ready${mobileLandscapeClass}${mobileKeyboardOpen ? ' mobile-keyboard-open' : ''} time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
+    <main className={`game-shell startup-content-ready${mobileLandscapeClass}${mobileKeyboardVisible ? ' mobile-keyboard-open' : ''} time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
       <style>{`
         .mochi.mochi-conversation {
           z-index: 4 !important;
@@ -3393,11 +3484,18 @@ export function SuuhimochiGame() {
         }
 
         @media (max-width: 1024px) and (orientation: landscape) {
-          .mobile-landscape .world-layer {
-            width: max(100%, 160dvh);
-            height: 100%;
+          .mobile-landscape .world-layer,
+          .mobile-landscape .world-layer.world-layer-talk,
+          .mobile-landscape .world-layer.room-world-overview {
+            top: calc(50% + var(--mobile-room-offset-y, 0px));
             bottom: auto;
-            touch-action: none;
+            left: calc(50% + var(--mobile-room-offset-x, 0px));
+            width: ${ROOM_WORLD_WIDTH}px;
+            height: ${ROOM_WORLD_HEIGHT}px;
+            transform: scale(var(--mobile-room-fit-scale, .3));
+            transform-origin: 50% 50%;
+            translate: -50% -50%;
+            touch-action: manipulation;
           }
 
           .mobile-landscape .world-layer .room-clock {
@@ -4144,7 +4242,16 @@ export function SuuhimochiGame() {
         <div
           ref={worldRef}
           className={`world-layer${talkOpen || isMonologueZoom ? ' world-layer-talk' : ''}${roomOverview ? ' room-world-overview' : ''}${isRoomPanning ? ' room-world-panning' : ''}${isDarkPeriod && lightsOut ? ' world-layer-lights-out' : ''}${phase === 'home' && !dailyProgressOpen && !bubble && !talkReturning && !foodOpen && !minigameOpen && !potenoOpen && !settingsOpen ? ' world-layer-walkable' : ''}`}
-          style={{ '--camera-x': `${cameraOrigin.x}%`, '--camera-y': `${cameraOrigin.y}%`, '--room-pan-x': `${roomPanX}px`, '--room-overview-scale': roomOverviewScale, backgroundImage: `url('${roomBackground}')` } as React.CSSProperties}
+          style={{
+            '--camera-x': `${cameraOrigin.x}%`,
+            '--camera-y': `${cameraOrigin.y}%`,
+            '--room-pan-x': `${roomPanX}px`,
+            '--room-overview-scale': roomOverviewScale,
+            '--mobile-room-fit-scale': mobileRoomFit.scale,
+            '--mobile-room-offset-x': `${mobileRoomFit.offsetX}px`,
+            '--mobile-room-offset-y': `${mobileRoomFit.offsetY}px`,
+            backgroundImage: `url('${roomBackground}')`,
+          } as React.CSSProperties}
           onPointerDown={handleWorldPointerDown}
           onPointerMove={handleWorldPointerMove}
           onPointerUp={handleWorldPointerEnd}
@@ -4448,8 +4555,8 @@ export function SuuhimochiGame() {
         )}
 
         {phase === 'home' && <>
-          <header className="game-status"><div><strong>DAY {conversationDay}</strong><span>{conversationPhase}</span></div><div className="game-status-actions">{mobileRoomMode && !dailyProgressOpen && !talkOpen && !potenoOpen && <button className="room-overview-toggle" type="button" onClick={() => { const next = !roomOverview; roomPanRef.current = 0; setRoomPanX(0); setRoomOverview(next); }} aria-pressed={roomOverview}>{roomOverview ? '近くに戻る' : '部屋を見る'}</button>}<button className="room-light-toggle" type="button" onClick={() => setLightsOut((value) => !value)} disabled={dailyProgressOpen || !isDarkPeriod} aria-pressed={isDarkPeriod && lightsOut}>{isDarkPeriod && lightsOut ? '点灯' : '消灯'}</button><span className="time-label">{TIME_LABELS[currentTime]}</span></div></header>
-          {dailyProgressOpen && dailyProgressActivityDate && <DailyProgressCheck activityDate={dailyProgressActivityDate} reviewedDate={getPreviousActivityDateKey(dailyProgressActivityDate)} onComplete={completeDailyProgress} />}
+          <header className="game-status"><div><strong>DAY {conversationDay}</strong><span>{conversationPhase}</span></div><div className="game-status-actions"><button className="room-light-toggle" type="button" onClick={() => setLightsOut((value) => !value)} disabled={dailyProgressOpen || !isDarkPeriod} aria-pressed={isDarkPeriod && lightsOut}>{isDarkPeriod && lightsOut ? '点灯' : '消灯'}</button><span className="time-label">{TIME_LABELS[currentTime]}</span></div></header>
+          {dailyProgressOpen && dailyProgressActivityDate && <DailyProgressCheck activityDate={dailyProgressActivityDate} reviewedDate={getPreviousActivityDateKey(dailyProgressActivityDate)} onComplete={completeDailyProgress} useSuuhimochiKeyboard={mobileRoomMode} />}
           {graduationOpen && <GraduationFlow
             preview={graduationPreview}
             callName={getPreferredCallName(save)}
@@ -4701,6 +4808,7 @@ export function SuuhimochiGame() {
             onSaveDoneItems={saveJournalDoneItems}
             onConfirmNoExperience={confirmNoExperience}
             onChangeGoalType={saveGoalType}
+            useSuuhimochiKeyboard={mobileRoomMode}
           />}
           {dictionaryOpen && <section className="dictionary-note" aria-label="すうひもちの辞書">
             <button className="dictionary-close" aria-label="辞書を閉じる" onClick={() => setDictionaryOpen(false)}><X size={18} /></button>
@@ -4851,7 +4959,22 @@ export function SuuhimochiGame() {
           </div>
         </details>}
       </div>
-      {!dailyProgressOpen && !talkOpen && !potenoOpen && !twoDayReviewTalkOpen && <nav className="room-nav" aria-label="部屋のメニュー">
+      {!dailyProgressOpen && !talkOpen && !potenoOpen && !twoDayReviewTalkOpen && <>
+      <button
+        ref={mobileNavHandleRef}
+        className={`mobile-room-menu-handle${mobileNavOpen ? ' is-open' : ''}`}
+        type="button"
+        aria-expanded={mobileNavOpen}
+        aria-controls="room-mobile-navigation"
+        onClick={() => setMobileNavOpen((open) => !open)}
+      ><span aria-hidden="true">{mobileNavOpen ? '﹀' : '︿'}</span><b>メニュー</b></button>
+      <nav
+        ref={mobileNavRef}
+        id="room-mobile-navigation"
+        className={`room-nav${mobileNavOpen ? ' mobile-nav-open' : ''}`}
+        aria-label="部屋のメニュー"
+        onClick={() => { if (mobileRoomMode) setMobileNavOpen(false); }}
+      >
         <button className={!memoryOpen && !dictionaryOpen && !foodOpen && !itemOpen && !minigameOpen && !settingsOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); bubbleRef.current = null; setBubblePageIndex(0); setBubble(null); }}><Home size={19} /><span>部屋</span></button>
         <button onClick={openTalk}><MessageCircle size={19} /><span>はなす</span></button>
         <button className={memoryOpen ? 'active' : ''} onClick={() => { setMemoryOpen(true); setDictionaryOpen(false); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSelectedItemId(null); }}><NotebookTabs size={19} /><span>日誌</span></button>
@@ -4861,7 +4984,7 @@ export function SuuhimochiGame() {
         <button className={minigameOpen ? 'active' : ''} onClick={openMinigames}><Gamepad2 size={19} /><span className="room-nav-label-long">ミニゲーム</span><span className="room-nav-label-short">ゲーム</span></button>
         <button onClick={openPoteno}><UserRoundPlus size={19} /><span className="room-nav-label-long">ポテノを呼ぶ</span><span className="room-nav-label-short">ポテノ</span></button>
         <button className={settingsOpen ? 'active' : ''} onClick={openSettings}><Settings size={19} /><span>設定</span></button>
-      </nav>}
+      </nav></>}
       </div>
     </main>
   );
