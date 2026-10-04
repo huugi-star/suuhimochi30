@@ -561,7 +561,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     width: 100%;
     min-height: var(--app-visible-height, 100dvh);
     height: var(--app-visible-height, 100dvh);
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
   /* The phone uses the full visible viewport for the room. Navigation is a
@@ -599,7 +599,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     overflow: hidden;
   }
 
-  /* The phone background is a 2196 x 941 cover canvas. The gameplay layer
+  /* The phone background is a 2196 x 941 contained canvas. The gameplay layer
      above it is the original 1672 x 941 safe area, centered and scaled with
      the same factor by SuuhimochiGame. */
   .mobile-landscape .mobile-room-background {
@@ -611,7 +611,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     background-color: #17130f;
     background-position: center center;
     background-repeat: no-repeat;
-    background-size: cover;
+    background-size: contain;
     pointer-events: none;
   }
 
@@ -630,7 +630,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--mobile-room-canvas-bottom, 0px);
     z-index: 42;
     box-sizing: border-box;
     width: 100%;
@@ -665,7 +665,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-landscape .mobile-room-menu-handle {
     position: absolute;
     left: 50%;
-    bottom: max(3px, env(safe-area-inset-bottom));
+    bottom: calc(var(--mobile-room-canvas-bottom, 0px) + 3px);
     z-index: 43;
     display: inline-flex;
     align-items: center;
@@ -693,7 +693,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-landscape .mobile-room-menu-handle b { font-size: .62rem; letter-spacing: .04em; }
 
   .mobile-landscape .mobile-room-menu-handle.is-open {
-    bottom: calc(60px + env(safe-area-inset-bottom));
+    bottom: calc(var(--mobile-room-canvas-bottom, 0px) + 60px);
     border-radius: 10px 10px 0 0;
     background: rgba(21,26,30,.92);
   }
@@ -1527,34 +1527,46 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .initial-dialogue-box::before,
 .initial-dialogue-box::after {
   left: 50%;
+  right: auto;
+  transform: translateX(-50%);
 }
 
 @media (max-width: 1024px) and (orientation: landscape) {
   .mobile-landscape .initial-dialogue-box {
-    left: 41%;
-    bottom: 50%;
-    width: min(58vw, 580px);
+    /* Position this opening bubble inside the measured 2196 x 941 canvas,
+       rather than against the browser viewport or an arbitrary bottom edge. */
+    top: var(--mobile-room-dialogue-top, 6%);
+    right: auto;
+    bottom: auto;
+    left: var(--mobile-room-dialogue-center-x, 50%);
+    width: min(var(--mobile-room-dialogue-width, 70%), calc(100% - 28px));
     min-height: 0;
-    max-height: 35dvh;
-    padding: 16px 18px 14px;
+    max-height: min(31dvh, calc(100% - var(--mobile-room-dialogue-top, 6%) - 14px));
+    padding: 13px 16px 12px;
+    border-radius: 20px;
     overflow-y: auto;
+    transform: translateX(-50%);
   }
 
   .mobile-landscape .initial-dialogue-box p {
-    margin: 5px 0;
-    font-size: clamp(.88rem, 2vw, 1.06rem);
-    line-height: 1.55;
+    margin: 4px 0;
+    font-size: clamp(.84rem, 1.9vw, 1rem);
+    line-height: 1.5;
   }
 
   .mobile-landscape.mobile-keyboard-open .initial-dialogue-box {
-    left: 28%;
-    bottom: calc(50% + 2px);
-    width: min(52vw, 540px);
+    top: var(--mobile-room-dialogue-top, 6%);
+    right: auto;
+    bottom: auto;
+    left: var(--mobile-room-keyboard-dialogue-center-x, 31%);
+    width: min(var(--mobile-room-keyboard-dialogue-width, 53%), calc(100% - 28px));
+    transform: translateX(-50%);
   }
 
   .mobile-landscape.mobile-keyboard-open .initial-dialogue-box::before,
   .mobile-landscape.mobile-keyboard-open .initial-dialogue-box::after {
     left: 76%;
+    right: auto;
   }
 
   .mobile-landscape.mobile-keyboard-open .initial-dialogue-box .choices {

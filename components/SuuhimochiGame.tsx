@@ -578,7 +578,21 @@ export function SuuhimochiGame() {
   const [mobileRoomMode, setMobileRoomMode] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [embeddedMobileKeyboardOpen, setEmbeddedMobileKeyboardOpen] = useState(false);
-  const [mobileRoomFit, setMobileRoomFit] = useState({ scale: 0.3, offsetX: 0, offsetY: 0 });
+  const [mobileRoomFit, setMobileRoomFit] = useState({
+    scale: 0.3,
+    offsetX: 0,
+    offsetY: 0,
+    canvasLeft: 0,
+    canvasTop: 0,
+    canvasBottom: 0,
+    canvasWidth: 0,
+    canvasHeight: 0,
+    dialogueCenterX: 0,
+    dialogueTop: 0,
+    dialogueWidth: 0,
+    keyboardDialogueCenterX: 0,
+    keyboardDialogueWidth: 0,
+  });
   const [roomPanX, setRoomPanX] = useState(0);
   const [roomOverview, setRoomOverview] = useState(false);
   const [roomViewport, setRoomViewport] = useState({ width: 0, height: 0 });
@@ -3268,27 +3282,50 @@ export function SuuhimochiGame() {
         const visibleWidth = Math.max(1, visibleRight - visibleLeft);
         const visibleHeight = Math.max(1, visibleBottom - visibleTop);
 
-        // Match CSS background-size: cover exactly. The 1672 x 941 object
-        // world is centered inside the 2196 x 941 background and uses this
-        // same scale, so existing furniture coordinates never need migrating.
-        const scale = Math.max(
+        // Match the mobile canvas's background-size: contain. The 1672 x 941
+        // object world stays centered inside the 2196 x 941 background and
+        // shares this scale, so the full room is visible without migrating
+        // any saved furniture coordinates.
+        const scale = Math.min(
           visibleWidth / ROOM_BACKGROUND_WIDTH,
           visibleHeight / ROOM_BACKGROUND_HEIGHT,
         );
-        const availableCenterX = visibleLeft + visibleWidth / 2;
-        const availableCenterY = visibleTop + visibleHeight / 2;
+        const canvasWidth = ROOM_BACKGROUND_WIDTH * scale;
+        const canvasHeight = ROOM_BACKGROUND_HEIGHT * scale;
+        const canvasLeft = visibleLeft + (visibleWidth - canvasWidth) / 2;
+        const canvasTop = visibleTop + (visibleHeight - canvasHeight) / 2;
+        const canvasBottom = room.bottom - (canvasTop + canvasHeight);
+        const availableCenterX = canvasLeft + canvasWidth / 2;
+        const availableCenterY = canvasTop + canvasHeight / 2;
         const roomCenterX = room.left + room.width / 2;
         const roomCenterY = room.top + room.height / 2;
+        const dialogueWidth = Math.min(canvasWidth * 0.7, visibleWidth - 28);
+        const keyboardDialogueWidth = Math.min(canvasWidth * 0.54, visibleWidth * 0.53);
 
         setMobileRoomFit((current) => {
           const next = {
             scale,
             offsetX: availableCenterX - roomCenterX,
             offsetY: availableCenterY - roomCenterY,
+            canvasLeft: canvasLeft - room.left,
+            canvasTop: canvasTop - room.top,
+            canvasBottom,
+            canvasWidth,
+            canvasHeight,
+            dialogueCenterX: availableCenterX - room.left,
+            dialogueTop: canvasTop - room.top + canvasHeight * 0.065,
+            dialogueWidth,
+            keyboardDialogueCenterX: canvasLeft - room.left + canvasWidth * 0.31,
+            keyboardDialogueWidth,
           };
           return Math.abs(current.scale - next.scale) < 0.0005
             && Math.abs(current.offsetX - next.offsetX) < 0.5
             && Math.abs(current.offsetY - next.offsetY) < 0.5
+            && Math.abs(current.canvasTop - next.canvasTop) < 0.5
+            && Math.abs(current.canvasBottom - next.canvasBottom) < 0.5
+            && Math.abs(current.canvasHeight - next.canvasHeight) < 0.5
+            && Math.abs(current.dialogueTop - next.dialogueTop) < 0.5
+            && Math.abs(current.dialogueWidth - next.dialogueWidth) < 0.5
             ? current
             : next;
         });
@@ -4242,7 +4279,25 @@ export function SuuhimochiGame() {
         }
       `}</style>
       <div className="room-stage">
-      <div ref={roomRef} className={`room${roomOverview ? ' room-overview-active' : ''}`} aria-label="夜の小さな部屋" style={{ backgroundColor: '#17130f', backgroundImage: 'none' }}>
+      <div
+        ref={roomRef}
+        className={`room${roomOverview ? ' room-overview-active' : ''}`}
+        aria-label="夜の小さな部屋"
+        style={{
+          backgroundColor: '#17130f',
+          backgroundImage: 'none',
+          '--mobile-room-canvas-left': `${mobileRoomFit.canvasLeft}px`,
+          '--mobile-room-canvas-top': `${mobileRoomFit.canvasTop}px`,
+          '--mobile-room-canvas-bottom': `${mobileRoomFit.canvasBottom}px`,
+          '--mobile-room-canvas-width': `${mobileRoomFit.canvasWidth}px`,
+          '--mobile-room-canvas-height': `${mobileRoomFit.canvasHeight}px`,
+          '--mobile-room-dialogue-center-x': `${mobileRoomFit.dialogueCenterX}px`,
+          '--mobile-room-dialogue-top': `${mobileRoomFit.dialogueTop}px`,
+          '--mobile-room-dialogue-width': `${mobileRoomFit.dialogueWidth}px`,
+          '--mobile-room-keyboard-dialogue-center-x': `${mobileRoomFit.keyboardDialogueCenterX}px`,
+          '--mobile-room-keyboard-dialogue-width': `${mobileRoomFit.keyboardDialogueWidth}px`,
+        } as React.CSSProperties}
+      >
         <div
           className="mobile-room-background"
           aria-hidden="true"
