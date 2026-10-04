@@ -724,6 +724,22 @@ export function SuuhimochiGame() {
     };
   }, []);
 
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const syncVisibleHeight = () => {
+      const visibleHeight = viewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty('--app-visible-height', `${Math.round(visibleHeight)}px`);
+    };
+    syncVisibleHeight();
+    viewport?.addEventListener('resize', syncVisibleHeight);
+    window.addEventListener('resize', syncVisibleHeight);
+    return () => {
+      viewport?.removeEventListener('resize', syncVisibleHeight);
+      window.removeEventListener('resize', syncVisibleHeight);
+      document.documentElement.style.removeProperty('--app-visible-height');
+    };
+  }, []);
+
   const clampRoomPan = useCallback((value: number) => {
     const viewport = roomRef.current?.getBoundingClientRect();
     const world = worldRef.current?.getBoundingClientRect();
@@ -3379,7 +3395,7 @@ export function SuuhimochiGame() {
         @media (max-width: 1024px) and (orientation: landscape) {
           .mobile-landscape .world-layer {
             width: max(100%, 160dvh);
-            height: 100dvh;
+            height: 100%;
             bottom: auto;
             touch-action: none;
           }
@@ -4767,6 +4783,10 @@ export function SuuhimochiGame() {
                 />
                 <small id="settings-birthday-help">{save.birthdayCorrectionUsed ? '生年月日の修正は使用済みです。' : save.birthday ? '生年月日の修正は一度だけ行えます。' : '生年月日を登録すると六占で使えます。'}</small>
               </section>
+              <section className="settings-pwa-guide" aria-label="スマホで広く遊ぶ方法">
+                <b>スマホで広く遊ぶ</b>
+                <p>ブラウザの「ホーム画面に追加」から開くと、アドレスバーのない広い画面で遊べます。</p>
+              </section>
               <button className="settings-save" type="submit">保存する</button>
             </form>
           </section>}
@@ -4838,8 +4858,8 @@ export function SuuhimochiGame() {
         <button className={dictionaryOpen ? 'active' : ''} onClick={openDictionary}><BookOpen size={19} /><span>辞書</span></button>
         <button className={foodOpen ? 'active' : ''} onClick={openFood}><Apple size={19} /><span>食事</span></button>
         <button className={itemOpen ? 'active' : ''} onClick={() => { setMemoryOpen(false); setDictionaryOpen(false); setFoodOpen(false); setMinigameOpen(false); setPotenoOpen(false); setItemOpen((open) => { if (!open) setItemPanelX(window.matchMedia('(max-width: 700px)').matches ? 12 : 3); return !open; }); setSettingsOpen(false); setItemPanelCollapsed(false); if (itemOpen) setSelectedItemId(null); }}><PackageOpen size={19} /><span>アイテム</span></button>
-        <button className={minigameOpen ? 'active' : ''} onClick={openMinigames}><Gamepad2 size={19} /><span>ミニゲーム</span></button>
-        <button onClick={openPoteno}><UserRoundPlus size={19} /><span>ポテノを呼ぶ</span></button>
+        <button className={minigameOpen ? 'active' : ''} onClick={openMinigames}><Gamepad2 size={19} /><span className="room-nav-label-long">ミニゲーム</span><span className="room-nav-label-short">ゲーム</span></button>
+        <button onClick={openPoteno}><UserRoundPlus size={19} /><span className="room-nav-label-long">ポテノを呼ぶ</span><span className="room-nav-label-short">ポテノ</span></button>
         <button className={settingsOpen ? 'active' : ''} onClick={openSettings}><Settings size={19} /><span>設定</span></button>
       </nav>}
       </div>

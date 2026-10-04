@@ -1,0 +1,20 @@
+{
+  "name": "すうひもち30",
+  "short_name": "すうひもち30",
+  "description": "30日間、すうひもちと一緒に目標へ進むアプリ",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
+  "orientation": "landscape",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

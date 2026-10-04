@@ -307,6 +307,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .room-nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 67px; border: 0; border-radius: 10px; padding: 7px 10px 5px; color: #d9d8d2; background: transparent; }
 .room-nav button:hover, .room-nav button.active { color: #fff; background: rgba(255,255,255,.12); }
 .room-nav span { font-size: .68rem; }
+.room-nav-label-short { display: none; }
 .item-note { position: absolute; left: 3%; top: 13%; z-index: 20; width: min(32%, 350px); max-height: 64%; display: flex; flex-direction: column; padding: 17px; border: 1px solid rgba(119, 89, 62, .42); border-radius: 18px; color: #3f3027; background: rgba(255,248,231,.58); box-shadow: 0 12px 28px rgba(44,27,16,.3); backdrop-filter: blur(2px); cursor: grab; touch-action: pan-y; }
 .item-note:active { cursor: grabbing; }
 .item-note > strong { display: block; margin-bottom: 4px; font-family: "Yu Mincho", serif; font-size: 1.2rem; }
@@ -348,6 +349,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .settings-divination-profile label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
 .settings-divination-profile label em { padding: 2px 6px; border-radius: 99px; color: #9a523c; background: #f5dfc7; font-size: .68rem; font-style: normal; white-space: nowrap; }
 .settings-divination-profile input:disabled { cursor: not-allowed; color: #8b7765; background: #eee7da; opacity: 1; }
+.settings-pwa-guide { display: none; }
 .settings-save { min-height: 42px; margin-top: 5px; border: 1px solid #b85335; border-radius: 8px; color: #fffdf8; background: #cf6745; box-shadow: 0 3px 0 rgba(91,56,37,.3); font-weight: 700; }
 .settings-save:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(91,56,37,.3); }
 
@@ -555,11 +557,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .birthday-screen.mobile-landscape,
   .game-shell.mobile-landscape {
     width: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
-    height: 100vh;
-    height: 100dvh;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    min-height: var(--app-visible-height, 100dvh);
+    height: var(--app-visible-height, 100dvh);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   }
 
   /* Keep the room and navigation as separate vertical regions on phones.
@@ -609,27 +609,47 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     position: relative;
     left: auto;
     bottom: auto;
-    flex: 0 0 72px;
+    flex: 0 0 calc(60px + env(safe-area-inset-bottom));
     box-sizing: border-box;
     width: 100%;
     max-width: none;
-    min-height: 72px;
+    min-height: calc(60px + env(safe-area-inset-bottom));
     margin: 0;
-    border-radius: 12px 12px 0 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0;
     transform: none;
     justify-content: flex-start;
-    gap: 1px;
-    overflow-x: auto;
+    gap: 0;
+    overflow-x: hidden;
     overflow-y: hidden;
-    padding: 4px;
+    padding: 2px 2px env(safe-area-inset-bottom);
     scrollbar-width: none;
     overscroll-behavior-x: contain;
+    box-shadow: 0 -4px 14px rgba(0,0,0,.24);
   }
 
   .mobile-landscape .room-nav::-webkit-scrollbar { display: none; }
-  .mobile-landscape .room-nav button { flex: 1 0 57px; min-width: 57px; min-height: 62px; gap: 1px; padding: 4px 3px 3px; }
-  .mobile-landscape .room-nav button svg { width: 16px; height: 16px; }
-  .mobile-landscape .room-nav span { font-size: .54rem; white-space: nowrap; }
+  .mobile-landscape .room-nav button { flex: 1 1 0; min-width: 0; min-height: 0; height: 56px; gap: 1px; border-radius: 6px; padding: 3px 1px 2px; }
+  .mobile-landscape .room-nav button:hover,
+  .mobile-landscape .room-nav button.active { background: rgba(255,255,255,.07); box-shadow: inset 0 -2px #e8bf78; }
+  .mobile-landscape .room-nav button svg { width: 15px; height: 15px; flex: 0 0 auto; }
+  .mobile-landscape .room-nav span { max-width: 100%; overflow: hidden; font-size: clamp(.46rem, 1.45vw, .56rem); line-height: 1.05; text-overflow: clip; white-space: nowrap; }
+  .mobile-landscape .room-nav-label-long { display: none; }
+  .mobile-landscape .room-nav-label-short { display: inline; }
+
+  .mobile-landscape .settings-pwa-guide {
+    display: grid;
+    gap: 3px;
+    margin-top: 8px;
+    padding: 9px 10px;
+    border: 1px solid rgba(107, 132, 154, .28);
+    border-radius: 10px;
+    background: rgba(225, 238, 243, .62);
+  }
+  .mobile-landscape .settings-pwa-guide b { color: #526b78; font-size: .8rem; }
+  .mobile-landscape .settings-pwa-guide p { margin: 0; color: #667984; font-size: .7rem; line-height: 1.45; }
 
   .mobile-landscape .item-note,
   .mobile-landscape .settings-note,
@@ -709,6 +729,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-landscape input,
   .mobile-landscape textarea,
   .mobile-landscape select { scroll-margin-block: 72px; }
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  .settings-pwa-guide { display: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
