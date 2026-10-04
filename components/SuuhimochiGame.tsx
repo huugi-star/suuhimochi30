@@ -3350,7 +3350,10 @@ export function SuuhimochiGame() {
       window.removeEventListener('resize', syncRoomFit);
       window.removeEventListener('orientationchange', syncRoomFit);
     };
-  }, [appReady, isMobilePortrait, mobileRoomMode]);
+  // The room does not exist yet on the title and birthday screens. Re-run
+  // when the opening phase mounts it so the first character and speech bubble
+  // are never left waiting for a resize event.
+  }, [appReady, isMobilePortrait, mobileRoomMode, phase]);
 
   if (!hydrated || !appReady) return <StartupLoadingScreen progress={startupProgress} />;
   if (isMobileDevice && isMobilePortrait) return <RotateDeviceScreen />;
