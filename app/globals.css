@@ -794,6 +794,68 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-landscape .dictionary-note,
   .mobile-landscape .food-panel { right: max(8px, env(safe-area-inset-right)); width: min(500px, calc(100% - 16px - env(safe-area-inset-left) - env(safe-area-inset-right))); }
 
+  /* The dictionary uses the short landscape viewport as a spread: navigation
+     stays on the left and the words scroll independently on the right. */
+  .mobile-landscape .dictionary-note {
+    top: max(6px, env(safe-area-inset-top)) !important;
+    right: max(8px, env(safe-area-inset-right)) !important;
+    bottom: max(6px, env(safe-area-inset-bottom)) !important;
+    left: max(8px, env(safe-area-inset-left)) !important;
+    display: grid;
+    width: auto !important;
+    grid-template-columns: minmax(176px, 29%) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px 12px;
+    padding: 10px 12px 9px 18px;
+    overflow: hidden !important;
+  }
+
+  .mobile-landscape .dictionary-note::before { left: 20px; }
+  .mobile-landscape .dictionary-close { top: 7px; right: 8px; width: 30px; height: 30px; }
+  .mobile-landscape .dictionary-heading {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 42px;
+    gap: 8px;
+    padding: 0 4px 8px 8px;
+  }
+  .mobile-landscape .dictionary-heading-mark { width: 36px; height: 36px; font-size: .58rem; }
+  .mobile-landscape .dictionary-heading strong { font-size: 1rem; }
+  .mobile-landscape .dictionary-heading small { margin-top: 1px; font-size: .65rem; line-height: 1.35; }
+  .mobile-landscape .dictionary-filters {
+    grid-column: 1;
+    grid-row: 2;
+    align-content: start;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 0;
+    margin: 0 0 0 8px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 2px 4px 5px 0;
+  }
+  .mobile-landscape .dictionary-filters button { min-height: 29px; padding: 4px 9px; font-size: .69rem; }
+  .mobile-landscape .dictionary-list {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 7px;
+    min-height: 0;
+    padding: 1px 3px 6px 0;
+  }
+  .mobile-landscape .dictionary-word-card { padding: 8px 9px; }
+  .mobile-landscape .dictionary-word-title b { font-size: .9rem; }
+  .mobile-landscape .dictionary-category { margin-top: 5px; font-size: .59rem; }
+  .mobile-landscape .dictionary-word-card p { margin-top: 5px; font-size: .67rem; line-height: 1.4; }
+  .mobile-landscape .dictionary-word-card small { margin-top: 5px; padding-top: 5px; font-size: .61rem; }
+  .mobile-landscape .dictionary-word-delete { min-height: 25px; margin-top: 6px; }
+  .mobile-landscape .dictionary-empty,
+  .mobile-landscape .dictionary-filter-empty { grid-column: 1 / -1; }
+  .mobile-landscape:has(.room-nav.mobile-nav-open) .dictionary-note {
+    bottom: max(65px, calc(env(safe-area-inset-bottom) + 59px)) !important;
+  }
+
   .mobile-landscape .journal-overlay {
     inset: max(38px, env(safe-area-inset-top)) max(44px, env(safe-area-inset-right)) max(55px, env(safe-area-inset-bottom)) max(44px, env(safe-area-inset-left)) !important;
     align-items: start !important;

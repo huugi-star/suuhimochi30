@@ -1162,6 +1162,7 @@ export function PotenoSixDivination({
         @keyframes tamamo-arrive{0%{opacity:0;transform:translateY(58px) scale(.83);filter:blur(4px)}58%{opacity:1;transform:translateY(-6px) scale(1.02);filter:blur(0)}100%{transform:translateY(0) scale(1)}}
         @keyframes tamamo-stage-entrance{0%{opacity:0;transform:translate(205px,52px) scale(.38);filter:blur(6px)}18%{opacity:1;transform:translate(205px,-5px) scale(1.82);filter:blur(0)}48%{opacity:1;transform:translate(205px,-14px) scale(1.95)}72%{opacity:1;transform:translate(58px,-5px) scale(1.22)}100%{opacity:.88;transform:translate(-18px,19px) scale(.76)}}
         @keyframes tamamo-stage-entrance-mobile{0%{opacity:0;transform:translate(118px,48px) scale(.4);filter:blur(6px)}18%{opacity:1;transform:translate(118px,-4px) scale(1.58);filter:blur(0)}48%{opacity:1;transform:translate(118px,-12px) scale(1.68)}72%{opacity:1;transform:translate(34px,-4px) scale(1.14)}100%{opacity:.9;transform:translate(-15px,22px) scale(.64)}}
+        @keyframes tamamo-stage-entrance-compact{0%{opacity:0;transform:translate(72px,34px) scale(.38);filter:blur(5px)}22%{opacity:1;transform:translate(70px,-4px) scale(1.12);filter:blur(0)}52%{opacity:1;transform:translate(58px,-7px) scale(1.18)}78%{opacity:1;transform:translate(14px,0) scale(.94)}100%{opacity:.94;transform:translate(0,8px) scale(.88)}}
         @keyframes tamamo-stage-aura{0%{opacity:0;transform:translate(-50%,-50%) scale(.28)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}58%{opacity:.75;transform:translate(-50%,-50%) scale(1.42)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.8)}}
         @keyframes fox-fire{0%{transform:translateY(5px) rotate(-8deg) scale(.88);opacity:.58}100%{transform:translateY(-7px) rotate(7deg) scale(1.08);opacity:1}}
         @keyframes tamamo-petal{0%{transform:translate(-65px,-58px) rotate(0);opacity:0}18%{opacity:.85}100%{transform:translate(105px,105px) rotate(280deg);opacity:0}}
@@ -1187,6 +1188,310 @@ export function PotenoSixDivination({
         .six-receive-master{display:grid;justify-items:center;gap:2px;overflow:hidden;padding:10px 18px 13px;border:1px solid rgba(177,125,83,.45);border-radius:12px;background:radial-gradient(circle at 50% 28%,rgba(255,232,186,.75),rgba(255,250,238,.72) 56%,rgba(237,214,193,.58));text-align:center}.six-receive-master-art{display:block;max-width:100%;width:min(100%,390px);height:clamp(220px,30vw,290px);margin-bottom:-5px;object-fit:contain;transform:translateY(14px);filter:drop-shadow(0 13px 12px rgba(87,48,31,.24))}.six-receive-master-copy{display:grid;gap:3px}.six-receive-master small,.six-receive-master h3,.six-receive-master p{margin:0}.six-receive-master small{color:#9b613e;font-size:.61rem;font-weight:900;letter-spacing:.13em}.six-receive-master h3{color:#49332b;font:800 clamp(1.14rem,2.4vw,1.45rem)/1.35 'Yu Mincho',serif}.six-receive-master p{color:#806554;font-size:.66rem;font-weight:700;line-height:1.5}.six-reading-hero{display:grid!important;grid-template-columns:minmax(190px,285px) minmax(0,1fr) auto;align-items:center;gap:7px;min-height:240px;overflow:hidden;padding:0 0 7px!important;text-align:left}.six-reading-hero-art{display:block;width:100%;height:clamp(245px,30vw,300px);object-fit:contain;transform:translateY(25px) scale(1.1);transform-origin:center bottom;filter:drop-shadow(0 13px 12px rgba(87,48,31,.25))}.six-reading-hero>div{display:grid;align-content:center;gap:3px;min-width:0}.six-reading-hero h3{font-size:clamp(1.28rem,2.8vw,1.66rem)!important}.six-reading-hero-intro{margin:0;color:#78543f;font:.72rem/1.5 'Yu Gothic',sans-serif;white-space:normal}.six-reading-hero svg{align-self:start;margin-top:8px}.six-reading .six-results-accordion{margin-top:1px}.six-reading .six-results-toggle{width:100%}
         @media(max-width:700px){.six-receive-master{padding:8px 11px 12px}.six-receive-master-art{height:clamp(190px,54vw,245px);transform:translateY(10px)}.six-receive-master p{font-size:.61rem}.six-reading-hero{grid-template-columns:1fr auto;min-height:0;padding:4px 0 9px!important}.six-reading-hero-art{grid-column:1/-1;justify-self:center;width:min(100%,290px);height:clamp(190px,54vw,245px);transform:translateY(10px)}.six-reading-hero>div{grid-column:1}.six-reading-hero-intro{font-size:.64rem}.six-reading-hero svg{grid-column:2;grid-row:2;margin-top:0;align-self:center}.six-direction-grid{grid-template-columns:1fr}}
         @media(max-width:1024px) and (orientation:landscape){.mobile-landscape .poteno-actions:has(.poteno-six){top:max(38px,calc(env(safe-area-inset-top) + 34px))!important;right:max(8px,env(safe-area-inset-right))!important;bottom:max(58px,calc(env(safe-area-inset-bottom) + 53px))!important;left:max(8px,env(safe-area-inset-left))!important;width:auto!important;max-height:none!important;transform:none!important;overflow-y:auto!important}.mobile-landscape .poteno-six{min-height:0;padding:12px 14px;gap:10px}.mobile-landscape .six-brand{grid-template-columns:48px 1fr auto;gap:9px}.mobile-landscape .six-brand-seal{width:44px;height:44px}.mobile-landscape .six-setup,.mobile-landscape .six-scene,.mobile-landscape .six-send,.mobile-landscape .six-receive,.mobile-landscape .six-reading{padding:12px}.mobile-landscape .six-master-picker{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.mobile-landscape .six-master-picker button{min-height:132px}.mobile-landscape .six-receive-master{grid-template-columns:minmax(160px,32%) minmax(0,1fr);align-items:center;text-align:left}.mobile-landscape .six-receive-master-art{height:min(52dvh,230px);transform:translateY(10px)}.mobile-landscape .six-reading-hero{min-height:190px}.mobile-landscape .six-reading-hero-art{height:min(58dvh,260px)}}
+
+        /* Smartphone landscape foundations. Individual playable rites below
+           receive a dedicated one-screen stage; text-heavy handoff/result
+           views retain their natural reading flow. */
+        @media(max-width:1024px) and (orientation:landscape){
+          .mobile-landscape .poteno-actions:has(.poteno-six){
+            top:max(6px,env(safe-area-inset-top))!important;
+            right:max(8px,env(safe-area-inset-right))!important;
+            bottom:max(6px,env(safe-area-inset-bottom))!important;
+            left:max(8px,env(safe-area-inset-left))!important;
+            display:block;
+            overflow-x:hidden!important;
+            overflow-y:auto!important;
+            overscroll-behavior:contain;
+          }
+          .mobile-landscape .poteno-page:has(.poteno-six){display:block;min-width:0;padding:0}
+          .mobile-landscape .poteno-page:has(.poteno-six)>.poteno-back{position:relative;top:auto;right:auto;min-height:36px;margin:0 14px 14px;padding:7px 12px}
+          .mobile-landscape .poteno-six{display:grid;min-width:0;min-height:0;grid-template-rows:auto;gap:8px;padding:9px 12px 12px;overflow:visible}
+          .mobile-landscape .six-brand{grid-template-columns:38px minmax(0,1fr) auto;gap:8px;padding:0 0 7px}
+          .mobile-landscape .six-brand-seal{width:36px;height:36px;font-size:.8rem}
+          .mobile-landscape .six-brand small{font-size:.48rem}.mobile-landscape .six-brand p{font-size:.58rem}
+          .mobile-landscape .six-brand h2{font-size:1.08rem}.mobile-landscape .six-brand>em{font-size:.55rem}
+          .mobile-landscape .six-progress{gap:3px;padding:0 5%}
+          .mobile-landscape .six-progress::before{top:13px}
+          .mobile-landscape .six-progress span{min-height:37px;gap:2px}
+          .mobile-landscape .six-progress span i{width:27px;height:27px;font-size:.63rem}
+          .mobile-landscape .six-progress span b{font-size:.5rem}
+          .mobile-landscape .six-setup,.mobile-landscape .six-scene,.mobile-landscape .six-send,.mobile-landscape .six-receive,.mobile-landscape .six-reading{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto;gap:10px;min-width:0;min-height:0;padding:12px;overflow:visible}
+
+          .mobile-landscape .six-setup{grid-template-columns:minmax(205px,34%) minmax(0,66%);align-items:start;gap:10px 12px}
+          .mobile-landscape .six-setup>*{grid-column:1 / -1;grid-row:auto}
+          .mobile-landscape .six-setup .six-intro{grid-column:1 / -1;grid-template-columns:42px 1fr;gap:9px;padding:0 0 9px}
+          .mobile-landscape .six-setup .entrance-mon{width:38px;height:38px;font-size:.8rem}
+          .mobile-landscape .six-setup .six-intro strong{font-size:.9rem}.mobile-landscape .six-setup .six-intro p{font-size:.62rem;line-height:1.5}
+          .mobile-landscape .six-question-scroll{grid-column:1;gap:7px;padding:9px 12px 11px;overflow:visible}
+          .mobile-landscape .question-heading{display:flex;flex-wrap:wrap;gap:3px 10px}
+          .mobile-landscape .six-question-scroll textarea{min-height:70px;resize:vertical}
+          .mobile-landscape .six-master-picker{grid-column:2;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;overflow:visible;padding:9px}
+          .mobile-landscape .six-master-picker button,.mobile-landscape .six-master-picker button.is-selected{grid-template-columns:64px minmax(0,1fr);min-height:100px;gap:8px;padding:8px}
+          .mobile-landscape .six-master-picker .diviner-card-art,.mobile-landscape .six-master-picker button.is-selected .diviner-card-art{width:64px;height:78px}
+          .mobile-landscape .six-master-picker .diviner-card-info,.mobile-landscape .six-master-picker button.is-selected .diviner-card-info{min-height:0;gap:5px}
+          .mobile-landscape .six-master-picker .diviner-card-info b{font-size:.78rem}.mobile-landscape .six-master-picker .diviner-card-title strong{font-size:.64rem}
+          .mobile-landscape .six-master-picker .diviner-card-info em{font-size:.59rem;line-height:1.45}
+          .mobile-landscape .setup-sigil-field{grid-column:1 / -1;width:100%;height:230px;min-height:0;margin:0}
+          .mobile-landscape .setup-sigil-field::before{width:210px;height:210px}
+          .mobile-landscape .setup-hexagram-lines{width:270px;height:203px}
+          .mobile-landscape .setup-sigil-orbit>span{--orbit:87px}
+          .mobile-landscape .setup-open-seal{width:94px;height:94px}
+
+          /* The master-selection gate must fit in one landscape viewport.
+             Keep the question and start seal on the left, and show all six
+             masters as a readable 2 x 3 board on the right. */
+          .mobile-landscape .poteno-page:has(.six-setup){height:100%;overflow:hidden}
+          .mobile-landscape .poteno-page:has(.six-setup)>.poteno-back{position:absolute;z-index:20;top:7px;right:9px;min-height:30px;margin:0;padding:4px 9px;font-size:.6rem}
+          .mobile-landscape .poteno-six:has(.six-setup){height:100%;grid-template-rows:auto minmax(0,1fr);gap:5px;padding:6px 9px 8px;overflow:hidden}
+          .mobile-landscape .poteno-six:has(.six-setup) .six-brand.is-compact{grid-template-columns:27px minmax(0,1fr) auto;min-height:28px;padding:0 72px 5px 2px}
+          .mobile-landscape .six-setup{height:100%;grid-template-columns:minmax(190px,36%) minmax(0,64%);grid-template-rows:auto minmax(0,1fr) 68px;align-items:stretch;gap:6px 10px;padding:8px 10px;overflow:hidden}
+          .mobile-landscape .six-setup .six-intro{grid-column:1;grid-row:1;grid-template-columns:31px minmax(0,1fr);gap:6px;padding:0 0 5px}
+          .mobile-landscape .six-setup .entrance-mon{width:29px;height:29px;font-size:.64rem}
+          .mobile-landscape .six-setup .six-intro strong{font-size:.76rem;line-height:1.25;letter-spacing:.05em}
+          .mobile-landscape .six-setup .six-intro p{display:-webkit-box;margin-top:1px;overflow:hidden;font-size:.51rem;line-height:1.32;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+          .mobile-landscape .six-setup .six-question-scroll{grid-column:1;grid-row:2;align-content:start;gap:4px;min-height:0;padding:6px 9px 7px;overflow:hidden}
+          .mobile-landscape .six-setup .question-heading{display:grid;gap:1px}
+          .mobile-landscape .six-setup .question-heading label{font-size:.67rem}
+          .mobile-landscape .six-setup .question-heading small,.mobile-landscape .six-setup .question-heading strong{font-size:.48rem;line-height:1.25}
+          .mobile-landscape .six-setup .six-question-scroll textarea{min-height:45px;height:45px;padding:4px 6px;font-size:.62rem;line-height:17px;resize:none}
+          .mobile-landscape .six-setup .quick-question-list{gap:3px}
+          .mobile-landscape .six-setup .quick-question-list button{min-height:22px;padding:2px 5px;font-size:.49rem;line-height:1.15}
+          .mobile-landscape .six-setup .six-master-picker{grid-column:2;grid-row:1 / 4;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(72px,1fr);align-content:stretch;gap:5px;min-height:0;height:100%;overflow:hidden;padding:6px}
+          .mobile-landscape .six-setup .six-master-picker legend{padding-inline:5px;font-size:.62rem;line-height:1.2}
+          .mobile-landscape .six-setup .six-master-picker button,.mobile-landscape .six-setup .six-master-picker button.is-selected{grid-template-columns:56px minmax(0,1fr);min-height:0;height:100%;gap:6px;padding:5px 6px}
+          .mobile-landscape .six-setup .six-master-picker .diviner-card-art,.mobile-landscape .six-setup .six-master-picker button.is-selected .diviner-card-art{width:56px;height:64px}
+          .mobile-landscape .six-setup .six-master-picker .diviner-card-info,.mobile-landscape .six-setup .six-master-picker button.is-selected .diviner-card-info{min-height:0;align-content:center;gap:2px}
+          .mobile-landscape .six-setup .six-master-picker .diviner-card-info b,.mobile-landscape .six-setup .six-master-picker button.is-selected .diviner-card-info b{font-size:.67rem}
+          .mobile-landscape .six-setup .six-master-picker .diviner-card-title strong{font-size:.53rem}
+          .mobile-landscape .six-setup .six-master-picker .diviner-card-info em{display:-webkit-box;overflow:hidden;font-size:.48rem;line-height:1.25;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+          .mobile-landscape .six-setup .six-master-picker .diviner-card-art-name{padding:2px 5px;font-size:.5rem}
+          .mobile-landscape .six-setup .six-master-picker button mark{top:4px;right:31px;font-size:.4rem}.mobile-landscape .six-setup .six-master-picker button:not(.is-selected) mark{right:4px}
+          .mobile-landscape .six-setup .six-master-picker button u{top:4px;right:4px;width:23px;height:23px;font-size:.4rem}
+          .mobile-landscape .six-setup .setup-sigil-field{grid-column:1;grid-row:3;height:68px;min-height:68px;overflow:visible}
+          .mobile-landscape .six-setup .setup-sigil-field::before{width:66px;height:66px}
+          .mobile-landscape .six-setup .setup-hexagram-lines{width:92px;height:69px;opacity:.48}
+          .mobile-landscape .six-setup .setup-sigil-orbit{display:none}
+          .mobile-landscape .six-setup .setup-open-seal{width:62px;height:62px}
+          .mobile-landscape .six-setup .setup-open-seal small{font-size:.36rem}.mobile-landscape .six-setup .setup-open-seal strong{font-size:.58rem}
+          .mobile-landscape .six-setup .setup-opening-voice{position:absolute;z-index:12;right:12px;bottom:4px;left:12px;margin:0;padding:3px 6px;background:rgba(239,218,176,.9);font-size:.52rem}
+          .mobile-landscape .six-setup>.six-error{position:absolute;z-index:12;right:12px;bottom:4px;left:12px;margin:0;padding:4px 7px;font-size:.56rem}
+
+          .mobile-landscape .six-scene{align-content:start;overflow-x:hidden}
+          .mobile-landscape .six-scene>header{gap:8px;padding-bottom:7px}
+          .mobile-landscape .six-scene>header>span{width:36px;height:36px;font-size:.88rem}
+          .mobile-landscape .six-scene header h3{font-size:.98rem}
+          .mobile-landscape .iching-ritual,.mobile-landscape .tamamo-ritual,.mobile-landscape .tarot-ritual{box-sizing:border-box;width:100%;max-width:100%}
+          .mobile-landscape .tarot-fan-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x pan-y}
+          .mobile-landscape .tarot-fan-scroll::-webkit-scrollbar{display:none}
+          .mobile-landscape .six-converge{display:grid;min-height:430px;grid-template-columns:1fr;place-items:center;overflow:hidden}
+          .mobile-landscape .converge-orbit{transform:scale(.82)}
+
+          .mobile-landscape .six-send>*{grid-column:auto;grid-row:auto}
+          .mobile-landscape .six-link-preview{padding:15px}.mobile-landscape .six-guide{padding:10px 12px}
+          .mobile-landscape .six-receive>*{grid-column:auto;grid-row:auto}
+          .mobile-landscape .six-receive-master{grid-template-columns:minmax(150px,29%) minmax(0,1fr);align-items:center;padding:8px 14px;text-align:left}
+          .mobile-landscape .six-receive-master-art{width:100%;height:190px;transform:translateY(10px)}
+          .mobile-landscape .six-receive textarea{height:auto;min-height:150px;resize:vertical}
+          .mobile-landscape .six-receive>.six-primary,.mobile-landscape .six-receive>.six-subtle{grid-column:auto;grid-row:auto;justify-self:stretch}
+
+          .mobile-landscape .six-reading>*{grid-column:auto!important;grid-row:auto!important}
+          .mobile-landscape .six-reading-hero{grid-template-columns:minmax(145px,24%) minmax(0,1fr) auto;min-height:150px;padding:0 0 7px!important}
+          .mobile-landscape .six-reading-hero-art{grid-column:1;grid-row:1;width:100%;height:165px;transform:translateY(15px) scale(1.03)}
+          .mobile-landscape .six-reading-hero>div{grid-column:2;grid-row:1}.mobile-landscape .six-reading-hero>svg{grid-column:3;grid-row:1}
+          .mobile-landscape .six-reading article{padding:11px 12px}
+          .mobile-landscape .six-reading article.is-reading p{font-size:.78rem;line-height:1.75}
+          .mobile-landscape .six-direction-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .mobile-landscape .divination-summary-list{grid-template-columns:1fr}
+          .mobile-landscape .divination-summary-row:nth-child(odd){border-right:0}
+          .mobile-landscape .divination-detail-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+        }
+
+        /* Legacy narrow-width fallback. The immersive overrides below turn
+           this back into a compact horizontal altar on landscape phones. */
+        @media(max-width:850px) and (orientation:landscape){
+          .mobile-landscape .six-iching.has-reading .iching-ritual{min-height:775px;grid-template-columns:1fr;grid-template-rows:180px 292px auto;gap:8px;padding-inline:4px}
+          .mobile-landscape .six-iching.has-reading .iching-vessel-zone{grid-column:1;grid-row:1}
+          .mobile-landscape .six-iching.has-reading .iching-vessel{transform:translateY(-18px) scale(.57)}
+          .mobile-landscape .six-iching.is-complete .iching-vessel{opacity:.58;transform:translateY(-22px) scale(.49)}
+          .mobile-landscape .six-iching .iching-transformation{grid-column:1;grid-row:2;width:100%;height:285px;grid-template-columns:1fr;grid-template-rows:56px 1fr}
+          .mobile-landscape .six-iching .iching-transformation .ritual-hexagram{width:174px;height:224px;gap:12px;padding:20px 22px}
+          .mobile-landscape .six-iching .iching-result-detail{grid-column:1;grid-row:3;width:min(100%,360px);min-height:0;justify-self:center}
+        }
+
+        /* Immersive landscape rites: every playable step stays inside one
+           viewport. The ceremonial art is preserved and scaled as a stage,
+           rather than replaced by a compressed form layout. */
+        @media(max-width:1024px) and (orientation:landscape){
+          .mobile-landscape .poteno-actions:has(.six-setup),
+          .mobile-landscape .poteno-actions:has(.six-iching),
+          .mobile-landscape .poteno-actions:has(.six-crossroads),
+          .mobile-landscape .poteno-actions:has(.six-tarot),
+          .mobile-landscape .poteno-actions:has(.six-converge){overflow:hidden!important}
+          .mobile-landscape .poteno-page:has(.six-setup),
+          .mobile-landscape .poteno-page:has(.six-iching),
+          .mobile-landscape .poteno-page:has(.six-crossroads),
+          .mobile-landscape .poteno-page:has(.six-tarot),
+          .mobile-landscape .poteno-page:has(.six-converge){display:block;height:100%;min-height:0;overflow:hidden}
+          .mobile-landscape .poteno-page:has(.six-setup)>.poteno-back,
+          .mobile-landscape .poteno-page:has(.six-iching)>.poteno-back,
+          .mobile-landscape .poteno-page:has(.six-crossroads)>.poteno-back,
+          .mobile-landscape .poteno-page:has(.six-tarot)>.poteno-back,
+          .mobile-landscape .poteno-page:has(.six-converge)>.poteno-back{position:absolute;z-index:40;top:6px;right:8px;min-height:28px;margin:0;padding:3px 8px;font-size:.56rem}
+          .mobile-landscape .poteno-six:has(.six-iching),
+          .mobile-landscape .poteno-six:has(.six-crossroads),
+          .mobile-landscape .poteno-six:has(.six-tarot),
+          .mobile-landscape .poteno-six:has(.six-converge){height:100%;grid-template-rows:auto auto minmax(0,1fr);gap:4px;padding:5px 8px 7px;overflow:hidden}
+          .mobile-landscape .poteno-six:has(.six-iching) .six-brand,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-brand,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-brand,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-brand{grid-template-columns:28px minmax(0,1fr) auto;min-height:29px;padding:0 68px 3px 1px}
+          .mobile-landscape .poteno-six:has(.six-iching) .six-brand-seal,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-brand-seal,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-brand-seal,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-brand-seal{width:26px;height:26px;font-size:.58rem}
+          .mobile-landscape .poteno-six:has(.six-iching) .six-brand small,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-brand small,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-brand small,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-brand small,
+          .mobile-landscape .poteno-six:has(.six-iching) .six-brand p,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-brand p,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-brand p,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-brand p{display:none}
+          .mobile-landscape .poteno-six:has(.six-iching) .six-brand h2,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-brand h2,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-brand h2,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-brand h2{font-size:.78rem}
+          .mobile-landscape .poteno-six:has(.six-iching) .six-progress,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-progress,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-progress,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-progress{height:25px;padding:0 9%}
+          .mobile-landscape .poteno-six:has(.six-iching) .six-progress::before,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-progress::before,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-progress::before,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-progress::before{top:9px}
+          .mobile-landscape .poteno-six:has(.six-iching) .six-progress span,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-progress span,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-progress span,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-progress span{min-height:25px;gap:0}
+          .mobile-landscape .poteno-six:has(.six-iching) .six-progress span i,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-progress span i,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-progress span i,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-progress span i{width:20px;height:20px;font-size:.47rem}
+          .mobile-landscape .poteno-six:has(.six-iching) .six-progress span b,
+          .mobile-landscape .poteno-six:has(.six-crossroads) .six-progress span b,
+          .mobile-landscape .poteno-six:has(.six-tarot) .six-progress span b,
+          .mobile-landscape .poteno-six:has(.six-converge) .six-progress span b{font-size:.38rem;line-height:1}
+
+          /* Opening gate: keep the complete six-seal ornament visible. */
+          .mobile-landscape .six-setup{grid-template-rows:auto minmax(0,1fr) 88px}
+          .mobile-landscape .six-setup .setup-sigil-field{height:88px;min-height:88px;overflow:visible}
+          .mobile-landscape .six-setup .setup-sigil-field::before{width:84px;height:84px}
+          .mobile-landscape .six-setup .setup-hexagram-lines{width:118px;height:88px;opacity:.72}
+          .mobile-landscape .six-setup .setup-sigil-orbit{display:block}
+          .mobile-landscape .six-setup .setup-sigil-orbit>span{--orbit:39px}
+          .mobile-landscape .six-setup .setup-sigil-orbit>span i{width:20px;height:20px;font-size:.42rem}
+          .mobile-landscape .six-setup .setup-sigil-orbit>span b{display:none}
+          .mobile-landscape .six-setup .setup-open-seal{width:58px;height:58px}
+
+          /* Shared scene frame. */
+          .mobile-landscape .six-scene{height:100%;grid-template-rows:auto minmax(0,1fr) auto;align-content:stretch;gap:5px;padding:6px 8px 7px;overflow:hidden}
+          .mobile-landscape .six-scene>header{min-height:29px;gap:6px;padding-bottom:4px}
+          .mobile-landscape .six-scene>header>span{width:28px;height:28px;font-size:.67rem}
+          .mobile-landscape .six-scene>header small{font-size:.45rem;line-height:1.05}
+          .mobile-landscape .six-scene>header h3{font-size:.76rem;line-height:1.2}
+          .mobile-landscape .six-scene>.six-next,
+          .mobile-landscape .six-scene>.six-primary{min-height:31px;margin-top:0!important;padding:5px 13px;font-size:.61rem;line-height:1.25}
+
+          /* I Ching stays a horizontal altar: vessel, changing lines, result. */
+          .mobile-landscape .six-iching .iching-ritual,
+          .mobile-landscape .six-iching.has-reading .iching-ritual{height:100%;min-height:0;grid-template-columns:minmax(88px,.52fr) minmax(190px,1.35fr) minmax(142px,.76fr);grid-template-rows:minmax(0,1fr);gap:6px;padding:0 3px;place-items:stretch center;overflow:hidden}
+          .mobile-landscape .six-iching:not(.has-reading) .iching-ritual{grid-template-columns:1fr}
+          .mobile-landscape .six-iching .iching-vessel-zone,
+          .mobile-landscape .six-iching.has-reading .iching-vessel-zone{grid-column:1;grid-row:1;min-height:0;overflow:hidden}
+          .mobile-landscape .six-iching:not(.has-reading) .iching-vessel-zone{grid-column:1}
+          .mobile-landscape .six-iching .iching-diagram{width:190px;height:190px}
+          .mobile-landscape .six-iching .iching-vessel,
+          .mobile-landscape .six-iching.has-reading .iching-vessel,
+          .mobile-landscape .six-iching.is-complete .iching-vessel{width:130px;height:235px;transform:translateY(-19px) scale(.58);transform-origin:center center}
+          .mobile-landscape .six-iching.is-complete .iching-vessel{opacity:.64;transform:translateY(-22px) scale(.51)}
+          .mobile-landscape .six-iching .iching-tube{width:102px;height:205px}
+          .mobile-landscape .six-iching .iching-transformation{grid-column:2;grid-row:1;width:100%;height:100%;min-height:0;grid-template-columns:1fr 1fr;grid-template-rows:34px minmax(0,1fr)}
+          .mobile-landscape .six-iching .iching-transformation .process-title{padding:4px 5px}.mobile-landscape .six-iching .iching-transformation .process-title small{font-size:.4rem}.mobile-landscape .six-iching .iching-transformation .process-title strong{font-size:.64rem}
+          .mobile-landscape .six-iching .iching-transformation .ritual-hexagram{width:132px;height:145px;gap:6px;padding:10px 13px}
+          .mobile-landscape .six-iching .iching-transformation .ritual-line>span{gap:12px}
+          .mobile-landscape .six-iching .iching-transformation .ritual-line>b{right:-19px;font-size:.46rem}
+          .mobile-landscape .six-iching .iching-result-detail{grid-column:3;grid-row:1;width:100%;height:100%;min-height:0;align-self:stretch;overflow:hidden}
+          .mobile-landscape .six-iching .iching-result-detail section{min-height:0;padding:5px 7px}.mobile-landscape .six-iching .iching-result-detail small{font-size:.4rem}.mobile-landscape .six-iching .iching-result-detail strong{font-size:.64rem}.mobile-landscape .six-iching .iching-result-detail p{margin:1px 0;font-size:.46rem;line-height:1.25}
+          .mobile-landscape .six-iching .iching-footer{grid-template-columns:minmax(0,1fr) 46px auto;align-items:center;gap:5px;min-height:39px}
+          .mobile-landscape .six-iching .iching-footer blockquote{padding:5px 8px}.mobile-landscape .six-iching .iching-footer blockquote small{display:none}.mobile-landscape .six-iching .iching-footer blockquote p{display:-webkit-box;overflow:hidden;font-size:.53rem;line-height:1.35;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+          .mobile-landscape .six-iching .iching-footer .taikobo-art{width:46px;height:56px}
+          .mobile-landscape .six-iching .iching-footer .six-next{grid-column:auto;min-height:30px;padding:4px 10px;font-size:.55rem}
+          .mobile-landscape .six-iching .iching-cast-button{min-width:210px}
+
+          /* Give the two character-led rites more vertical room. Their own
+             illustrated title already identifies the ritual, so the repeated
+             global brand can disappear without weakening the atmosphere. */
+          .mobile-landscape .poteno-six:has(.six-crossroads),
+          .mobile-landscape .poteno-six:has(.six-tarot){grid-template-rows:24px minmax(0,1fr)}
+          .mobile-landscape .poteno-six:has(.six-crossroads)>.six-brand,
+          .mobile-landscape .poteno-six:has(.six-tarot)>.six-brand{display:none}
+
+          /* Crossroads is one stable illustrated stage in every phase. */
+          .mobile-landscape .six-crossroads .tamamo-ritual{height:100%;min-height:0}
+          .mobile-landscape .six-crossroads .tamamo-presence{left:9px;bottom:1px;transform-origin:left bottom}
+          .mobile-landscape .six-crossroads.phase-invocation .tamamo-presence{animation-name:tamamo-stage-entrance-compact}
+          .mobile-landscape .six-crossroads.phase-passers .tamamo-presence,
+          .mobile-landscape .six-crossroads.phase-reveal .tamamo-presence,
+          .mobile-landscape .six-crossroads.phase-kotodama .tamamo-presence,
+          .mobile-landscape .six-crossroads.phase-interpretation .tamamo-presence{transform:translate(-12px,18px) scale(.64)}
+          .mobile-landscape .six-crossroads .tamamo-invocation{left:clamp(118px,22%,158px);right:10px;top:35px;padding:10px 12px}
+          .mobile-landscape .six-crossroads .tamamo-invocation>span,
+          .mobile-landscape .six-crossroads .tamamo-interpretation>span{margin-bottom:4px;font-size:.52rem}
+          .mobile-landscape .six-crossroads .tamamo-invocation blockquote,
+          .mobile-landscape .six-crossroads .tamamo-interpretation blockquote{font-size:.7rem;line-height:1.5}
+          .mobile-landscape .six-crossroads .tamamo-invocation>small{margin-top:5px;font-size:.46rem}
+          .mobile-landscape .six-crossroads .crossroads-divination-map{inset:6px 8px 38px}
+          .mobile-landscape .six-crossroads .crossroads-divination-map::before{width:190px;height:190px}.mobile-landscape .six-crossroads .crossroads-divination-map::after{width:158px;height:158px}
+          .mobile-landscape .six-crossroads .crossroads-passers{inset:35px 0 38px}
+          .mobile-landscape .six-crossroads .crossroads-passers button{width:48px;height:126px}
+          .mobile-landscape .six-crossroads .passer-body{width:43px!important;height:89px}
+          .mobile-landscape .six-crossroads .crossroads-passers .is-child{height:104px}.mobile-landscape .six-crossroads .crossroads-passers .is-child .passer-body{height:62px}
+          .mobile-landscape .six-crossroads .crossroads-guidance{bottom:5px;min-width:min(86%,430px);padding:5px 10px}.mobile-landscape .six-crossroads .crossroads-guidance b{font-size:.62rem}.mobile-landscape .six-crossroads .crossroads-guidance small{font-size:.46rem}
+          .mobile-landscape .six-crossroads .crossroads-word{left:55%;top:47%;width:min(58%,430px);padding:10px 15px;transform:translate(-50%,-50%) rotate(-.5deg)}.mobile-landscape .six-crossroads .crossroads-word small{margin-bottom:4px;font-size:.47rem}.mobile-landscape .six-crossroads .crossroads-word blockquote{font-size:.76rem;line-height:1.48}
+          .mobile-landscape .six-crossroads.phase-interpretation .crossroads-word{left:58%;top:29%;width:min(53%,380px);padding:7px 12px;transform:translate(-50%,-50%) rotate(-.4deg)}
+          .mobile-landscape .six-crossroads .tamamo-interpretation{left:clamp(108px,18%,145px);right:9px;bottom:7px;padding:8px 10px 8px 13px}
+
+          /* Tarot keeps the complete fan in one horizontal swipe surface. */
+          .mobile-landscape .six-tarot .tarot-ritual{height:100%;min-height:0}
+          .mobile-landscape .six-tarot .germain-presence{left:2px;bottom:-3px;transform-origin:left bottom}
+          .mobile-landscape .six-tarot.ritual-selection .germain-presence{transform:translate(-24px,24px) scale(.52)}
+          .mobile-landscape .six-tarot.ritual-locked .germain-presence,
+          .mobile-landscape .six-tarot.ritual-revealing .germain-presence{transform:translate(-18px,18px) scale(.58)}
+          .mobile-landscape .six-tarot.ritual-complete .germain-presence{transform:translate(-13px,13px) scale(.62)}
+          .mobile-landscape .six-tarot .germain-introduction{left:clamp(124px,21%,160px);right:9px;top:36px;padding:9px 12px}
+          .mobile-landscape .six-tarot .germain-introduction>span,
+          .mobile-landscape .six-tarot .germain-ritual-voice>span{margin-bottom:4px;font-size:.51rem}
+          .mobile-landscape .six-tarot .germain-introduction blockquote,
+          .mobile-landscape .six-tarot .germain-ritual-voice blockquote{font-size:.69rem;line-height:1.48}
+          .mobile-landscape .six-tarot .germain-introduction>small{margin-top:5px;font-size:.45rem}
+          .mobile-landscape .six-tarot .tarot-fan-scroll{inset:0 0 33px;overflow-x:auto;overflow-y:hidden}
+          .mobile-landscape .six-tarot .tarot-fan{position:relative;left:0;top:3px;width:560px;min-width:560px;height:220px;margin:0 auto;transform:scale(.72);transform-origin:top center}
+          .mobile-landscape .six-tarot .tarot-fan button{left:50%}
+          .mobile-landscape .six-tarot .tarot-selection-guide{top:auto;bottom:3px;width:min(78%,460px);padding:4px 9px}.mobile-landscape .six-tarot .tarot-selection-guide b{font-size:.6rem}.mobile-landscape .six-tarot .tarot-selection-guide small{font-size:.43rem}
+          .mobile-landscape .six-tarot .tarot-ritual-spread.is-dock{bottom:5px;width:205px;gap:7px}.mobile-landscape .six-tarot .tarot-ritual-spread.is-center{top:25px;width:min(58%,340px);gap:7px}
+          .mobile-landscape .six-tarot .tarot-flip-card{width:66px;height:106px}.mobile-landscape .six-tarot .is-dock .tarot-flip-card{width:47px;height:74px}.mobile-landscape .six-tarot .tarot-position{gap:4px}.mobile-landscape .six-tarot .tarot-position>small{font-size:.48rem}
+          .mobile-landscape .six-tarot .tarot-card-front{gap:4px;padding:6px 4px}.mobile-landscape .six-tarot .tarot-card-front .tarot-front-mark{width:25px;height:25px;font-size:.78rem}.mobile-landscape .six-tarot .tarot-card-front b{font-size:.48rem}.mobile-landscape .six-tarot .tarot-card-front em{font-size:.4rem}
+          .mobile-landscape .six-tarot .germain-ritual-voice{left:clamp(105px,17%,137px);right:8px;bottom:7px;padding:7px 10px 7px 13px}
+          .mobile-landscape .six-tarot.ritual-revealing .tarot-ritual-spread,
+          .mobile-landscape .six-tarot.ritual-complete .tarot-ritual-spread{top:22px}
+          .mobile-landscape .six-tarot .tarot-complete-button{min-height:31px}
+
+          /* The final six-seal convergence remains the visual climax. */
+          .mobile-landscape .six-converge{height:100%;min-height:0;grid-template-rows:minmax(0,1fr) auto;gap:0;align-content:center}
+          .mobile-landscape .six-converge::before{width:260px;height:260px}
+          .mobile-landscape .converge-orbit{width:380px;height:360px;margin:-72px 0;transform:scale(.56)}
+          .mobile-landscape .six-converge p{position:relative;z-index:5;font-size:.64rem;line-height:1.35}
+        }
         @media(prefers-reduced-motion:reduce){.iching-tube.is-cast,.six-cosmos::before,.six-brand-seal i,.iching-rings,.iching-diagram,.silhouette-street button,.six-converge::before,.converge-orbit.is-complete::after{animation:none}.converge-orbit>div{transition:none}.ritual-line,.line-changed,.hexagram-name.is-result,.moving-line-note,.transformation-mark{animation-duration:.01ms;animation-delay:0s}}
       `}</style>
     </div>

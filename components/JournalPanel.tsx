@@ -758,6 +758,121 @@ export function JournalPanel({
           .journal-editor-actions .journal-delete { grid-column: 1 / -1; margin-left: 0; justify-content: center; }
         }
         @media (max-width: 1024px) and (orientation: landscape) {
+          .mobile-landscape .journal-overlay {
+            inset: max(4px, env(safe-area-inset-top)) max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left)) !important;
+            align-items: stretch !important;
+            overflow: hidden !important;
+            padding: 3px 42px !important;
+          }
+          .mobile-landscape .journal-book {
+            width: 100% !important;
+            height: 100%;
+            min-height: 0;
+            max-height: none !important;
+          }
+          .mobile-landscape .journal-page {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: auto 3px minmax(86px, 1fr) auto auto auto;
+            gap: 0 12px;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            max-height: none !important;
+            overflow: hidden;
+            padding: 10px 18px 8px 24px;
+          }
+          .mobile-landscape .journal-page-header {
+            grid-column: 1 / -1;
+            grid-row: 1;
+            grid-template-columns: 104px minmax(0, 1fr) auto !important;
+            align-items: center;
+            gap: 7px 10px !important;
+            min-height: 40px;
+            padding-right: 40px !important;
+          }
+          .mobile-landscape .journal-page-header > div:first-child > strong { font-size: 1.25rem; }
+          .mobile-landscape .journal-main-goal {
+            grid-column: 2 !important;
+            grid-row: 1 !important;
+            gap: 1px;
+            padding: 3px 9px !important;
+            border-top: 0 !important;
+            border-inline: 1px solid rgba(143,105,70,.25) !important;
+            text-align: center !important;
+          }
+          .mobile-landscape .journal-main-goal > strong {
+            display: -webkit-box;
+            overflow: hidden;
+            font-size: .83rem;
+            line-height: 1.3;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 1;
+          }
+          .mobile-landscape .journal-goal-type-row { justify-content: center !important; font-size: .59rem; }
+          .mobile-landscape .journal-goal-type-row button { min-height: 22px; padding-block: 1px; }
+          .mobile-landscape .journal-date {
+            grid-column: 3 !important;
+            grid-row: 1 !important;
+            font-size: .7rem;
+          }
+          .mobile-landscape .journal-rule {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            height: 3px;
+            margin: 0;
+          }
+          .mobile-landscape .journal-page > .journal-section {
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+          }
+          .mobile-landscape .journal-page > .journal-section:nth-of-type(1) { grid-column: 1; grid-row: 3; }
+          .mobile-landscape .journal-page > .journal-section:nth-of-type(2) { grid-column: 2; grid-row: 3; }
+          .mobile-landscape .journal-page > .journal-section:nth-of-type(3) { grid-column: 1; grid-row: 4; }
+          .mobile-landscape .journal-page > .journal-section:nth-of-type(4) { grid-column: 2; grid-row: 4; }
+          .mobile-landscape .journal-page > .journal-section:nth-of-type(5) { grid-column: 1; grid-row: 5; }
+          .mobile-landscape .journal-page > .journal-section:nth-of-type(6) { grid-column: 2; grid-row: 5; }
+          .mobile-landscape .journal-section[open] { display: flex; flex-direction: column; }
+          .mobile-landscape .journal-section summary {
+            min-height: 32px;
+            flex: 0 0 auto;
+            gap: 6px;
+            font-size: .77rem;
+          }
+          .mobile-landscape .journal-section-body {
+            min-height: 0;
+            max-height: clamp(58px, 25dvh, 112px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 1px 5px 7px 7px;
+            font-size: .75rem;
+            line-height: 1.45;
+          }
+          .mobile-landscape .journal-consult-hint { margin-bottom: 6px; padding: 5px 7px; font-size: .66rem; line-height: 1.35; }
+          .mobile-landscape .journal-edit { min-height: 31px; padding-block: 4px; }
+          .mobile-landscape .journal-page-navigation {
+            grid-column: 1 / -1;
+            grid-row: 6;
+            gap: 8px;
+            margin-top: 4px;
+          }
+          .mobile-landscape .journal-page-navigation button { min-height: 32px; padding-block: 4px; }
+          .mobile-landscape .journal-close { top: 5px; right: 6px; width: 32px; height: 32px; }
+          .mobile-landscape .journal-archive-open { top: 6px; right: 43px; min-height: 29px; }
+          .mobile-landscape .journal-tabs { top: 45px; gap: 3px; }
+          .mobile-landscape .journal-tab { width: 40px; min-height: 29px; }
+          .mobile-landscape .journal-tabs-left { right: calc(100% - 5px); }
+          .mobile-landscape .journal-tabs-right { left: calc(100% - 5px); }
+          .mobile-landscape .journal-archive-sheet {
+            height: 100%;
+            max-height: none !important;
+            padding: 12px 18px 14px 23px;
+          }
+          .mobile-landscape .journal-archive-list {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 9px;
+          }
           .mobile-landscape .journal-overlay.has-suuhimochi-keyboard { padding-right: calc(min(34vw, 440px) + max(12px, env(safe-area-inset-right))) !important; }
           .mobile-landscape .journal-overlay.has-suuhimochi-keyboard .journal-book { width: 100% !important; }
         }
