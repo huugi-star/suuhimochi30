@@ -58,6 +58,7 @@ const ROOM_WORLD_WIDTH = 1672;
 const ROOM_WORLD_HEIGHT = 941;
 const ROOM_BACKGROUND_WIDTH = 2196;
 const ROOM_BACKGROUND_HEIGHT = 941;
+const ROOM_SAFE_AREA_LEFT = (ROOM_BACKGROUND_WIDTH - ROOM_WORLD_WIDTH) / 2;
 
 function getDisplayedSpriteMetrics(room: DOMRect, mobileRoomMode: boolean) {
   const scale = mobileRoomMode ? room.width / ROOM_WORLD_WIDTH : 1;
@@ -507,10 +508,19 @@ const WALK_VECTORS: Record<SpriteDirection, { x: number; y: number }> = {
   south: { x: 0, y: 1 }, 'south-east': { x: 0.707, y: 0.707 }, east: { x: 1, y: 0 }, 'north-east': { x: 0.707, y: -0.707 },
   north: { x: 0, y: -1 }, 'north-west': { x: -0.707, y: -0.707 }, west: { x: -1, y: 0 }, 'south-west': { x: -0.707, y: 0.707 },
 };
-// The floor begins noticeably in front of the rear wall/baseboard.  Keep the
-// foot collider on that usable floor area so Suuhimochi cannot appear to walk
-// into the back wall, especially against the clearer evening lighting.
-const WALK_BOUNDS = { minX: -34, maxX: 34, minY: -8, maxY: 18 };
+// Coarse limits only keep pointer/autonomous targets sane. The actual walkable
+// area is the trapezoidal floor painted into the background and is checked
+// against Suuhimochi's feet in isWalkOffsetBlocked().
+// Allow Suuhimochi to walk about 1.5x farther toward the back of the room.
+const WALK_BOUNDS = { minX: -44, maxX: 54, minY: -18, maxY: 27 };
+const ROOM_FLOOR_BOUNDS = {
+  backY: 55,
+  frontY: 94,
+  backLeft: 5.5,
+  backRight: 94.5,
+  frontLeft: 1,
+  frontRight: 99,
+};
 const WALK_STEP = { x: 6.2, y: 4.6 };
 const WALK_DURATION_MS = 1700;
 // Waiting behaviour is intentionally walk-heavy: the room should feel lived
@@ -620,8 +630,13 @@ export function SuuhimochiGame() {
   const [talkOpen, setTalkOpen] = useState(false);
   const [talkCommandOpen, setTalkCommandOpen] = useState(false);
   const [talkReturning, setTalkReturning] = useState(false);
+  const [talkPresentation, setTalkPresentation] = useState<{
+    origin: { x: number; y: number };
+    uiOnLeft: boolean;
+  } | null>(null);
   const [talkStage, setTalkStage] = useState<ConversationStage>('topic');
   const [talkText, setTalkText] = useState('');
+  const [talkInputPrompt, setTalkInputPrompt] = useState('');
   const [dismissedPromptedSuggestions, setDismissedPromptedSuggestions] = useState<string[]>([]);
   const [currentTalkLine, setCurrentTalkLine] = useState('');
   const [talkPageIndex, setTalkPageIndex] = useState(0);
@@ -681,7 +696,6 @@ export function SuuhimochiGame() {
   const manualWalkUntil = useRef(0);
   const talkReturnTimer = useRef<number | null>(null);
   const shouldAutoCloseTalk = useRef(false);
-  const talkReturnTarget = useRef({ x: 0, y: 0 });
   const clockDragRef = useRef<{ pointerId: number; x: number; y: number; clientX: number; clientY: number } | null>(null);
   const itemDragRef = useRef<{ id: string; pointerId: number; x: number; y: number; clientX: number; clientY: number } | null>(null);
   const itemPanelDragRef = useRef<{ pointerId: number; x: number; clientX: number } | null>(null);
@@ -827,6 +841,14 @@ export function SuuhimochiGame() {
     const footY = 54 + offset.y + (sprite.foot / room.height) * 100;
     const footHalfX = (9 / room.width) * 100;
     const footHalfY = (6 / room.height) * 100;
+    // Follow the visible joins between the floor and the three walls. The
+    // available width widens gradually toward the foreground, matching the
+    // perspective shared by the room backgrounds.
+    if (footY - footHalfY < ROOM_FLOOR_BOUNDS.backY || footY + footHalfY > ROOM_FLOOR_BOUNDS.frontY) return true;
+    const depth = Math.max(0, Math.min(1, (footY - ROOM_FLOOR_BOUNDS.backY) / (ROOM_FLOOR_BOUNDS.frontY - ROOM_FLOOR_BOUNDS.backY)));
+    const floorLeft = ROOM_FLOOR_BOUNDS.backLeft + (ROOM_FLOOR_BOUNDS.frontLeft - ROOM_FLOOR_BOUNDS.backLeft) * depth;
+    const floorRight = ROOM_FLOOR_BOUNDS.backRight + (ROOM_FLOOR_BOUNDS.frontRight - ROOM_FLOOR_BOUNDS.backRight) * depth;
+    if (footX - footHalfX < floorLeft || footX + footHalfX > floorRight) return true;
     if (!storedItemIdsRef.current.includes('clock')) {
       const clock = clockPositionRef.current;
       if (footX + footHalfX > clock.x - 5 && footX - footHalfX < clock.x + 5 && footY + footHalfY > clock.y - 1.5 && footY - footHalfY < clock.y + 2.5) return true;
@@ -2250,6 +2272,7 @@ export function SuuhimochiGame() {
     setTalkOpen(false);
     setTalkCommandOpen(false);
     setTalkReturning(false);
+    setTalkPresentation(null);
     setMemoryOpen(false);
     setDictionaryOpen(false);
     setFoodOpen(false);
@@ -2320,6 +2343,7 @@ export function SuuhimochiGame() {
     setTalkOpen(false);
     setTalkCommandOpen(false);
     setTalkReturning(false);
+    setTalkPresentation(null);
     setMemoryOpen(false);
     setDictionaryOpen(false);
     setFoodOpen(false);
@@ -2510,6 +2534,8 @@ export function SuuhimochiGame() {
     setTalkStage(response.stage);
     shouldAutoCloseTalk.current = response.stage === 'complete';
     setTalkInputMode(response.inputMode);
+    const responseLines = response.lines.map((line) => replaceCallName(line, getPreferredCallName(save)));
+    setTalkInputPrompt(response.inputMode === 'text' ? responseLines.at(-1) ?? '' : '');
     if (response.inputMode === 'category' && response.categoryChoices.length > 0) setCategoryPage(0);
     setTalkChoices(response.choices);
     setCategoryChoices(response.categoryChoices);
@@ -2531,7 +2557,29 @@ export function SuuhimochiGame() {
       setConversationMemories(talk.getMemories());
       setFarewellLetter(talk.getLetter());
     }
-    playTalkLines(response.lines.map((line) => replaceCallName(line, getPreferredCallName(save))), replace);
+    playTalkLines(responseLines, replace);
+  }
+
+  function captureTalkPresentation() {
+    const world = worldRef.current?.getBoundingClientRect();
+    const mochi = worldRef.current?.querySelector<HTMLElement>('.mochi')?.getBoundingClientRect();
+    const current = walkOffsetRef.current;
+    const fallbackX = 41 + current.x + (64 / ROOM_WORLD_WIDTH) * 100;
+    const fallbackY = 54 + current.y + (64 / ROOM_WORLD_HEIGHT) * 100;
+    const x = world && mochi && world.width > 0
+      ? ((mochi.left + mochi.width / 2 - world.left) / world.width) * 100
+      : fallbackX;
+    const y = world && mochi && world.height > 0
+      ? ((mochi.top + mochi.height / 2 - world.top) / world.height) * 100
+      : fallbackY;
+
+    setTalkPresentation({
+      origin: {
+        x: Math.max(2, Math.min(98, x)),
+        y: Math.max(4, Math.min(96, y)),
+      },
+      uiOnLeft: x >= 50,
+    });
   }
 
   function closeTalk() {
@@ -2548,28 +2596,11 @@ export function SuuhimochiGame() {
     setBedPromptId(null);
     setTalkReturning(true);
     setMochiState('idle');
-    // Keep the exact world offset where the conversation happened. The camera
-    // eases back first, then ordinary walking resumes from that same spot.
+    // Only release the camera zoom. Suuhimochi keeps the exact walkOffset it
+    // had when the conversation began.
     talkReturnTimer.current = window.setTimeout(() => {
-      const room = worldRef.current?.getBoundingClientRect();
-      if (!room) {
-        setTalkReturning(false);
-        talkReturnTimer.current = null;
-        return;
-      }
-      const start = walkOffsetRef.current;
-      const target = talkReturnTarget.current;
-      const deltaX = (target.x - start.x) * room.width / 100;
-      const deltaY = (target.y - start.y) * room.height / 100;
-      const direction = WALK_DIRECTIONS.reduce((closest, candidate) => {
-        const vector = WALK_VECTORS[candidate];
-        return vector.x * deltaX + vector.y * deltaY > WALK_VECTORS[closest].x * deltaX + WALK_VECTORS[closest].y * deltaY
-          ? candidate
-          : closest;
-      }, 'south' as SpriteDirection);
-
+      setTalkPresentation(null);
       setTalkReturning(false);
-      walkInSteps(target, direction, Math.hypot(deltaX, deltaY));
       talkReturnTimer.current = null;
     }, TALK_CAMERA_TRANSITION_MS + 80);
   }
@@ -2594,7 +2625,7 @@ export function SuuhimochiGame() {
     if (talkReturnTimer.current !== null) window.clearTimeout(talkReturnTimer.current);
     talkReturnTimer.current = null;
     setTalkReturning(false);
-    talkReturnTarget.current = walkOffsetRef.current;
+    captureTalkPresentation();
     walkRun.current += 1;
     if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
     walkStepTimer.current = null;
@@ -2858,6 +2889,7 @@ export function SuuhimochiGame() {
     setTalkOpen(false);
     setTalkCommandOpen(false);
     setTalkReturning(false);
+    setTalkPresentation(null);
     setMemoryOpen(false);
     setDictionaryOpen(false);
     setFoodOpen(false);
@@ -3006,6 +3038,7 @@ export function SuuhimochiGame() {
     setTalkOpen(false);
     setTalkCommandOpen(false);
     setTalkReturning(false);
+    setTalkPresentation(null);
     setMemoryOpen(false);
     setDictionaryOpen(false);
     setFoodOpen(false);
@@ -3140,7 +3173,7 @@ export function SuuhimochiGame() {
     if (talkReturnTimer.current !== null) window.clearTimeout(talkReturnTimer.current);
     talkReturnTimer.current = null;
     setTalkReturning(false);
-    talkReturnTarget.current = walkOffsetRef.current;
+    captureTalkPresentation();
     walkRun.current += 1;
     if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
     walkStepTimer.current = null;
@@ -3166,7 +3199,7 @@ export function SuuhimochiGame() {
     clearSave(); setSave(EMPTY_SAVE); setBirthday(''); bubbleRef.current = null; setBubblePageIndex(0); setBubble(null); setRevealBeat(-1);
     setLearnedWords([]); setDictionaryEntries([]); setDictionaryCategory('ALL'); setDictionaryOpen(false); setConversationMemories([]); setFarewellLetter(null);
     setConversationDay(1); setConversationPhase('であい'); setCurrentTalkLine(''); setCategoryChoices([]); setSubCategoryChoices([]); setTalkChoices([]); setTalkInputMode('none'); setTalkDebug(null);
-    setTalkStage('topic'); setTalkOpen(false); setTalkCommandOpen(false); setTalkReturning(false); setTalkText(''); setIntroLine(0);
+    setTalkStage('topic'); setTalkOpen(false); setTalkCommandOpen(false); setTalkReturning(false); setTalkPresentation(null); setTalkText(''); setIntroLine(0);
     setDismissedPromptedSuggestions([]); promptedSuggestionQuestionKeyRef.current = '';
     setDailyProgressOpen(false); setDailyProgressActivityDate(''); setGraduationOpen(false); setGraduationPreview(false); setTwoDayReviewOffer(false); setTwoDayReviewTalkOpen(false); twoDayReviewOfferDateRef.current = '';
     setSleepingBedId(null); setSleepPose(null); setBedPromptId(null); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSettingsUserName(''); setSettingsCallName(''); setClockPosition({ x: 74, y: 49 }); setLightsOut(false); setSelectedItemId(null); setItemPositions(INITIAL_ITEM_POSITIONS); setStoredItemIds(INITIAL_STORED_ITEM_IDS); setItemTab('placed'); setItemPanelCollapsed(false); setItemPanelX(3); setShowCollisionDebug(false);
@@ -3209,11 +3242,55 @@ export function SuuhimochiGame() {
   const lowTableFrontY = lowTablePosition.y + LOW_TABLE_COLLIDER.offsetY + LOW_TABLE_COLLIDER.height;
   const tableShouldOverlayMochi = mochiFootY < lowTableFrontY;
   const cameraOrigin = (() => {
-    if ((!talkOpen && !isMonologueZoom) || !measuredRoom) return { x: 48, y: 63 };
+    if (talkPresentation && (talkOpen || talkReturning)) return talkPresentation.origin;
+    if (!isMonologueZoom || !measuredRoom) return { x: 48, y: 63 };
+    if (mobileRoomMode) {
+      const x = 41 + walkOffset.x + (64 / ROOM_WORLD_WIDTH) * 100;
+      const y = 54 + walkOffset.y + (64 / ROOM_WORLD_HEIGHT) * 100;
+      return { x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) };
+    }
     const x = 41 + walkOffset.x + (measuredSprite.half / measuredRoom.width) * 100;
     const y = 54 + walkOffset.y + (measuredSprite.half / measuredRoom.height) * 100;
     return { x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) };
   })();
+  const cameraZoomActive = talkOpen || isMonologueZoom;
+  const mobileWorldPosition = (() => {
+    if (!mobileRoomMode || !mobileRoomFit.ready) return null;
+
+    // Match the background camera exactly: both layers scale about the same
+    // logical point, so furniture remains attached to the floor and walls.
+    const originX = ROOM_WORLD_WIDTH * (cameraOrigin.x / 100);
+    const originY = ROOM_WORLD_HEIGHT * (cameraOrigin.y / 100);
+    const stageOriginX = mobileRoomFit.canvasLeft
+      + mobileRoomFit.scale * (ROOM_SAFE_AREA_LEFT + originX);
+    const stageOriginY = mobileRoomFit.canvasTop + mobileRoomFit.scale * originY;
+    return {
+      left: stageOriginX - originX,
+      top: stageOriginY - originY,
+    };
+  })();
+  const mobileBackgroundCameraX = ((ROOM_SAFE_AREA_LEFT + ROOM_WORLD_WIDTH * (cameraOrigin.x / 100)) / ROOM_BACKGROUND_WIDTH) * 100;
+  const cameraShift = (() => {
+    if (!talkOpen || !talkPresentation || !roomBounds) return { x: 0, y: 0 };
+
+    const characterOnRight = talkPresentation.uiOnLeft;
+    const minX = roomBounds.width * (characterOnRight ? 0.58 : 0.18);
+    const maxX = roomBounds.width * (characterOnRight ? 0.82 : 0.42);
+    const minY = roomBounds.height * 0.20;
+    const maxY = roomBounds.height * 0.78;
+    const baseX = mobileRoomMode && mobileRoomFit.ready
+      ? mobileRoomFit.canvasLeft + mobileRoomFit.scale * (ROOM_SAFE_AREA_LEFT + ROOM_WORLD_WIDTH * cameraOrigin.x / 100)
+      : roomBounds.width * cameraOrigin.x / 100;
+    const baseY = mobileRoomMode && mobileRoomFit.ready
+      ? mobileRoomFit.canvasTop + mobileRoomFit.scale * (ROOM_WORLD_HEIGHT * cameraOrigin.y / 100)
+      : roomBounds.height * cameraOrigin.y / 100;
+
+    return {
+      x: Math.max(minX, Math.min(maxX, baseX)) - baseX,
+      y: Math.max(minY, Math.min(maxY, baseY)) - baseY,
+    };
+  })();
+  const mobileCameraShift = cameraShift;
   const mochiWorldX = measuredRoom
     ? 41 + walkOffset.x + (measuredSprite.half / measuredRoom.width) * 100
     : 48;
@@ -3226,7 +3303,8 @@ export function SuuhimochiGame() {
   const mochiTalkScreenX = talkOpen || isMonologueZoom
     ? cameraOrigin.x + (mochiWorldX - cameraOrigin.x) * TALK_CAMERA_ZOOM
     : mochiWorldX;
-  const talkUiOnLeft = (talkOpen || isMonologueZoom) && mochiTalkScreenX > 54;
+  const talkUiOnLeft = talkPresentation?.uiOnLeft
+    ?? (cameraZoomActive && (mobileRoomMode ? cameraOrigin.x >= 50 : mochiTalkScreenX > 54));
   const miniDialogueScript = miniDialogue ? getMiniDialogueScript(miniDialogue.scriptId) : null;
   const miniDialogueNode = miniDialogue && miniDialogueScript ? getDialogueNode(miniDialogueScript, miniDialogue) : null;
   const otherCategoryChoice = categoryChoices.find((choice) => choice.category === 'OTHER');
@@ -3405,7 +3483,7 @@ export function SuuhimochiGame() {
   );
 
   return (
-    <main className={`game-shell startup-content-ready${mobileLandscapeClass}${mobileKeyboardVisible ? ' mobile-keyboard-open' : ''} time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
+    <main className={`game-shell startup-content-ready${mobileLandscapeClass}${mobileKeyboardVisible ? ' mobile-keyboard-open' : ''}${talkOpen && talkUiOnLeft ? ' talk-input-ui-left' : ''} time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`} onPointerDown={['intro', 'welcome', 'persona', 'goalIntro', 'goalReply'].includes(phase) ? (event) => { if (!(event.target as HTMLElement).closest('button, input, textarea, select')) advanceInitialDialogue(); } : undefined}>
       <style>{`
         .mochi.mochi-conversation {
           z-index: 4 !important;
@@ -3507,8 +3585,8 @@ export function SuuhimochiGame() {
           background: #17130f url('/assets/room-evening.png') center / cover no-repeat;
           transform-origin: var(--camera-x, 48%) var(--camera-y, 63%);
           transform: scale(1);
-          translate: calc(-50% + var(--room-pan-x, 0px)) 0;
-          transition: transform ${TALK_CAMERA_TRANSITION_MS}ms cubic-bezier(.22,.75,.28,1), translate 320ms cubic-bezier(.22,.75,.28,1);
+          translate: calc(-50% + var(--room-pan-x, 0px) + var(--camera-shift-x, 0px)) var(--camera-shift-y, 0px);
+          transition: transform ${TALK_CAMERA_TRANSITION_MS}ms cubic-bezier(.22,.75,.28,1), translate ${TALK_CAMERA_TRANSITION_MS}ms cubic-bezier(.22,.75,.28,1);
           will-change: transform;
         }
 
@@ -3530,17 +3608,18 @@ export function SuuhimochiGame() {
           .mobile-landscape .world-layer,
           .mobile-landscape .world-layer.world-layer-talk,
           .mobile-landscape .world-layer.room-world-overview {
-            top: calc(50% + var(--mobile-room-offset-y, 0px));
+            top: var(--mobile-world-top, 50%);
             bottom: auto;
-            left: calc(50% + var(--mobile-room-offset-x, 0px));
+            left: var(--mobile-world-left, 50%);
             width: ${ROOM_WORLD_WIDTH}px;
             height: ${ROOM_WORLD_HEIGHT}px;
-            transform: scale(var(--mobile-room-fit-scale, .3));
-            transform-origin: 50% 50%;
-            translate: -50% -50%;
+            transform: translate(var(--mobile-camera-shift-x, 0px), var(--mobile-camera-shift-y, 0px)) scale(calc(var(--mobile-room-fit-scale, .3) * var(--mobile-camera-scale, 1)));
+            transform-origin: var(--mobile-camera-x, 50%) var(--mobile-camera-y, 50%);
+            translate: none;
             touch-action: manipulation;
             background-color: transparent !important;
             background-image: none !important;
+            transition: transform var(--mobile-camera-transition, ${TALK_CAMERA_TRANSITION_MS}ms) cubic-bezier(.22,.75,.28,1);
           }
 
           .mobile-landscape .world-layer > .room-tint {
@@ -3550,6 +3629,7 @@ export function SuuhimochiGame() {
           .mobile-landscape .world-layer .room-clock {
             width: 13%;
           }
+
         }
 
         /* The unlit night background is paired with a gentle dim on the
@@ -3743,6 +3823,16 @@ export function SuuhimochiGame() {
         }
 
         .face-talk-left {
+          grid-column: 1;
+          justify-self: end;
+        }
+
+        .face-talk-text-input:not(.face-talk-ui-left) .face-talk-left {
+          grid-column: 3;
+          justify-self: start;
+        }
+
+        .face-talk-text-input.face-talk-ui-left .face-talk-left {
           grid-column: 1;
           justify-self: end;
         }
@@ -4266,6 +4356,80 @@ export function SuuhimochiGame() {
             min-height: 68px;
             max-height: 22dvh;
           }
+
+          /* Text replies use a fixed three-part composition on phones:
+             question at upper left, Suuhimochi below it, keyboard at right. */
+          .mobile-landscape .face-talk.face-talk-text-input .face-talk-input-prompt {
+            position: absolute;
+            z-index: 24;
+            top: max(36px, calc(env(safe-area-inset-top) + 30px));
+            left: max(10px, env(safe-area-inset-left));
+            width: min(60vw, calc(100vw - min(32vw, 430px) - 26px));
+            max-height: min(24dvh, 76px);
+            overflow-y: auto;
+            padding: 8px 10px;
+            border: 1px solid rgba(91, 66, 47, .35);
+            border-radius: 12px;
+            color: #3d3026;
+            background: rgba(255, 252, 242, .94);
+            box-shadow: 0 3px 0 rgba(83, 57, 39, .14), 0 8px 18px rgba(45, 29, 18, .16);
+            pointer-events: auto;
+          }
+
+          .mobile-landscape .face-talk.face-talk-text-input.face-talk-ui-left .face-talk-input-prompt {
+            left: auto;
+            right: max(10px, env(safe-area-inset-right));
+          }
+
+          .mobile-landscape.talk-input-ui-left .suuhimochi-keyboard {
+            right: auto;
+            left: max(5px, env(safe-area-inset-left));
+          }
+
+          .mobile-landscape .face-talk.face-talk-text-input .face-talk-input-prompt span {
+            display: block;
+            margin-bottom: 3px;
+            color: #9b5f3d;
+            font-size: .62rem;
+            font-weight: 900;
+            letter-spacing: .08em;
+          }
+
+          .mobile-landscape .face-talk.face-talk-text-input .face-talk-input-prompt p {
+            margin: 0;
+            font-size: clamp(.76rem, 1.7vw, .92rem);
+            font-weight: 700;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+          }
+
+          .mobile-landscape .face-talk.face-talk-text-input .face-talk-left,
+          .mobile-landscape .face-talk.face-talk-text-input.face-talk-ui-left .face-talk-left {
+            top: max(118px, calc(env(safe-area-inset-top) + 108px));
+            right: auto;
+            bottom: auto;
+            left: max(10px, env(safe-area-inset-left));
+            width: min(60vw, calc(100vw - min(32vw, 430px) - 26px));
+            max-height: calc(100dvh - 126px);
+            overflow-y: auto;
+          }
+
+          .mobile-landscape .face-talk.face-talk-text-input .prompted-skip-button {
+            position: fixed;
+            z-index: 25;
+            top: min(calc(100dvh - 42px), calc(70dvh + 16px));
+            left: min(calc(100vw - min(32vw, 430px) - 112px), calc((100vw - min(32vw, 430px)) / 2 + 88px));
+            width: auto;
+            min-height: 30px;
+            margin: 0;
+            padding: 5px 11px;
+            font-size: .7rem;
+          }
+
+          .mobile-landscape .face-talk.face-talk-text-input.face-talk-ui-left .prompted-skip-button {
+            right: min(calc(100vw - min(32vw, 430px) - 112px), calc((100vw - min(32vw, 430px)) / 2 + 88px));
+            left: auto;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -4294,6 +4458,13 @@ export function SuuhimochiGame() {
         style={{
           backgroundColor: '#17130f',
           backgroundImage: 'none',
+          '--mobile-camera-scale': cameraZoomActive ? TALK_CAMERA_ZOOM : 1,
+          '--mobile-camera-x': `${cameraOrigin.x}%`,
+          '--mobile-camera-y': `${cameraOrigin.y}%`,
+          '--mobile-background-camera-x': `${mobileBackgroundCameraX}%`,
+          '--mobile-camera-transition': `${TALK_CAMERA_TRANSITION_MS}ms`,
+          '--mobile-camera-shift-x': `${mobileCameraShift.x}px`,
+          '--mobile-camera-shift-y': `${mobileCameraShift.y}px`,
           ...(mobileRoomFit.ready ? {
             '--mobile-room-canvas-left': `${mobileRoomFit.canvasLeft}px`,
             '--mobile-room-canvas-top': `${mobileRoomFit.canvasTop}px`,
@@ -4322,10 +4493,14 @@ export function SuuhimochiGame() {
             '--camera-x': `${cameraOrigin.x}%`,
             '--camera-y': `${cameraOrigin.y}%`,
             '--room-pan-x': `${roomPanX}px`,
+            '--camera-shift-x': `${cameraShift.x}px`,
+            '--camera-shift-y': `${cameraShift.y}px`,
             '--room-overview-scale': roomOverviewScale,
             '--mobile-room-fit-scale': mobileRoomFit.scale,
-            '--mobile-room-offset-x': `${mobileRoomFit.offsetX}px`,
-            '--mobile-room-offset-y': `${mobileRoomFit.offsetY}px`,
+            ...(mobileWorldPosition ? {
+              '--mobile-world-left': `${mobileWorldPosition.left}px`,
+              '--mobile-world-top': `${mobileWorldPosition.top}px`,
+            } : {}),
             backgroundImage: `url('${roomBackground}')`,
           } as React.CSSProperties}
           onPointerDown={handleWorldPointerDown}
@@ -4334,6 +4509,18 @@ export function SuuhimochiGame() {
           onPointerCancel={handleWorldPointerCancel}
         >
           <div className="room-tint" aria-hidden="true" />
+          {showCollisionDebug && (
+            <svg
+              className="room-floor-collider-debug"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-label="背景に沿った歩行可能範囲"
+            >
+              <polygon
+                points={`${ROOM_FLOOR_BOUNDS.backLeft},${ROOM_FLOOR_BOUNDS.backY} ${ROOM_FLOOR_BOUNDS.backRight},${ROOM_FLOOR_BOUNDS.backY} ${ROOM_FLOOR_BOUNDS.frontRight},${ROOM_FLOOR_BOUNDS.frontY} ${ROOM_FLOOR_BOUNDS.frontLeft},${ROOM_FLOOR_BOUNDS.frontY}`}
+              />
+            </svg>
+          )}
           <div className="room-items">
             {ROOM_ITEMS.filter((item) => !['wall-clock', 'wall-clock-digital'].includes(item.id) && !storedItemIds.includes(item.id)).map((item) => item.id === MASK_CASE_ITEM_ID ? (
               <div
@@ -4646,7 +4833,7 @@ export function SuuhimochiGame() {
           />}
           {talkOpen && (
             <section
-              className={`face-talk${isMochiSpeaking ? ' face-talk-speaking' : ''}${talkUiOnLeft ? ' face-talk-ui-left' : ''}`}
+              className={`face-talk${isMochiSpeaking ? ' face-talk-speaking' : ''}${talkUiOnLeft ? ' face-talk-ui-left' : ''}${talkInputEnabled ? ' face-talk-text-input' : ''}`}
               aria-busy={isMochiSpeaking}
               onPointerDown={isMochiSpeaking ? (event) => {
                 if ((event.target as HTMLElement).closest('button')) return;
@@ -4654,6 +4841,13 @@ export function SuuhimochiGame() {
               } : undefined}
             >
               {!isMochiSpeaking && <button className="face-talk-close" aria-label="会話を閉じる" onClick={closeTalk}><X size={20} /></button>}
+
+              {mobileRoomMode && !isMochiSpeaking && talkInputEnabled && talkInputPrompt && (
+                <aside className="face-talk-input-prompt" aria-live="polite">
+                  <span>すうひもちの質問</span>
+                  <p>{talkInputPrompt}</p>
+                </aside>
+              )}
 
               {isMochiSpeaking && (
                 <button
@@ -4741,23 +4935,6 @@ export function SuuhimochiGame() {
                       <div className="face-talk-input-footer"><small>お話はこの端末に保存されます</small><button className="face-talk-send" type="submit" disabled={!talkText.trim()}>話す</button></div>
                     </>}
                   </form>
-                  {promptedQuestionInput && promptedSuggestions.length > 0 && (
-                    <div className="prompted-suggestion-box">
-                      <div className="prompted-suggestion-title">入力候補</div>
-                      <div className="prompted-suggestion-list" aria-label="入力候補">
-                        {promptedSuggestions.map((suggestion) => (
-                          <button
-                            className="prompted-suggestion-button"
-                            type="button"
-                            key={suggestion}
-                            onClick={() => choosePromptedSuggestion(suggestion)}
-                          >
-                            <span className="prompted-suggestion-text">{suggestion}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   {promptedQuestionInput && <button className="face-talk-action face-talk-secondary prompted-skip-button" type="button" onClick={skipPromptedTalkQuestion}>わかんない</button>}
                   {talkStage === 'followup' && <button className="face-talk-action face-talk-secondary" type="button" onClick={() => conversation.current && applyTalkResponse(conversation.current.finishEarly())}>今日はここまで</button>}
                 </div>
