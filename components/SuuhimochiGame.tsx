@@ -1160,7 +1160,11 @@ export function SuuhimochiGame() {
       return;
     }
 
-    const room = event.currentTarget.getBoundingClientRect();
+    // On phones the 1672px interaction world is centered inside the wider
+    // 2196px background.  Use that world for the coordinate calculation even
+    // when a tap begins on either extended background edge.
+    const room = (mobileRoomMode ? worldRef.current?.getBoundingClientRect() : null)
+      ?? event.currentTarget.getBoundingClientRect();
     const current = walkOffsetRef.current;
     const spriteHalf = getDisplayedSpriteMetrics(room, mobileRoomMode).half;
     const currentX = room.width * (0.41 + current.x / 100) + spriteHalf;
@@ -1211,6 +1215,14 @@ export function SuuhimochiGame() {
     if (roomOverview) return;
     walkToClickedPoint(event);
   }, [dailyProgressOpen, roomOverview, walkToClickedPoint]);
+
+  const handleRoomEdgePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    // The transparent surface sits only behind the scaled gameplay world on
+    // mobile. It makes the added left/right background usable without
+    // duplicating events that originate inside the world itself.
+    if (!mobileRoomMode || dailyProgressOpen || roomOverview) return;
+    walkToClickedPoint(event);
+  }, [dailyProgressOpen, mobileRoomMode, roomOverview, walkToClickedPoint]);
 
   const handleWorldPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     updateClockPosition(event);
@@ -4486,6 +4498,7 @@ export function SuuhimochiGame() {
         >
           <div className="room-tint" />
         </div>
+        <div className="room-touch-surface" aria-hidden="true" onPointerDown={handleRoomEdgePointerDown} />
         <div
           ref={worldRef}
           className={`world-layer${talkOpen || isMonologueZoom ? ' world-layer-talk' : ''}${roomOverview ? ' room-world-overview' : ''}${isRoomPanning ? ' room-world-panning' : ''}${isDarkPeriod && lightsOut ? ' world-layer-lights-out' : ''}${phase === 'home' && !dailyProgressOpen && !bubble && !talkReturning && !foodOpen && !minigameOpen && !potenoOpen && !settingsOpen ? ' world-layer-walkable' : ''}`}
