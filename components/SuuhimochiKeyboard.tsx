@@ -82,7 +82,9 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     if (typeof window === 'undefined') return false;
     try { return window.localStorage.getItem(SUUHIMOCHI_KEYBOARD_GUIDE_KEY) !== '1'; } catch { return false; }
   });
-  const [showCandidates, setShowCandidates] = useState(false);
+  // 候補欄（と未登録メッセージ）は、ユーザーが明示的に変換を
+  // 求めたときだけ表示する。通常の入力中には出さない。
+  const [conversionLookupRequested, setConversionLookupRequested] = useState(false);
   const [conversions, setConversions] = useState<SuuhimochiConversion[]>(() => loadSuuhimochiConversions());
   const [activeFlick, setActiveFlick] = useState<{ key: FlickKey; direction: FlickDirection } | null>(null);
   const [visualViewport, setVisualViewport] = useState<{ top: number; height: number } | null>(null);
@@ -147,7 +149,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     cursorRef.current = cursor;
     setCaretPosition(cursor);
     onChange(next);
-    setShowCandidates(false);
+    setConversionLookupRequested(false);
     window.requestAnimationFrame(() => displayRef.current?.setSelectionRange(cursor, cursor));
   }
 
@@ -161,7 +163,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     const next = value.slice(0, cursor - 1) + replacement + value.slice(cursor);
     onChange(next);
     setCaretPosition(cursor);
-    setShowCandidates(false);
+    setConversionLookupRequested(false);
     window.requestAnimationFrame(() => displayRef.current?.setSelectionRange(cursor, cursor));
   }
 
@@ -183,7 +185,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     cursorRef.current = from;
     setCaretPosition(from);
     onChange(next);
-    setShowCandidates(false);
+    setConversionLookupRequested(false);
     window.requestAnimationFrame(() => displayRef.current?.setSelectionRange(from, from));
   }
 
@@ -220,7 +222,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     nativeSelectionRef.current = { start, end };
     composingRef.current = false;
     setNativeMode(true);
-    setShowCandidates(false);
+    setConversionLookupRequested(false);
   }
 
   function finishNativeMode() {
@@ -248,7 +250,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     cursorRef.current = converted.length;
     setCaretPosition(converted.length);
     setConversions(markSuuhimochiConversionUsed(source, converted));
-    setShowCandidates(false);
+    setConversionLookupRequested(false);
   }
 
   function closeGuide() {
@@ -286,7 +288,10 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
       </aside>}
 
       {nativeMode ? <div className="suuhimochi-native-editor">
-        <header><b>漢字を手に入れる</b><small>標準キーボードで文章を編集できます</small></header>
+        <header>
+          <div><b>漢字を手に入れる</b><small>標準キーボードで文章を編集できます</small></div>
+          <button className="suuhimochi-native-finish" type="button" onClick={finishNativeMode}>編集を確定</button>
+        </header>
         <textarea
           ref={nativeRef}
           value={value}
@@ -308,7 +313,6 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
             finishNativeMode();
           }}
         />
-        <button className="suuhimochi-native-finish" type="button" onClick={finishNativeMode}>編集を確定</button>
       </div> : <>
         <div className="suuhimochi-keyboard-display-shell">
           <div ref={displayMirrorRef} className="suuhimochi-keyboard-display-mirror" aria-hidden="true">
@@ -332,7 +336,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
           />
         </div>
 
-        {showCandidates && <div className="suuhimochi-conversion-candidates" aria-label="漢字変換候補">
+        {conversionLookupRequested && <div className="suuhimochi-conversion-candidates" aria-label="漢字変換候補">
           {candidates.length > 0
             ? candidates.map((candidate) => <button type="button" key={candidate.converted} onClick={() => chooseConversion(candidate.converted)}>{candidate.converted}</button>)
             : <small>この読みの変換は、まだ覚えていません</small>}
@@ -373,7 +377,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
           </div>
 
           <div className="suuhimochi-kanji-actions">
-            <button type="button" onClick={() => setShowCandidates(true)}><b>漢字変換</b><small>覚えている変換</small></button>
+            <button type="button" onClick={() => setConversionLookupRequested(true)}><b>漢字変換</b><small>覚えている変換</small></button>
             <button type="button" onClick={enterNativeMode}><b>漢字を手に入れる</b><small>標準IME</small></button>
           </div>
         </div>
