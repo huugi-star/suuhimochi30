@@ -270,6 +270,65 @@ export function DailyProgressCheck({
           .daily-progress-question { margin-block: 16px; }
         }
         @media (max-width: 1024px) and (orientation: landscape) {
+          .mobile-landscape .daily-progress-overlay {
+            padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+          }
+          .mobile-landscape .daily-progress-card {
+            width: min(94vw, 680px);
+            max-height: calc(100% - 4px);
+            padding: 12px 16px;
+            border-radius: 16px;
+          }
+          /* The first "yesterday" step must remain a single, glanceable screen. */
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) {
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr);
+            gap: 7px;
+            height: min(276px, calc(100% - 4px));
+            overflow: hidden;
+          }
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) .daily-progress-heading strong {
+            font-size: 1.05rem;
+          }
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) .daily-progress-question {
+            margin: 0;
+            font-size: .86rem;
+            line-height: 1.35;
+          }
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) .daily-progress-choices.yesterday {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            min-height: 0;
+            gap: 7px;
+          }
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) .daily-progress-choices.yesterday button {
+            grid-template-columns: 1fr;
+            align-content: center;
+            justify-items: center;
+            min-height: 0;
+            height: 100%;
+            padding: 7px 5px;
+            border-radius: 11px;
+            text-align: center;
+          }
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) .daily-progress-option-icon {
+            width: 30px;
+            height: 30px;
+          }
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) .daily-progress-option-icon svg {
+            width: 18px;
+            height: 18px;
+          }
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) .daily-progress-option-copy {
+            gap: 2px;
+          }
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) .daily-progress-choices button b {
+            font-size: .73rem;
+            letter-spacing: .03em;
+          }
+          .mobile-landscape .daily-progress-card:has(.daily-progress-choices.yesterday) .daily-progress-option-copy small {
+            font-size: .54rem;
+            line-height: 1.25;
+          }
           .mobile-landscape .daily-progress-overlay.has-suuhimochi-keyboard { place-items: center start; padding-right: calc(min(34vw, 440px) + max(10px, env(safe-area-inset-right))) !important; }
           .mobile-landscape .daily-progress-overlay.has-suuhimochi-keyboard .daily-progress-card { width: min(100%, 520px); }
         }

@@ -68,6 +68,7 @@ const LARGE = Object.fromEntries(Object.entries(SMALL).map(([large, small]) => [
 const ABC_KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const NUMBER_KEYS = ['1','2','3','4','5','6','7','8','9','0','-','/','：','（','）','@','#','&'];
 const DIRECTION_INDEX: Record<FlickDirection, number> = { center: 0, left: 1, up: 2, right: 3, down: 4 };
+const MULTI_TAP_WINDOW_MS = 800;
 
 function getFlickDirection(deltaX: number, deltaY: number): FlickDirection {
   if (Math.hypot(deltaX, deltaY) < 17) return 'center';
@@ -105,6 +106,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   const nativeSelectionRef = useRef({ start: value.length, end: value.length });
   const composingRef = useRef(false);
   const flickRef = useRef<{ pointerId: number; x: number; y: number; key: FlickKey; direction: FlickDirection } | null>(null);
+  const multiTapRef = useRef<{ keyLabel: string; nextIndex: number; cursor: number; at: number } | null>(null);
 
   useEffect(() => {
     const externalValueWasInserted = previousValueRef.current.length === 0 && value.length > 0 && cursorRef.current === 0;
@@ -139,6 +141,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   const flickKeys = mode === 'katakana' ? KATAKANA_KEYS : HIRAGANA_KEYS;
 
   function replaceSelection(text: string) {
+    multiTapRef.current = null;
     const input = displayRef.current;
     const start = input?.selectionStart ?? cursorRef.current;
     const end = input?.selectionEnd ?? start;
@@ -154,6 +157,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   }
 
   function replacePrevious(map: Record<string, string>) {
+    multiTapRef.current = null;
     const input = displayRef.current;
     const cursor = input?.selectionStart ?? cursorRef.current;
     if (cursor <= 0) return;
@@ -176,6 +180,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   }
 
   function deletePrevious() {
+    multiTapRef.current = null;
     const input = displayRef.current;
     const start = input?.selectionStart ?? cursorRef.current;
     const end = input?.selectionEnd ?? start;
@@ -196,6 +201,44 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
 
+  function insertByConsecutiveTap(key: FlickKey) {
+    const values = key.values;
+    if (!values) return;
+
+    const input = displayRef.current;
+    const start = input?.selectionStart ?? cursorRef.current;
+    const end = input?.selectionEnd ?? start;
+    const now = Date.now();
+    const previousTap = multiTapRef.current;
+    const canCycle = previousTap
+      && previousTap.keyLabel === key.label
+      && now - previousTap.at <= MULTI_TAP_WINDOW_MS
+      && start === end
+      && start === previousTap.cursor
+      && start > 0;
+
+    if (canCycle) {
+      const previousIndex = (previousTap.nextIndex + values.length - 1) % values.length;
+      // Do not replace a character if the user moved the caret or edited it
+      // between taps. In that case this is a fresh first character instead.
+      if (value[start - 1] === values[previousIndex]) {
+        const nextIndex = previousTap.nextIndex;
+        const next = value.slice(0, start - 1) + values[nextIndex] + value.slice(start);
+        const followingIndex = (nextIndex + 1) % values.length;
+        multiTapRef.current = { keyLabel: key.label, nextIndex: followingIndex, cursor: start, at: now };
+        cursorRef.current = start;
+        setCaretPosition(start);
+        onChange(next);
+        window.requestAnimationFrame(() => displayRef.current?.setSelectionRange(start, start));
+        return;
+      }
+    }
+
+    replaceSelection(values[0]);
+    const cursor = start + 1;
+    multiTapRef.current = { keyLabel: key.label, nextIndex: 1 % values.length, cursor, at: now };
+  }
+
   function moveFlick(event: React.PointerEvent<HTMLButtonElement>) {
     const flick = flickRef.current;
     if (!flick || flick.pointerId !== event.pointerId) return;
@@ -208,6 +251,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     const flick = flickRef.current;
     if (!flick || flick.pointerId !== event.pointerId) return;
     if (flick.key.modifier) applyModifier(flick.direction);
+    else if (flick.direction === 'center') insertByConsecutiveTap(flick.key);
     else replaceSelection(flick.key.values?.[DIRECTION_INDEX[flick.direction]] ?? '');
     flickRef.current = null;
     setActiveFlick(null);
