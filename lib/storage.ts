@@ -5,6 +5,7 @@ import type { SixDivinationRecord } from './potenoSixDivination';
 import type { ThirtyDayCycleArchive } from './graduation';
 import type { TwoDayReviewGoalType, TwoDayReviewRecord } from './twoDayReview';
 import { getPersonaStage, sanitizeExperienceFruits, type ExperienceFruitRecord, type PersonaStage } from './food';
+import { sanitizeSuuhimochiDiaries, type SuuhimochiDiaryEntry } from './suuhimochiDiary';
 
 export type GameSave = {
   birthday: string;
@@ -18,6 +19,8 @@ export type GameSave = {
   callName: string;
   dailyProgressRecords: DailyProgressRecord[];
   journalNotes: Record<string, string[]>;
+  /** 翌日以降に読める、すうひもち視点の日記。 */
+  suuhimochiDiaries: Record<string, SuuhimochiDiaryEntry>;
   goalType: TwoDayReviewGoalType | null;
   twoDayReviews: TwoDayReviewRecord[];
   strategyRecords: StrategyRecord[];
@@ -51,6 +54,7 @@ export const EMPTY_SAVE: GameSave = {
   callName: '',
   dailyProgressRecords: [],
   journalNotes: {},
+  suuhimochiDiaries: {},
   goalType: null,
   twoDayReviews: [],
   strategyRecords: [],
@@ -157,9 +161,13 @@ export function loadSave(): GameSave {
           && typeof archive === 'object'
           && typeof (archive as Partial<ThirtyDayCycleArchive>).id === 'string'
           && typeof (archive as Partial<ThirtyDayCycleArchive>).cycleNumber === 'number'
-        ))
+        )).map((archive) => ({
+          ...archive,
+          suuhimochiDiaries: sanitizeSuuhimochiDiaries(archive.suuhimochiDiaries),
+        }))
       : [];
     const experienceFruits = sanitizeExperienceFruits(parsed.experienceFruits);
+    const suuhimochiDiaries = sanitizeSuuhimochiDiaries(parsed.suuhimochiDiaries);
     const personaExp = Math.max(0, Math.floor(Number(parsed.personaExp) || 0));
     const experienceMealsEaten = Math.min(3, Math.max(0, Math.floor(Number(parsed.experienceMealsEaten) || 0)));
     return {
@@ -171,6 +179,7 @@ export function loadSave(): GameSave {
         : 'suuhimochi-cycle-1',
       cycleArchives,
       journalNotes,
+      suuhimochiDiaries,
       dailyProgressRecords,
       strategyRecords,
       divinationRecords,

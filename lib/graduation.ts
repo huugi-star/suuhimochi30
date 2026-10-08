@@ -2,6 +2,7 @@ import { getDoneItems, normalizeDoneItems, type DailyProgressRecord } from './da
 import { STRATEGIST_PROFILES, type StrategistId, type StrategyRecord } from './potenoLink';
 import type { SixDivinationRecord } from './potenoSixDivination';
 import type { TwoDayReviewGoalType, TwoDayReviewRecord } from './twoDayReview';
+import type { SuuhimochiDiaryEntry } from './suuhimochiDiary';
 
 export type GraduationFootprint = {
   previousGoal: string;
@@ -79,6 +80,7 @@ export type ThirtyDayCycleArchive = {
   handoffAdvice: GraduationHandoffAdvice;
   dailyProgressRecords: DailyProgressRecord[];
   journalNotes: Record<string, string[]>;
+  suuhimochiDiaries: Record<string, SuuhimochiDiaryEntry>;
   twoDayReviews: TwoDayReviewRecord[];
   strategyRecords: StrategyRecord[];
   divinationRecords: SixDivinationRecord[];
@@ -447,6 +449,7 @@ export function createThirtyDayCycleArchive(options: {
   handoffAdvice: GraduationHandoffAdvice;
   dailyProgressRecords: DailyProgressRecord[];
   journalNotes: Record<string, string[]>;
+  suuhimochiDiaries: Record<string, SuuhimochiDiaryEntry>;
   twoDayReviews: TwoDayReviewRecord[];
   strategyRecords: StrategyRecord[];
   divinationRecords: SixDivinationRecord[];
@@ -470,6 +473,15 @@ export function createThirtyDayCycleArchive(options: {
     handoffAdvice: options.handoffAdvice,
     dailyProgressRecords: [...options.dailyProgressRecords],
     journalNotes: Object.fromEntries(Object.entries(options.journalNotes).map(([date, items]) => [date, [...items]])),
+    suuhimochiDiaries: Object.fromEntries(Object.entries(options.suuhimochiDiaries).map(([date, diary]) => [date, {
+      ...diary,
+      sources: {
+        conversationTopics: [...diary.sources.conversationTopics],
+        conversationQuotes: [...diary.sources.conversationQuotes],
+        learnedWords: [...diary.sources.learnedWords],
+        humanNotes: [...diary.sources.humanNotes],
+      },
+    }])),
     twoDayReviews: [...options.twoDayReviews],
     strategyRecords: [...options.strategyRecords],
     divinationRecords: [...options.divinationRecords],

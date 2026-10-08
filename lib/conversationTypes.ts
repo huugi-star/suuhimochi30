@@ -1,5 +1,5 @@
-// すうひもち会話システムの共有型。
-// 会話本体は「文章解析」ではなく、単語記憶 + 選択肢会話 + 30日目標確認で動く。
+// 単語記憶・30日進行・画面連携で共有する型。
+// 新しい通常会話の型は lib/conversation/ に分離している。
 
 export const WORD_CATEGORIES = [
   'PERSON',
@@ -47,17 +47,16 @@ export type RelationType = 'LEARN' | 'RECALL' | 'TALK' | 'GOAL_CHECK';
 export type ExpectedAnswer =
   | 'GOAL_TEXT'
   | 'NEW_WORD'
-  | 'PROMPTED_WORD'
-  | 'PROMPTED_CORRECTION'
   | 'CATEGORY'
   | 'SUBCATEGORY'
   | 'WORD_FEELING'
   | 'OSHI_CONFIRM'
-  | 'WORD_RECENCY'
-  | 'MEMORY_REFLECTION'
-  | 'MOOD'
   | 'GOAL_STATUS'
   | 'GOAL_ACTION'
+  | 'DAY_CONVERSATION_CHOICE'
+  | 'DAY_CURIOUS_WORD'
+  | 'DAY_CURIOUS_KNOWN_CHOICE'
+  | 'DAY_CURIOUS_UNKNOWN_CHOICE'
   | 'NONE';
 
 export type ConversationStage =
@@ -78,7 +77,7 @@ export type ConversationPhase =
   | 'CLOSE'
   | 'IDLE';
 
-export type StartType = 'GOAL' | 'WORD' | 'QUESTION' | 'RECALL' | 'MOOD' | 'CYBERNETICS' | 'FAREWELL';
+export type StartType = 'GOAL' | 'WORD' | 'CHAT' | 'CYBERNETICS' | 'FAREWELL';
 
 export type InputMode = 'text' | 'choice' | 'category' | 'none';
 
@@ -91,6 +90,12 @@ export type WordEntry = {
   id: string;
   surface: string;
   category: WordCategory;
+  /** 意味記憶上の、分かりかけを含む理解段階。 */
+  knowledgeLevel: import('./conversation/conversationTypes').KnowledgeLevel;
+  subcategory?: string;
+  firstSeenDay: number;
+  lastSeenDay: number;
+  lastUsedInConversationDay?: number;
   firstSeen: string;
   lastSeen: string;
   mentionCount: number;
@@ -102,6 +107,49 @@ export type WordEntry = {
   lastReferencedAt?: number;
   importance: number;
   lastRecalled?: string;
+};
+
+export type MemoryRelation = {
+  id: string;
+  subjectId: 'human' | string;
+  type: import('./conversation/conversationTypes').MemoryRelationType;
+  objectId: string;
+  source: 'USER_EXPLICIT' | 'CONTEXT_INFERRED' | 'USER_CORRECTION';
+  status: 'ACTIVE' | 'REJECTED';
+  qualifier?: string;
+  firstSeenDay: number;
+  lastSeenDay: number;
+  mentionCount: number;
+  lastUsedInConversationDay?: number;
+};
+
+export type OpenQuestion = {
+  id: string;
+  wordId: string;
+  field: import('./conversation/conversationTypes').OpenQuestionField;
+  questionHint: string;
+  createdDay: number;
+  lastAskedDay?: number;
+  status: 'OPEN' | 'RESOLVED' | 'DISMISSED';
+};
+
+export type MemoryEpisode = {
+  id: string;
+  day: number;
+  conversationId: string;
+  topicWordIds: string[];
+  learnedRelationIds: string[];
+  createdOpenQuestionIds: string[];
+  timestamp: string;
+};
+
+export type MemoryHypothesis = {
+  id: string;
+  statement: string;
+  supportingRelationIds: string[];
+  status: 'UNTESTED' | 'SUPPORTED' | 'REJECTED' | 'CORRECTED';
+  createdDay: number;
+  updatedDay: number;
 };
 
 export type ConversationMemory = {
@@ -190,6 +238,7 @@ export type LearnedWord = {
 
 export type ConversationResponse = {
   lines: string[];
+  pages: import('./conversation/conversationTypes').DialoguePage[];
   stage: ConversationStage;
   day: number;
   phaseLabel: string;

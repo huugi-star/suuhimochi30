@@ -8,6 +8,8 @@ import { TwoDayReviewTalk } from '@/components/TwoDayReviewTalk';
 import { DailyProgressCheck } from '@/components/DailyProgressCheck';
 import { GraduationFlow } from '@/components/GraduationFlow';
 import { JournalPanel } from '@/components/JournalPanel';
+import { JournalCatchupPrompt } from '@/components/JournalCatchupPrompt';
+import { JournalEntryEditor } from '@/components/JournalEntryEditor';
 import { FoodPanel } from '@/components/FoodPanel';
 import { MaskDisplay, type MaskGrowthStage } from '@/components/MaskDisplay';
 import { RotateDeviceScreen } from '@/components/RotateDeviceScreen';
@@ -25,6 +27,7 @@ import { createThirtyDayCycleArchive, type GraduationFootprint, type GraduationH
 import { TWO_DAY_REVIEW_GOAL_TYPES, type TwoDayReviewGoalType, type TwoDayReviewRecord } from '@/lib/twoDayReview';
 import { createExperienceFruitBatch, getExperienceMealStatus, getFoodActivityDate, getPersonaStage, isFruitSpoiled, type ExperienceFruitRecord } from '@/lib/food';
 import { BACKGROUND_PRELOAD_ASSETS, preloadCriticalImages, preloadImagesInIdleBatches, STARTUP_CRITICAL_ASSETS, uniqueImageSources } from '@/lib/imagePreload';
+import { createSuuhimochiDiary } from '@/lib/suuhimochiDiary';
 import { advanceDialogue, createDialogueRuntime, getDialogueNode, resolveDialogueText, type DialogueRuntime } from '@/lib/miniDialogueRunner';
 import { closetScare } from '@/lib/miniDialogueScripts';
 import { PERSON_DIALOGUE_SCRIPTS } from '@/lib/miniDialogueAdditionalScripts';
@@ -37,6 +40,7 @@ import {
   type ConversationResponse,
   type ConversationStage,
   type DebugSnapshot,
+  type DialoguePage,
   type InputMode,
   type SubCategoryChoice,
   type StorageLike,
@@ -47,7 +51,7 @@ import {
 type Phase = 'title' | 'birthday' | 'reveal' | 'intro' | 'permission' | 'welcome' | 'callName' | 'persona' | 'goalIntro' | 'goal' | 'goalType' | 'goalReply' | 'home';
 type TimeMode = 'auto' | 'morning' | 'day' | 'evening' | 'night' | 'midnight';
 type SpriteDirection = 'south' | 'south-east' | 'east' | 'north-east' | 'north' | 'north-west' | 'west' | 'south-west';
-type ZoomFaceEmotion = 'neutral' | 'happy' | 'nervous' | 'sad' | 'surprised' | 'thinking' | 'angry';
+type ZoomFaceEmotion = 'neutral' | 'happy' | 'smile' | 'nervous' | 'sad' | 'surprised' | 'really' | 'thinking' | 'angry';
 type ZoomEyeFrame = 'open' | 'half' | 'closed';
 type ZoomMouthFrame = 'closed' | 'small' | 'open';
 type ZoomArmPose = 'down' | 'up' | 'open' | 'chest';
@@ -109,6 +113,11 @@ function getMiniDialogueScript(scriptId: string) {
 }
 
 function zoomEyeAsset(emotion: ZoomFaceEmotion, frame: ZoomEyeFrame) {
+  // These newly drawn expressions are a single complete eye layer rather
+  // than the usual open / half / closed sequence.  Returning the same layer
+  // for each frame keeps the existing face renderer intact.
+  if (emotion === 'really') return `${ZOOM_ASSET_ROOT}/eyes/Really/Really.png`;
+  if (emotion === 'smile') return `${ZOOM_ASSET_ROOT}/eyes/smile/smile.png`;
   const assetFrame = emotion === 'angry' && frame === 'closed' ? 'close' : frame;
   return `${ZOOM_ASSET_ROOT}/eyes/${emotion}/eye_${emotion}_${assetFrame}.png`;
 }
@@ -117,7 +126,9 @@ const MOUTH_EMOTIONS = new Set<ZoomFaceEmotion>(['neutral', 'nervous', 'sad', 's
 
 function zoomMouthAsset(frame: ZoomMouthFrame, emotion: ZoomFaceEmotion = 'neutral') {
   const assetFrame = frame === 'small' ? 'half' : frame;
-  const mouthEmotion = MOUTH_EMOTIONS.has(emotion) ? emotion : 'neutral';
+  // Really の驚き目は、既存の surprised 口と組み合わせて表情を完成させる。
+  const eyeCompanionMouth = emotion === 'really' ? 'surprised' : emotion;
+  const mouthEmotion = MOUTH_EMOTIONS.has(eyeCompanionMouth) ? eyeCompanionMouth : 'neutral';
   return `${ZOOM_ASSET_ROOT}/mouth/${mouthEmotion}/mouth_${mouthEmotion}_${assetFrame}.png`;
 }
 
@@ -128,13 +139,27 @@ function zoomArmAsset(side: 'left' | 'right', pose: ZoomArmPose) {
 
 function dialogueMotionToEmotion(motion?: DialogueMotion): ZoomFaceEmotion {
   switch (motion) {
-    case 'happy': return 'happy';
+    case 'happy': return 'smile';
     case 'sad': return 'sad';
     case 'angry': return 'angry';
     case 'thinking': return 'thinking';
     case 'nervous': return 'nervous';
-    case 'surprised': return 'surprised';
+    case 'surprised': return 'really';
     default: return 'neutral';
+  }
+}
+
+function dialogueEmotionToMotion(emotion?: DialoguePage['emotion']): DialogueMotion | undefined {
+  switch (emotion) {
+    case 'HAPPY':
+    case 'SMUG': return 'happy';
+    case 'SURPRISED': return 'surprised';
+    case 'TROUBLED': return 'nervous';
+    case 'SAD': return 'sad';
+    case 'ANGRY': return 'angry';
+    case 'THINKING': return 'thinking';
+    case 'NORMAL': return 'idle';
+    default: return undefined;
   }
 }
 
@@ -319,14 +344,15 @@ function WallClockDigitalFace({ time }: { time: string }) {
 }
 
 const BUBBLE_PAGE_LENGTH = 42;
-const TALK_PAGE_LENGTH = 54;
+const TALK_PAGE_LENGTH = 92;
+const TALK_PAGE_LINE_LIMIT = 4;
 const TEXT_BREAKS = '。！？!?、，…';
 // 文字送りは一文字ずつ続けつつ、口の切り替えは数文字に一度だけ行う。
 // これで高速なパラパラ口パクにならず、ゆっくり考えながら話す印象になる。
 const MOUTH_PULSE_CHARACTERS = 6;
-const TALK_CHARACTER_DELAY = 125;
-const TALK_COMMA_DELAY = 340;
-const TALK_SENTENCE_DELAY = 750;
+const TALK_CHARACTER_DELAY = 100;
+const TALK_COMMA_DELAY = 95;
+const TALK_SENTENCE_DELAY = 350;
 const INITIAL_DIALOGUE_CHARACTER_DELAY = 100;
 const INITIAL_DIALOGUE_COMMA_DELAY = 290;
 const INITIAL_DIALOGUE_SENTENCE_DELAY = 650;
@@ -397,28 +423,32 @@ function splitRoomMonologuePages(text: string): string[] {
     .filter(Boolean);
 }
 
-function splitTalkPages(text: string): string[] {
-  // 台詞データ内の装飾的な改行や固定文字数では行を作らない。
-  // ページだけを文末優先で分け、枠内の折り返しは実際の画面幅へ任せる。
-  const normalized = text.trim().replace(/\s*\n+\s*/gu, '');
-  const sentences = normalized.split(/(?<=[。！？!?])/u).filter(Boolean);
-  const pages: string[] = [];
-  let currentPage = '';
+function buildTalkPagesFromLines(lines: readonly string[]): DialoguePage[] {
+  const pages: DialoguePage[] = [];
+  let currentLines: string[] = [];
+  let characterCount = 0;
 
-  for (const sentence of sentences) {
-    const chunks = splitReadableText(sentence, TALK_PAGE_LENGTH, 0.6);
+  const flush = () => {
+    if (currentLines.length === 0) return;
+    pages.push({ lines: currentLines });
+    currentLines = [];
+    characterCount = 0;
+  };
+
+  for (const line of lines) {
+    const chunks = splitReadableText(line, TALK_PAGE_LENGTH, 0.6);
     for (const chunk of chunks) {
-      const combined = `${currentPage}${chunk}`;
-      if (currentPage && Array.from(combined).length > TALK_PAGE_LENGTH) {
-        pages.push(currentPage);
-        currentPage = chunk;
-      } else {
-        currentPage = combined;
-      }
+      const chunkLength = Array.from(chunk).length;
+      if (
+        currentLines.length >= TALK_PAGE_LINE_LIMIT
+        || (currentLines.length > 0 && characterCount + chunkLength > TALK_PAGE_LENGTH)
+      ) flush();
+      currentLines.push(chunk);
+      characterCount += chunkLength;
     }
   }
-  if (currentPage) pages.push(currentPage);
-  return pages.length ? pages : splitReadableText(normalized, TALK_PAGE_LENGTH);
+  flush();
+  return pages;
 }
 
 const TIME_LABELS = { morning: '朝', day: '昼', evening: '夕暮れ', night: '夜', midnight: '深夜' };
@@ -564,7 +594,6 @@ export function SuuhimochiGame() {
   const [walkDuration, setWalkDuration] = useState(WALK_DURATION_MS);
   const [bubble, setBubble] = useState<string | null>(null);
   const [bubblePageIndex, setBubblePageIndex] = useState(0);
-  const [promptedQuestionOffer, setPromptedQuestionOffer] = useState(false);
   const [twoDayReviewOffer, setTwoDayReviewOffer] = useState(false);
   const [twoDayReviewTalkOpen, setTwoDayReviewTalkOpen] = useState(false);
   const [timeMode, setTimeMode] = useState<TimeMode>('auto');
@@ -581,6 +610,8 @@ export function SuuhimochiGame() {
   const [potenoOpen, setPotenoOpen] = useState(false);
   const [dailyProgressOpen, setDailyProgressOpen] = useState(false);
   const [dailyProgressActivityDate, setDailyProgressActivityDate] = useState('');
+  const [journalCatchupDate, setJournalCatchupDate] = useState('');
+  const [journalQuickEntryDate, setJournalQuickEntryDate] = useState('');
   const [graduationOpen, setGraduationOpen] = useState(false);
   const [graduationPreview, setGraduationPreview] = useState(false);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
@@ -637,7 +668,8 @@ export function SuuhimochiGame() {
   const [talkStage, setTalkStage] = useState<ConversationStage>('topic');
   const [talkText, setTalkText] = useState('');
   const [talkInputPrompt, setTalkInputPrompt] = useState('');
-  const [dismissedPromptedSuggestions, setDismissedPromptedSuggestions] = useState<string[]>([]);
+  const [talkReviewPages, setTalkReviewPages] = useState<string[]>([]);
+  const [talkReviewOpen, setTalkReviewOpen] = useState(false);
   const [currentTalkLine, setCurrentTalkLine] = useState('');
   const [talkPageIndex, setTalkPageIndex] = useState(0);
   const [talkPageCount, setTalkPageCount] = useState(0);
@@ -670,16 +702,17 @@ export function SuuhimochiGame() {
   const lastLine = useRef('');
   const speechRun = useRef(0);
   const speechTimers = useRef<number[]>([]);
-  const talkPagesRef = useRef<string[]>([]);
+  const talkPagesRef = useRef<DialoguePage[]>([]);
   const talkPageIndexRef = useRef(0);
   const talkPageReadyRef = useRef(false);
+  const pendingTalkInteractionRef = useRef(false);
+  const lastTalkAdvanceAtRef = useRef(0);
   const conversation = useRef<SuuhimochiConversation | null>(null);
   const initialPreviewSnapshotRef = useRef<InitialPreviewSnapshot | null>(null);
   const isInitialPreviewRef = useRef(false);
   const initialSequenceTimers = useRef<number[]>([]);
   const initialGoalReplyRef = useRef<ConversationResponse | null>(null);
   const initialGoalReplyLineRef = useRef('');
-  const promptedSuggestionQuestionKeyRef = useRef('');
   const twoDayReviewOfferDateRef = useRef('');
   const roomRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
@@ -1032,7 +1065,6 @@ export function SuuhimochiGame() {
     }, 'south' as SpriteDirection);
     bedSleepTargetRef.current = bedId;
     bubbleRef.current = null;
-    setPromptedQuestionOffer(false);
     setBubblePageIndex(0);
     setBubble(null);
     setBedPromptId(null);
@@ -1141,14 +1173,6 @@ export function SuuhimochiGame() {
         if (!target.closest('.thought-bubble')) openTwoDayReviewTalk();
         return;
       }
-      if (promptedQuestionOffer) {
-        // The invitation is a room-wide prompt: clicking anywhere in the room
-        // starts the question, while the bubble's own click handler remains
-        // available for keyboard and direct-pointer activation.
-        const target = event.target as HTMLElement;
-        if (!target.closest('.thought-bubble')) openPromptedTalk();
-        return;
-      }
       if (event.button === 0 || event.pointerType === 'touch') advanceBubblePage();
       return;
     }
@@ -1188,7 +1212,7 @@ export function SuuhimochiGame() {
         : closest;
     }, 'south' as SpriteDirection);
     walkInSteps(next, direction, distance, true);
-  }, [advanceBubblePage, bedPromptId, dailyProgressOpen, foodOpen, itemOpen, minigameOpen, mobileRoomMode, mochiState, openPromptedTalk, openTwoDayReviewTalk, phase, potenoOpen, promptedQuestionOffer, settingsOpen, talkOpen, talkReturning, twoDayReviewOffer, twoDayReviewTalkOpen, walkInSteps]);
+  }, [advanceBubblePage, bedPromptId, dailyProgressOpen, foodOpen, itemOpen, minigameOpen, mobileRoomMode, mochiState, openTwoDayReviewTalk, phase, potenoOpen, settingsOpen, talkOpen, talkReturning, twoDayReviewOffer, twoDayReviewTalkOpen, walkInSteps]);
 
   const updateClockPosition = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const drag = clockDragRef.current;
@@ -1536,7 +1560,6 @@ export function SuuhimochiGame() {
   const saySomething = useCallback(() => {
     if (dailyProgressOpen || twoDayReviewTalkOpen || foodOpen || (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) || potenoOpen || bubbleRef.current || sleepingBedId || bedSleepTargetRef.current) return;
     const showBubble = (line: string, duration: number) => {
-      setPromptedQuestionOffer(false);
       setTwoDayReviewOffer(false);
       walkRun.current += 1;
       if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
@@ -1567,7 +1590,6 @@ export function SuuhimochiGame() {
       setMochiState('idle');
       bubbleRef.current = invitation;
       setBubblePageIndex(0);
-      setPromptedQuestionOffer(false);
       setTwoDayReviewOffer(true);
       setBubble(invitation);
       window.setTimeout(() => {
@@ -1577,29 +1599,6 @@ export function SuuhimochiGame() {
         setBubblePageIndex(0);
         setBubble(null);
       }, 15_000);
-      return;
-    }
-    if (conversation.current?.getGoal() && Math.random() < 0.18) {
-      const preparedMemoryCallout = conversation.current.prepareAmbientMemoryConversation();
-      const invitation = replaceCallName(
-        preparedMemoryCallout ?? 'ねえ、人間さん。聞きたいことがあるの。少しだけ、お話してくれる？',
-        getPreferredCallName(save),
-      );
-      walkRun.current += 1;
-      if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
-      walkStepTimer.current = null;
-      setMochiState('idle');
-      bubbleRef.current = invitation;
-      setBubblePageIndex(0);
-      setPromptedQuestionOffer(true);
-      setBubble(invitation);
-      window.setTimeout(() => {
-        if (bubbleRef.current !== invitation) return;
-        bubbleRef.current = null;
-        setPromptedQuestionOffer(false);
-        setBubblePageIndex(0);
-        setBubble(null);
-      }, 13_000);
       return;
     }
     if (hasDeferredExperienceDay && Math.random() < 0.2) {
@@ -1616,8 +1615,7 @@ export function SuuhimochiGame() {
       showBubble(line, Math.max(5_600, line.length * 110));
       return;
     }
-    const memoryAfterthought = Math.random() < 0.36 ? conversation.current?.getAmbientMemoryLine() : null;
-    const line = memoryAfterthought ?? pickRoomMonologue(
+    const line = pickRoomMonologue(
       save.mochiType,
       conversation.current?.getLearnedWords() ?? [],
       Math.random,
@@ -1655,7 +1653,6 @@ export function SuuhimochiGame() {
       const line = replaceCallName(pickSleepDialogue(word), getPreferredCallName(save));
       sleepBubbleLineRef.current = line;
       bubbleRef.current = line;
-      setPromptedQuestionOffer(false);
       setBubblePageIndex(0);
       setBubble(line);
       closeBubbleTimer = window.setTimeout(() => {
@@ -1703,7 +1700,7 @@ export function SuuhimochiGame() {
   // conversation camera treatment; regular talk remains zoomed through
   // `talkOpen` as before.
   const isMonologueZoom = isMonologue && (
-    promptedQuestionOffer || talkChoices.length > 0 || categoryChoices.length > 0 || subCategoryChoices.length > 0
+    talkChoices.length > 0 || categoryChoices.length > 0 || subCategoryChoices.length > 0
   );
   const activeMiniDialogueMotion = useMemo(() => {
     const script = miniDialogue ? getMiniDialogueScript(miniDialogue.scriptId) : null;
@@ -1735,9 +1732,9 @@ export function SuuhimochiGame() {
     const restingFrame: ZoomEyeFrame = activeZoomEmotion === 'thinking' || activeZoomEmotion === 'sad'
       ? 'half'
       : 'open';
-    const blinkTiming = activeZoomEmotion === 'happy'
+    const blinkTiming = activeZoomEmotion === 'happy' || activeZoomEmotion === 'smile'
       ? { delay: 1500, variation: 1000, closed: 520 }
-      : activeZoomEmotion === 'surprised'
+      : activeZoomEmotion === 'surprised' || activeZoomEmotion === 'really'
         ? { delay: 1800, variation: 1100, closed: 340 }
         : activeZoomEmotion === 'nervous'
           ? { delay: 2400, variation: 1300, closed: 210 }
@@ -1987,7 +1984,6 @@ export function SuuhimochiGame() {
     const timer = window.setTimeout(() => {
       if (bubbleRef.current !== 'ポテノが来たよ。') return;
       bubbleRef.current = null;
-      setPromptedQuestionOffer(false);
       setBubblePageIndex(0);
       setBubble(null);
       walkToPoteno();
@@ -2004,7 +2000,6 @@ export function SuuhimochiGame() {
     const wasPotenoWelcome = potenoOpen && bubble === 'ポテノが来たよ。';
     if (bubble === roomMonologueBubbleRef.current) roomMonologueBubbleRef.current = null;
     bubbleRef.current = null;
-    setPromptedQuestionOffer(false);
     setTwoDayReviewOffer(false);
     setBubblePageIndex(0);
     setBubble(null);
@@ -2294,6 +2289,8 @@ export function SuuhimochiGame() {
     setSettingsOpen(false);
     setDailyProgressOpen(false);
     setDailyProgressActivityDate('');
+    setJournalCatchupDate('');
+    setJournalQuickEntryDate('');
     setConversationDay(1);
     setConversationPhase('であい');
     setLearnedWords([]);
@@ -2365,6 +2362,8 @@ export function SuuhimochiGame() {
     setSettingsOpen(false);
     setDailyProgressOpen(false);
     setDailyProgressActivityDate('');
+    setJournalCatchupDate('');
+    setJournalQuickEntryDate('');
     initialPreviewSnapshotRef.current = null;
     isInitialPreviewRef.current = false;
     setIsInitialPreview(false);
@@ -2381,6 +2380,7 @@ export function SuuhimochiGame() {
     talkPagesRef.current = [];
     talkPageIndexRef.current = 0;
     talkPageReadyRef.current = false;
+    pendingTalkInteractionRef.current = false;
     setCurrentTalkLine('');
     setTalkPageIndex(0);
     setTalkPageCount(0);
@@ -2398,14 +2398,22 @@ export function SuuhimochiGame() {
 
   function typeTalkPage(pageIndex: number, run: number, initialDelay = 140) {
     if (speechRun.current !== run) return;
-    const fullText = talkPagesRef.current[pageIndex] ?? '';
+    const page = talkPagesRef.current[pageIndex];
+    const fullText = page?.lines.join('\n') ?? '';
     const characters = Array.from(fullText);
+    const newlinePauseByCharacterIndex = new Map<number, number>();
+    let lineCharacterOffset = 0;
+    page?.lines.slice(0, -1).forEach((line, lineIndex) => {
+      lineCharacterOffset += Array.from(line).length;
+      newlinePauseByCharacterIndex.set(lineCharacterOffset, page.linePauseAfterMs?.[lineIndex] ?? 0);
+      lineCharacterOffset += 1;
+    });
     talkPageIndexRef.current = pageIndex;
     talkPageReadyRef.current = false;
     setTalkPageIndex(pageIndex);
     setTalkPageReady(false);
     setCurrentTalkLine('');
-    setTalkLineMotion(inferDialogueMotion(fullText));
+    setTalkLineMotion(dialogueEmotionToMotion(page?.emotion) ?? inferDialogueMotion(fullText));
     setZoomMouth('closed');
     let voicedCharacters = 0;
     let mouthPulse = 0;
@@ -2430,42 +2438,64 @@ export function SuuhimochiGame() {
         }
       }
       if (characterIndex < characters.length - 1) {
-        const delay = /[。！？!?]/.test(character)
-          ? TALK_SENTENCE_DELAY
-          : /[、，…]/.test(character)
-            ? TALK_COMMA_DELAY
-            : TALK_CHARACTER_DELAY;
+        const scriptedPause = character === '\n'
+          ? newlinePauseByCharacterIndex.get(characterIndex) ?? 0
+          : 0;
+        const delay = scriptedPause > 0
+          ? scriptedPause
+          : /[。！？!?]/.test(character)
+            ? TALK_SENTENCE_DELAY
+            : /[、，…]/.test(character)
+              ? TALK_COMMA_DELAY
+              : TALK_CHARACTER_DELAY;
         scheduleSpeech(() => typeCharacter(characterIndex + 1), delay);
         return;
       }
       setZoomMouth('closed');
-      talkPageReadyRef.current = true;
-      setTalkPageReady(true);
-      if (
-        pageIndex === talkPagesRef.current.length - 1 &&
-        shouldAutoCloseTalk.current
-      ) {
-        scheduleSpeech(() => {
-          if (speechRun.current !== run || !shouldAutoCloseTalk.current) return;
-          shouldAutoCloseTalk.current = false;
-          closeTalk();
-        }, 850);
-      }
+      const finishPage = () => {
+        if (speechRun.current !== run) return;
+        talkPageReadyRef.current = true;
+        setTalkPageReady(true);
+        if (pageIndex !== talkPagesRef.current.length - 1) return;
+        if (pendingTalkInteractionRef.current) {
+          scheduleSpeech(() => {
+            if (speechRun.current !== run || !pendingTalkInteractionRef.current) return;
+            pendingTalkInteractionRef.current = false;
+            stopTalkSpeech();
+          }, 360);
+          return;
+        }
+        if (shouldAutoCloseTalk.current) {
+          scheduleSpeech(() => {
+            if (speechRun.current !== run || !shouldAutoCloseTalk.current) return;
+            shouldAutoCloseTalk.current = false;
+            closeTalk();
+          }, 850);
+        }
+      };
+      const pauseAfterMs = Math.min(1200, Math.max(0, page?.pauseAfterMs ?? 0));
+      if (pauseAfterMs > 0) scheduleSpeech(finishPage, pauseAfterMs);
+      else finishPage();
     };
 
-    scheduleSpeech(() => typeCharacter(0), initialDelay);
+    scheduleSpeech(() => typeCharacter(0), initialDelay + Math.min(1200, Math.max(0, page?.pauseBeforeMs ?? 0)));
   }
 
-  function playTalkLines(lines: string[], replace: boolean) {
+  function playTalkPages(pages: DialoguePage[], replace: boolean, pendingInteraction = false) {
     stopTalkSpeech();
-    const pages = lines.flatMap(splitTalkPages).filter(Boolean);
     if (pages.length === 0) return;
 
     talkPagesRef.current = pages;
+    pendingTalkInteractionRef.current = pendingInteraction;
+    lastTalkAdvanceAtRef.current = 0;
     talkPageIndexRef.current = 0;
     setTalkPageCount(pages.length);
     setIsMochiSpeaking(true);
     typeTalkPage(0, speechRun.current, replace ? 240 : 360);
+  }
+
+  function playTalkLines(lines: string[], replace: boolean) {
+    playTalkPages(buildTalkPagesFromLines(lines), replace);
   }
 
   function showMiniDialogueNode(runtime: DialogueRuntime, replace = false) {
@@ -2508,13 +2538,34 @@ export function SuuhimochiGame() {
 
   function advanceTalkSpeech() {
     if (!isMochiSpeaking || talkPagesRef.current.length === 0) return;
+    const now = performance.now();
+    if (now - lastTalkAdvanceAtRef.current < 140) return;
+    lastTalkAdvanceAtRef.current = now;
 
     if (!talkPageReadyRef.current) {
       clearSpeechTimers();
-      setCurrentTalkLine(talkPagesRef.current[talkPageIndexRef.current] ?? '');
+      const page = talkPagesRef.current[talkPageIndexRef.current];
+      setCurrentTalkLine(page?.lines.join('\n') ?? '');
       setZoomMouth('closed');
       talkPageReadyRef.current = true;
       setTalkPageReady(true);
+      if (talkPageIndexRef.current === talkPagesRef.current.length - 1) {
+        if (pendingTalkInteractionRef.current) {
+          const currentRun = speechRun.current;
+          scheduleSpeech(() => {
+            if (speechRun.current !== currentRun || !pendingTalkInteractionRef.current) return;
+            pendingTalkInteractionRef.current = false;
+            stopTalkSpeech();
+          }, 360);
+        } else if (shouldAutoCloseTalk.current) {
+          const currentRun = speechRun.current;
+          scheduleSpeech(() => {
+            if (speechRun.current !== currentRun || !shouldAutoCloseTalk.current) return;
+            shouldAutoCloseTalk.current = false;
+            closeTalk();
+          }, 850);
+        }
+      }
       return;
     }
 
@@ -2534,6 +2585,7 @@ export function SuuhimochiGame() {
       miniDialogueRef.current = nextRuntime;
       setMiniDialogue(nextRuntime);
     }
+    pendingTalkInteractionRef.current = false;
     stopTalkSpeech();
     if (shouldReturnToRoom) {
       shouldAutoCloseTalk.current = false;
@@ -2546,20 +2598,22 @@ export function SuuhimochiGame() {
     setTalkStage(response.stage);
     shouldAutoCloseTalk.current = response.stage === 'complete';
     setTalkInputMode(response.inputMode);
-    const responseLines = response.lines.map((line) => replaceCallName(line, getPreferredCallName(save)));
-    setTalkInputPrompt(response.inputMode === 'text' ? responseLines.at(-1) ?? '' : '');
+    const preferredCallName = getPreferredCallName(save);
+    const responseLines = response.lines.map((line) => replaceCallName(line, preferredCallName));
+    const responsePages = (response.pages?.length ? response.pages : buildTalkPagesFromLines(response.lines))
+      .map((page) => ({
+        ...page,
+        lines: page.lines.map((line) => replaceCallName(line, preferredCallName)),
+      }));
+    const answerPages = response.inputMode === 'none' ? [] : responsePages.slice(-3);
+    setTalkInputPrompt(answerPages.at(-1)?.lines.join('\n') ?? '');
+    setTalkReviewPages(answerPages.map((page) => page.lines.join('\n')));
+    setTalkReviewOpen(false);
     if (response.inputMode === 'category' && response.categoryChoices.length > 0) setCategoryPage(0);
     setTalkChoices(response.choices);
     setCategoryChoices(response.categoryChoices);
     setSubCategoryChoices(response.subCategoryChoices);
     setTalkDebug(response.debug);
-    const promptedSuggestionQuestionKey = response.debug?.attributes?.expected === 'PROMPTED_WORD'
-      ? `${response.debug.attributes['promptedQuestionId'] ?? ''}:${response.debug.attributes['promptedStarterKey'] ?? ''}`
-      : '';
-    if (promptedSuggestionQuestionKey !== promptedSuggestionQuestionKeyRef.current) {
-      promptedSuggestionQuestionKeyRef.current = promptedSuggestionQuestionKey;
-      setDismissedPromptedSuggestions([]);
-    }
     setConversationDay(response.day);
     setConversationPhase(response.phaseLabel);
     const talk = conversation.current;
@@ -2569,7 +2623,7 @@ export function SuuhimochiGame() {
       setConversationMemories(talk.getMemories());
       setFarewellLetter(talk.getLetter());
     }
-    playTalkLines(responseLines, replace);
+    playTalkPages(responsePages, replace, response.inputMode !== 'none');
   }
 
   function captureTalkPresentation() {
@@ -2601,6 +2655,9 @@ export function SuuhimochiGame() {
     setMiniDialogueMotion(undefined);
     setMiniDialogue(null);
     setTalkCommandOpen(false);
+    setTalkInputPrompt('');
+    setTalkReviewPages([]);
+    setTalkReviewOpen(false);
     if (talkReturnTimer.current !== null) window.clearTimeout(talkReturnTimer.current);
     setTalkOpen(false);
     setSleepingBedId(null);
@@ -2623,6 +2680,9 @@ export function SuuhimochiGame() {
     // A player who has explicitly chosen "起きる" may still talk normally.
     if (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) return;
     shouldAutoCloseTalk.current = false;
+    setTalkInputPrompt('');
+    setTalkReviewPages([]);
+    setTalkReviewOpen(false);
     roomPanRef.current = 0;
     setRoomPanX(0);
     setRoomOverview(false);
@@ -2643,7 +2703,6 @@ export function SuuhimochiGame() {
     walkStepTimer.current = null;
     bedSleepTargetRef.current = null;
     bubbleRef.current = null;
-    setPromptedQuestionOffer(false);
     setTwoDayReviewOffer(false);
     setTwoDayReviewTalkOpen(false);
     setBubblePageIndex(0);
@@ -2669,23 +2728,11 @@ export function SuuhimochiGame() {
     setSubCategoryChoices([]);
   }
 
-  function openPromptedTalk() {
-    if (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) return;
-    setPromptedQuestionOffer(false);
-    if (!conversation.current || !conversation.current.getGoal()) {
-      openTalk();
-      return;
-    }
-    openTalk();
-    applyTalkResponse(conversation.current.startPreparedAmbientConversation(), true);
-  }
-
   function openTwoDayReviewTalk() {
     if (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) return;
     bubbleRef.current = null;
     setBubblePageIndex(0);
     setBubble(null);
-    setPromptedQuestionOffer(false);
     setTwoDayReviewOffer(false);
     walkRun.current += 1;
     if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
@@ -2720,7 +2767,7 @@ export function SuuhimochiGame() {
     setLearnedWords(conversation.current.getLearnedWords().map((item) => item.word));
   }
 
-  function chooseTalkCommand(command: 'chat' | 'teach' | 'question' | 'monologue' | 'skit') {
+  function chooseTalkCommand(command: 'chat' | 'teach' | 'monologue' | 'skit') {
     if (!conversation.current) return;
     if (command === 'monologue') {
       const learned = conversation.current.getLearnedWords();
@@ -2748,9 +2795,7 @@ export function SuuhimochiGame() {
     setTalkText('');
     const response = command === 'teach'
       ? conversation.current.startWordTeaching()
-      : command === 'question'
-        ? conversation.current.startPromptedLearning()
-        : conversation.current.startSession();
+      : conversation.current.startSession();
     applyTalkResponse(response, true);
   }
 
@@ -2765,16 +2810,30 @@ export function SuuhimochiGame() {
       kind: 'experience',
       doneItems: normalizedItems,
     });
+    const diaryDay = Math.max(1, conversationDay - 1);
+    const diaryMemories = conversationMemories.filter((memory) => memory.day === diaryDay);
+    const existingDiary = save.suuhimochiDiaries?.[record.reviewedDate];
+    const diary = existingDiary ?? createSuuhimochiDiary({
+      date: record.reviewedDate,
+      day: diaryDay,
+      conversationTopics: diaryMemories.map((memory) => memory.topic),
+      conversationQuotes: diaryMemories.map((memory) => memory.quote),
+      learnedWords: dictionaryEntries.filter((word) => word.firstSeenDay === diaryDay).map((word) => word.surface),
+      humanNotes: normalizedItems,
+      createdAt: record.recordedAt,
+    });
     const next: GameSave = {
       ...save,
       dailyProgressRecords: [...previousRecords.filter((item) => item.date !== record.date), record].slice(-30),
       lastDailyProgressActivityDate: record.date,
       experienceFruits: fruitBatch.fruits,
+      suuhimochiDiaries: { ...save.suuhimochiDiaries, [record.reviewedDate]: diary },
     };
     setSave(next);
     if (!isInitialPreview) storeSave(next);
     setDailyProgressOpen(false);
     setDailyProgressActivityDate('');
+    if (normalizedItems.length === 0) setJournalCatchupDate(record.reviewedDate);
   }
 
   function saveJournalDoneItems(date: string, doneItems: string[]) {
@@ -2924,6 +2983,14 @@ export function SuuhimochiGame() {
     showGraduationFlow(true);
   }
 
+  function startDevFarewellScene() {
+    // 初回起動プレビュー中でも、製作者がそのまま最終日テストへ
+    // 移れるよう、先に元の記録へ戻してから開始する。
+    if (isInitialPreview) returnFromInitialPreview();
+    if (!conversation.current) return;
+    runDevConversation(conversation.current.jumpFarewell());
+  }
+
   function closeGraduationPreview() {
     setGraduationOpen(false);
     setGraduationPreview(false);
@@ -2952,6 +3019,7 @@ export function SuuhimochiGame() {
       handoffAdvice: result.handoffAdvice,
       dailyProgressRecords: save.dailyProgressRecords ?? [],
       journalNotes: save.journalNotes ?? {},
+      suuhimochiDiaries: save.suuhimochiDiaries ?? {},
       twoDayReviews: save.twoDayReviews ?? [],
       strategyRecords: save.strategyRecords ?? [],
       divinationRecords: save.divinationRecords ?? [],
@@ -2967,6 +3035,7 @@ export function SuuhimochiGame() {
       goalType: result.goalType,
       dailyProgressRecords: [],
       journalNotes: {},
+      suuhimochiDiaries: {},
       twoDayReviews: [],
       strategyRecords: [],
       divinationRecords: [],
@@ -3072,7 +3141,6 @@ export function SuuhimochiGame() {
       const welcomeLine = 'ポテノが来たよ。';
       bubbleRef.current = welcomeLine;
       setBubblePageIndex(0);
-      setPromptedQuestionOffer(false);
       setBubble(welcomeLine);
       setMochiState('idle');
     }
@@ -3098,7 +3166,6 @@ export function SuuhimochiGame() {
     setSelectedItemId(null);
     setBedPromptId(null);
     bubbleRef.current = null;
-    setPromptedQuestionOffer(false);
     setTwoDayReviewOffer(false);
     setBubblePageIndex(0);
     setBubble(null);
@@ -3145,18 +3212,6 @@ export function SuuhimochiGame() {
     commitTalk();
   }
 
-  function choosePromptedSuggestion(suggestion: string) {
-    setTalkText(suggestion);
-    setDismissedPromptedSuggestions((current) => current.includes(suggestion) ? current : [...current, suggestion]);
-  }
-
-  function skipPromptedTalkQuestion() {
-    if (!conversation.current || isMochiSpeaking) return;
-    setCurrentTalkLine('');
-    setTalkText('');
-    applyTalkResponse(conversation.current.skipPromptedQuestion());
-  }
-
   function chooseTalkChoice(choice: ConversationChoice) {
     if (!conversation.current || isMochiSpeaking) return;
     setCurrentTalkLine('');
@@ -3180,8 +3235,16 @@ export function SuuhimochiGame() {
 
   function runDevConversation(response: ConversationResponse) {
     setMemoryOpen(false);
+    setDictionaryOpen(false);
     setFoodOpen(false);
     setSelectedItemId(null);
+    setItemOpen(false);
+    setMinigameOpen(false);
+    setPotenoOpen(false);
+    setSettingsOpen(false);
+    setDailyProgressOpen(false);
+    setTwoDayReviewTalkOpen(false);
+    setGraduationOpen(false);
     if (talkReturnTimer.current !== null) window.clearTimeout(talkReturnTimer.current);
     talkReturnTimer.current = null;
     setTalkReturning(false);
@@ -3210,25 +3273,15 @@ export function SuuhimochiGame() {
     conversation.current?.reset();
     clearSave(); setSave(EMPTY_SAVE); setBirthday(''); bubbleRef.current = null; setBubblePageIndex(0); setBubble(null); setRevealBeat(-1);
     setLearnedWords([]); setDictionaryEntries([]); setDictionaryCategory('ALL'); setDictionaryOpen(false); setConversationMemories([]); setFarewellLetter(null);
-    setConversationDay(1); setConversationPhase('であい'); setCurrentTalkLine(''); setCategoryChoices([]); setSubCategoryChoices([]); setTalkChoices([]); setTalkInputMode('none'); setTalkDebug(null);
+    setConversationDay(1); setConversationPhase('であい'); setCurrentTalkLine(''); setTalkInputPrompt(''); setTalkReviewPages([]); setTalkReviewOpen(false); setCategoryChoices([]); setSubCategoryChoices([]); setTalkChoices([]); setTalkInputMode('none'); setTalkDebug(null);
     setTalkStage('topic'); setTalkOpen(false); setTalkCommandOpen(false); setTalkReturning(false); setTalkPresentation(null); setTalkText(''); setIntroLine(0);
-    setDismissedPromptedSuggestions([]); promptedSuggestionQuestionKeyRef.current = '';
-    setDailyProgressOpen(false); setDailyProgressActivityDate(''); setGraduationOpen(false); setGraduationPreview(false); setTwoDayReviewOffer(false); setTwoDayReviewTalkOpen(false); twoDayReviewOfferDateRef.current = '';
+    setDailyProgressOpen(false); setDailyProgressActivityDate(''); setJournalCatchupDate(''); setJournalQuickEntryDate(''); setGraduationOpen(false); setGraduationPreview(false); setTwoDayReviewOffer(false); setTwoDayReviewTalkOpen(false); twoDayReviewOfferDateRef.current = '';
     setSleepingBedId(null); setSleepPose(null); setBedPromptId(null); setFoodOpen(false); setItemOpen(false); setMinigameOpen(false); setPotenoOpen(false); setSettingsOpen(false); setSettingsUserName(''); setSettingsCallName(''); setClockPosition({ x: 74, y: 49 }); setLightsOut(false); setSelectedItemId(null); setItemPositions(INITIAL_ITEM_POSITIONS); setStoredItemIds(INITIAL_STORED_ITEM_IDS); setItemTab('placed'); setItemPanelCollapsed(false); setItemPanelX(3); setShowCollisionDebug(false);
     walkOffsetRef.current = { x: 0, y: 0 };
     setPermissionStep(0); setInitialCallName(''); setInitialGoalText(''); initialGoalReplyRef.current = null; initialGoalReplyLineRef.current = ''; setMochiState('idle'); setWalkDirection('south'); setWalkOffset({ x: 0, y: 0 }); setPhase('title');
   }
 
   const talkInputEnabled = talkInputMode === 'text';
-  const promptedQuestionInput = talkInputEnabled
-    && talkStage === 'topic'
-    && talkDebug?.startType === 'QUESTION';
-  const promptedSuggestions = promptedQuestionInput
-    ? [0, 1, 2, 3]
-      .map((index) => talkDebug?.attributes?.[`promptedSuggestion${index}`])
-      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-      .filter((value) => !dismissedPromptedSuggestions.includes(value))
-    : [];
   const talkPlaceholder = talkStage === 'goal'
     ? '30日後に見たい景色をひとつ…'
     : talkStage === 'topic'
@@ -3236,6 +3289,34 @@ export function SuuhimochiGame() {
         : talkStage === 'farewell_final'
           ? 'さいごに伝えたいこと…'
           : '返事を書く…';
+  const renderTalkAnswerContext = () => talkInputPrompt ? (
+    <section className="face-talk-answer-context" aria-label="いま答える質問">
+      <header>
+        <strong>質問：</strong>
+        {talkReviewPages.length > 0 && (
+          <button type="button" onClick={() => setTalkReviewOpen(true)}>読み返す</button>
+        )}
+      </header>
+      <p>{talkInputPrompt}</p>
+    </section>
+  ) : null;
+  const renderTalkReview = () => (
+    <section className="face-talk-review" aria-label="直前の会話を読み返す">
+      <header>
+        <strong>さっきのおはなし</strong>
+        <small>会話をそっと振り返っています</small>
+      </header>
+      <div className="face-talk-review-pages">
+        {talkReviewPages.map((page, index) => (
+          <article key={`${index}-${page}`}>
+            <span aria-hidden="true" />
+            <p>{page}</p>
+          </article>
+        ))}
+      </div>
+      <button className="face-talk-action" type="button" onClick={() => setTalkReviewOpen(false)}>回答に戻る</button>
+    </section>
+  );
   const dictionaryCategoryOptions = useMemo(() => (
     [...new Set(dictionaryEntries.map((entry) => entry.category))]
       .sort((left, right) => (CATEGORY_DISPLAY_INDEX.get(left) ?? Number.MAX_SAFE_INTEGER) - (CATEGORY_DISPLAY_INDEX.get(right) ?? Number.MAX_SAFE_INTEGER))
@@ -3575,6 +3656,10 @@ export function SuuhimochiGame() {
 
         .zoom-mochi .zoom-arm {
           z-index: 2;
+          /* 腕の差分は同じ場所に重なる透過PNG。顔と同じフェードを
+             使うと前後の腕が同時に見えて残像になるため、ここだけは
+             一コマずつ即座に切り替える。 */
+          transition: opacity 0ms;
         }
 
         .zoom-mochi .zoom-face {
@@ -3706,12 +3791,14 @@ export function SuuhimochiGame() {
           appearance: none;
           -webkit-appearance: none;
           display: block;
+          box-sizing: border-box;
           position: relative;
           grid-column: 3;
           justify-self: start;
-          width: min(100%, 430px);
-          min-height: clamp(168px, 25vh, 210px);
-          max-height: none;
+          width: min(100%, 480px);
+          height: clamp(220px, 31vh, 270px);
+          min-height: 0;
+          max-height: clamp(220px, 31vh, 270px);
           margin: 0;
           padding: 27px 26px 48px;
           overflow: hidden;
@@ -3774,31 +3861,34 @@ export function SuuhimochiGame() {
         }
 
         .face-talk-speaker {
-          display: block;
-          margin-bottom: 8px;
-          color: #9b5f3d;
-          font-size: .8rem;
-          font-weight: 800;
-          letter-spacing: .13em;
+          display: none;
         }
 
         .face-talk-line {
           display: block;
+          position: absolute;
+          top: 27px;
+          right: 26px;
+          bottom: 48px;
+          left: 26px;
           margin: 0;
-          white-space: normal;
+          overflow: hidden;
+          white-space: pre-line;
           overflow-wrap: break-word;
           word-break: normal;
           line-break: strict;
-          text-wrap: pretty;
+          text-wrap: wrap;
           font-size: clamp(1.05rem, 1.7vw, 1.22rem);
-          line-height: 1.75;
+          line-height: 1.62;
           letter-spacing: .025em;
+          text-align: left;
+          vertical-align: top;
         }
 
         .face-talk-page {
           position: absolute;
-          top: 18px;
-          right: 22px;
+          bottom: 17px;
+          left: 22px;
           color: #9a8878;
           font-size: .76rem;
           font-weight: 800;
@@ -3858,6 +3948,170 @@ export function SuuhimochiGame() {
           scrollbar-color: rgba(112, 82, 57, .5) transparent;
         }
 
+        .face-talk-answer-context {
+          position: sticky;
+          top: 0;
+          z-index: 2;
+          margin: 0 0 10px;
+          padding: 12px 14px;
+          border: 1px solid rgba(91, 66, 47, .38);
+          border-radius: 15px;
+          color: #3d3026;
+          background: rgba(255, 252, 242, .97);
+          box-shadow: 0 3px 0 rgba(83, 57, 39, .13), 0 8px 18px rgba(45, 29, 18, .14);
+        }
+
+        .face-talk-answer-context header,
+        .face-talk-review > header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .face-talk-answer-context strong {
+          color: #a2543e;
+          font-size: .78rem;
+          letter-spacing: .08em;
+        }
+
+        .face-talk-answer-context p {
+          margin: 7px 0 0;
+          white-space: pre-line;
+          color: #3d3026;
+          font-size: .94rem;
+          font-weight: 700;
+          line-height: 1.58;
+          text-align: left;
+        }
+
+        .face-talk-answer-context button {
+          flex: 0 0 auto;
+          min-height: 31px;
+          border: 1px solid rgba(129, 91, 62, .45);
+          border-radius: 999px;
+          padding: 5px 11px;
+          color: #76533f;
+          background: #fff8e8;
+          font-size: .72rem;
+          font-weight: 800;
+        }
+
+        .face-talk-review {
+          display: grid;
+          gap: 14px;
+          max-height: 62vh;
+          overflow-y: auto;
+          padding: 18px;
+          border: 1px solid rgba(188, 145, 102, .32);
+          border-radius: 27px;
+          color: #49372b;
+          background:
+            radial-gradient(circle at 88% 10%, rgba(255, 210, 157, .25), transparent 30%),
+            linear-gradient(145deg, rgba(255, 252, 240, .98), rgba(250, 233, 205, .97));
+          box-shadow: 0 6px 0 rgba(132, 91, 59, .1), 0 16px 32px rgba(74, 47, 28, .16), inset 0 1px rgba(255, 255, 255, .9);
+          overscroll-behavior: contain;
+          font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+        }
+
+        .face-talk-review > header strong {
+          color: #a45f3e;
+          font-size: 1rem;
+          letter-spacing: .06em;
+        }
+
+        .face-talk-review > header small {
+          color: #a08b79;
+          font-size: .62rem;
+          font-weight: 650;
+        }
+
+        .face-talk-review-pages {
+          display: grid;
+          gap: 12px;
+        }
+
+        .face-talk-review-pages article {
+          position: relative;
+          display: grid;
+          grid-template-columns: 27px minmax(0, 1fr);
+          gap: 11px;
+          padding: 14px 16px 14px 13px;
+          border: 1px solid rgba(204, 163, 119, .3);
+          border-radius: 22px 22px 22px 9px;
+          background: linear-gradient(145deg, rgba(255, 255, 250, .9), rgba(255, 242, 218, .88));
+          box-shadow: 0 4px 10px rgba(118, 76, 45, .09), inset 0 1px rgba(255, 255, 255, .88);
+        }
+
+        .face-talk-review-pages article::after {
+          content: "";
+          position: absolute;
+          bottom: -5px;
+          left: 14px;
+          width: 13px;
+          height: 13px;
+          border-bottom: 1px solid rgba(204, 163, 119, .3);
+          border-left: 1px solid rgba(204, 163, 119, .3);
+          border-radius: 0 0 0 4px;
+          background: #fff3dc;
+          transform: rotate(-28deg) skew(-9deg);
+        }
+
+        .face-talk-review-pages article > span {
+          position: relative;
+          display: block;
+          width: 27px;
+          height: 27px;
+          margin-top: 2px;
+          border-radius: 50%;
+          background: rgba(255, 226, 188, .7);
+        }
+
+        .face-talk-review-pages article > span::before {
+          content: "";
+          position: absolute;
+          left: 7px;
+          bottom: 5px;
+          width: 13px;
+          height: 10px;
+          border-radius: 52% 52% 46% 46%;
+          background: #ce8d62;
+          transform: rotate(-4deg);
+        }
+
+        .face-talk-review-pages article > span::after {
+          content: "";
+          position: absolute;
+          top: 5px;
+          left: 6px;
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: #ce8d62;
+          box-shadow: 7px -1px 0 #ce8d62, 13px 2px 0 -1px #ce8d62;
+        }
+
+        .face-talk-review-pages p {
+          margin: 0;
+          white-space: pre-line;
+          font-size: .86rem;
+          line-height: 1.72;
+          letter-spacing: .012em;
+          text-align: left;
+        }
+
+        .face-talk-review > .face-talk-action {
+          justify-self: end;
+          min-height: 42px;
+          border-color: rgba(173, 112, 74, .55);
+          border-radius: 999px;
+          padding: 8px 19px;
+          color: #fffaf2;
+          background: linear-gradient(180deg, #e39a6d, #ca7650);
+          box-shadow: 0 5px 0 rgba(130, 76, 49, .28), 0 10px 18px rgba(85, 49, 29, .12), inset 0 1px rgba(255, 255, 255, .35);
+          letter-spacing: .05em;
+        }
+
         .face-talk-input {
           padding: 16px;
           border: 1px solid rgba(78, 58, 42, .32);
@@ -3894,94 +4148,6 @@ export function SuuhimochiGame() {
           color: #877566;
           font-size: .75rem;
           line-height: 1.4;
-        }
-
-        .prompted-suggestion-box {
-          width: 100%;
-          margin-top: 8px;
-          padding: 0 2px;
-        }
-
-        .prompted-suggestion-title {
-          display: inline-flex;
-          align-items: center;
-          margin: 0 0 6px 1px;
-          padding: 3px 8px;
-          border: 1px solid rgba(91, 70, 53, .28);
-          border-radius: 999px;
-          color: #4f3928;
-          background: #fff6dc;
-          box-shadow: 0 1px 2px rgba(61, 43, 29, .14);
-          font-size: .7rem;
-          font-weight: 900;
-          line-height: 1.2;
-          letter-spacing: .05em;
-        }
-
-        .prompted-suggestion-list {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 6px;
-        }
-
-        .prompted-suggestion-button {
-          appearance: none;
-          -webkit-appearance: none;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          min-height: 38px;
-          margin: 0;
-          padding: 6px 8px;
-          border: 1px solid rgba(91, 70, 51, .28);
-          border-radius: 10px;
-          color: #514338;
-          background: rgba(255, 251, 241, .76);
-          box-shadow: 0 2px 0 rgba(94, 68, 43, .10);
-          font: inherit;
-          font-size: .78rem;
-          font-weight: 700;
-          line-height: 1.25;
-          text-align: center;
-          cursor: pointer;
-          user-select: none;
-          -webkit-tap-highlight-color: transparent;
-          transition:
-            transform 90ms ease,
-            border-color 90ms ease,
-            background 90ms ease,
-            box-shadow 90ms ease;
-        }
-
-        .prompted-suggestion-button:hover,
-        .prompted-suggestion-button:focus-visible {
-          border-color: rgba(156, 104, 67, .52);
-          background: rgba(255, 247, 226, .96);
-          outline: none;
-        }
-
-        .prompted-suggestion-button:active {
-          transform: translateY(1px);
-          box-shadow: none;
-        }
-
-        .prompted-suggestion-text {
-          min-width: 0;
-          overflow-wrap: anywhere;
-        }
-
-        .prompted-skip-button {
-          width: auto;
-          min-height: 34px;
-          margin: 8px 0 0 auto;
-          padding: 5px 12px;
-          border-style: dashed;
-          border-radius: 999px;
-          color: rgba(91, 75, 62, .76);
-          background: rgba(247, 242, 230, .64);
-          box-shadow: none;
-          font-size: .75rem;
         }
 
         .face-talk-send,
@@ -4238,8 +4404,9 @@ export function SuuhimochiGame() {
           }
 
           .face-talk-bubble {
-            min-height: 154px;
-            max-height: none;
+            height: clamp(188px, 38vh, 220px);
+            min-height: 0;
+            max-height: clamp(188px, 38vh, 220px);
             padding: 22px 20px 43px;
           }
 
@@ -4285,8 +4452,12 @@ export function SuuhimochiGame() {
           }
 
           .face-talk-line {
+            top: 22px;
+            right: 20px;
+            bottom: 43px;
+            left: 20px;
             font-size: 1rem;
-            line-height: 1.72;
+            line-height: 1.62;
           }
 
           .face-talk-input {
@@ -4298,20 +4469,6 @@ export function SuuhimochiGame() {
             max-height: 120px;
           }
 
-          .prompted-suggestion-box {
-            margin-top: 7px;
-          }
-
-          .prompted-suggestion-list {
-            gap: 5px;
-          }
-
-          .prompted-suggestion-button {
-            min-height: 36px;
-            padding: 5px 6px;
-            border-radius: 9px;
-            font-size: .72rem;
-          }
         }
 
         @media (max-width: 620px) {
@@ -4360,8 +4517,18 @@ export function SuuhimochiGame() {
           }
 
           .mobile-landscape .face-talk-bubble {
-            min-height: 112px;
+            height: min(172px, calc(100dvh - 112px));
+            min-height: 132px;
+            max-height: min(172px, calc(100dvh - 112px));
+            overflow: hidden;
             padding: 17px 18px 35px;
+          }
+
+          .mobile-landscape .face-talk-line {
+            top: 17px;
+            right: 18px;
+            bottom: 35px;
+            left: 18px;
           }
 
           .mobile-landscape .face-talk-input textarea {
@@ -4417,7 +4584,7 @@ export function SuuhimochiGame() {
 
           .mobile-landscape .face-talk.face-talk-text-input .face-talk-left,
           .mobile-landscape .face-talk.face-talk-text-input.face-talk-ui-left .face-talk-left {
-            top: max(118px, calc(env(safe-area-inset-top) + 108px));
+            top: max(36px, calc(env(safe-area-inset-top) + 30px));
             right: auto;
             bottom: auto;
             left: max(10px, env(safe-area-inset-left));
@@ -4426,22 +4593,64 @@ export function SuuhimochiGame() {
             overflow-y: auto;
           }
 
-          .mobile-landscape .face-talk.face-talk-text-input .prompted-skip-button {
-            position: fixed;
-            z-index: 25;
-            top: min(calc(100dvh - 42px), calc(70dvh + 16px));
-            left: min(calc(100vw - min(32vw, 430px) - 112px), calc((100vw - min(32vw, 430px)) / 2 + 88px));
-            width: auto;
-            min-height: 30px;
-            margin: 0;
-            padding: 5px 11px;
-            font-size: .7rem;
+          .mobile-landscape .face-talk-answer-context {
+            margin-bottom: 7px;
+            padding: 8px 10px;
+            border-radius: 11px;
           }
 
-          .mobile-landscape .face-talk.face-talk-text-input.face-talk-ui-left .prompted-skip-button {
-            right: min(calc(100vw - min(32vw, 430px) - 112px), calc((100vw - min(32vw, 430px)) / 2 + 88px));
-            left: auto;
+          .mobile-landscape .face-talk-answer-context p {
+            margin-top: 4px;
+            font-size: clamp(.72rem, 1.55vw, .86rem);
+            line-height: 1.4;
           }
+
+          .mobile-landscape .face-talk-answer-context button {
+            min-height: 27px;
+            padding: 3px 9px;
+            font-size: .64rem;
+          }
+
+          .mobile-landscape .face-talk-review {
+            max-height: calc(100dvh - 76px);
+            gap: 9px;
+            padding: 11px 12px;
+            border-radius: 19px;
+          }
+
+          .mobile-landscape .face-talk-review-pages {
+            gap: 9px;
+          }
+
+          .mobile-landscape .face-talk-review-pages article {
+            grid-template-columns: 23px minmax(0, 1fr);
+            gap: 8px;
+            padding: 9px 11px 9px 9px;
+            border-radius: 16px 16px 16px 7px;
+          }
+
+          .mobile-landscape .face-talk-review-pages article > span {
+            width: 23px;
+            height: 23px;
+          }
+
+          .mobile-landscape .face-talk-review-pages article > span::before {
+            left: 6px;
+            bottom: 4px;
+            width: 11px;
+            height: 9px;
+          }
+
+          .mobile-landscape .face-talk-review-pages article > span::after {
+            top: 4px;
+            left: 5px;
+          }
+
+          .mobile-landscape .face-talk-review-pages p {
+            font-size: .74rem;
+            line-height: 1.52;
+          }
+
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -4762,14 +4971,14 @@ export function SuuhimochiGame() {
           )}
         </div>
         {bubble && phase === 'home' && !talkOpen && !twoDayReviewTalkOpen && (
-          <button className={`thought-bubble${isSleepBubble ? ' sleep-thought-bubble' : ''}${isPotenoWelcomeBubble ? ' poteno-welcome-bubble' : ''}${promptedQuestionOffer || twoDayReviewOffer ? ' prompted-question-offer' : ''}`} style={isPotenoWelcomeBubble ? potenoWelcomeBubbleStyle : sleepBubbleStyle} type="button" onClick={twoDayReviewOffer ? openTwoDayReviewTalk : promptedQuestionOffer ? openPromptedTalk : advanceBubblePage} aria-live="polite" aria-label={twoDayReviewOffer || promptedQuestionOffer ? 'すうひもちの質問にこたえる' : undefined}>
+          <button className={`thought-bubble${isSleepBubble ? ' sleep-thought-bubble' : ''}${isPotenoWelcomeBubble ? ' poteno-welcome-bubble' : ''}${twoDayReviewOffer ? ' prompted-question-offer' : ''}`} style={isPotenoWelcomeBubble ? potenoWelcomeBubbleStyle : sleepBubbleStyle} type="button" onClick={twoDayReviewOffer ? openTwoDayReviewTalk : advanceBubblePage} aria-live="polite" aria-label={twoDayReviewOffer ? 'すうひもちの質問にこたえる' : undefined}>
             <span className="thought-bubble-text" key={bubblePageIndex}>{currentBubblePage}</span>
             <svg className="thought-bubble-tail" viewBox="0 0 64 48" aria-hidden="true">
               <path className="thought-bubble-tail-fill" d="M37 2 C30 15 16 32 3 45 C23 40 44 29 60 8 L37 2 Z" />
               <path className="thought-bubble-tail-stroke" d="M37 2 C30 15 16 32 3 45 C23 40 44 29 60 8" />
             </svg>
             {bubblePages.length > 1 && <span className="thought-bubble-page" aria-hidden="true">{bubblePageIndex + 1}/{bubblePages.length}</span>}
-            <span className="thought-bubble-next" aria-hidden="true">{twoDayReviewOffer || promptedQuestionOffer ? 'クリックでお話する ▼' : '▼'}</span>
+            <span className="thought-bubble-next" aria-hidden="true">{twoDayReviewOffer ? 'クリックでお話する ▼' : '▼'}</span>
             <span className="sr-only">{bubbleHasNextPage ? '次の文へ' : '吹き出しを閉じる'}</span>
           </button>
         )}
@@ -4831,6 +5040,25 @@ export function SuuhimochiGame() {
         {phase === 'home' && <>
           <header className="game-status"><div><strong>DAY {conversationDay}</strong><span>{conversationPhase}</span></div><div className="game-status-actions"><button className="room-light-toggle" type="button" onClick={() => setLightsOut((value) => !value)} disabled={dailyProgressOpen || !isDarkPeriod} aria-pressed={isDarkPeriod && lightsOut}>{isDarkPeriod && lightsOut ? '点灯' : '消灯'}</button><span className="time-label">{TIME_LABELS[currentTime]}</span></div></header>
           {dailyProgressOpen && dailyProgressActivityDate && <DailyProgressCheck activityDate={dailyProgressActivityDate} reviewedDate={getPreviousActivityDateKey(dailyProgressActivityDate)} onComplete={completeDailyProgress} useSuuhimochiKeyboard={mobileRoomMode} />}
+          {!dailyProgressOpen && journalCatchupDate && <JournalCatchupPrompt
+            onWrite={() => {
+              setJournalQuickEntryDate(journalCatchupDate);
+              setJournalCatchupDate('');
+            }}
+            onSkip={() => setJournalCatchupDate('')}
+          />}
+          {!dailyProgressOpen && journalQuickEntryDate && <JournalEntryEditor
+            day={Math.max(1, conversationDay - 1)}
+            date={journalQuickEntryDate}
+            heading="昨日の足あと"
+            initialItems={normalizeDoneItems(save.journalNotes?.[journalQuickEntryDate] ?? getDoneItems((save.dailyProgressRecords ?? []).find((record) => record.reviewedDate === journalQuickEntryDate)))}
+            useSuuhimochiKeyboard={mobileRoomMode}
+            onSave={(items) => {
+              saveJournalDoneItems(journalQuickEntryDate, items);
+              setJournalQuickEntryDate('');
+            }}
+            onCancel={() => setJournalQuickEntryDate('')}
+          />}
           {graduationOpen && <GraduationFlow
             preview={graduationPreview}
             callName={getPreferredCallName(save)}
@@ -4854,13 +5082,6 @@ export function SuuhimochiGame() {
               } : undefined}
             >
               {!isMochiSpeaking && <button className="face-talk-close" aria-label="会話を閉じる" onClick={closeTalk}><X size={20} /></button>}
-
-              {mobileRoomMode && !isMochiSpeaking && talkInputEnabled && talkInputPrompt && (
-                <aside className="face-talk-input-prompt" aria-live="polite">
-                  <span>すうひもちの質問</span>
-                  <p>{talkInputPrompt}</p>
-                </aside>
-              )}
 
               {isMochiSpeaking && (
                 <button
@@ -4891,18 +5112,13 @@ export function SuuhimochiGame() {
                       <span className="tactile-choice-label">ことばを教える</span>
                       <span className="tactile-choice-arrow" aria-hidden="true">›</span>
                     </button>
-                    <button className="tactile-choice-button" type="button" onClick={() => chooseTalkCommand('question')}>
-                      <span className="tactile-choice-number" aria-hidden="true">3</span>
-                      <span className="tactile-choice-label">すうひもちの質問にこたえる</span>
-                      <span className="tactile-choice-arrow" aria-hidden="true">›</span>
-                    </button>
                     <button className="tactile-choice-button" type="button" onClick={() => chooseTalkCommand('monologue')}>
-                      <span className="tactile-choice-number" aria-hidden="true">4</span>
+                      <span className="tactile-choice-number" aria-hidden="true">3</span>
                       <span className="tactile-choice-label">ひとりごとを聞く</span>
                       <span className="tactile-choice-arrow" aria-hidden="true">›</span>
                     </button>
                     <button className="tactile-choice-button" type="button" onClick={() => chooseTalkCommand('skit')}>
-                      <span className="tactile-choice-number" aria-hidden="true">5</span>
+                      <span className="tactile-choice-number" aria-hidden="true">4</span>
                       <span className="tactile-choice-label">小さな寸劇をみる</span>
                       <span className="tactile-choice-arrow" aria-hidden="true">›</span>
                     </button>
@@ -4934,78 +5150,89 @@ export function SuuhimochiGame() {
 
               {!isMochiSpeaking && !talkCommandOpen && talkStage !== 'complete' && talkStage !== 'ended' && talkInputEnabled && (
                 <div className="face-talk-left">
-                  <form className="face-talk-input" onSubmit={submitTalk}>
-                    <label htmlFor="talk-text" className="sr-only">返事を書く</label>
-                    {mobileRoomMode ? <SuuhimochiKeyboard
-                      value={talkText}
-                      onChange={setTalkText}
-                      onDecide={commitTalk}
-                      maxLength={180}
-                      placeholder={talkPlaceholder}
-                      ariaLabel="返事を書く"
-                    /> : <>
-                      <textarea id="talk-text" value={talkText} onChange={(event) => setTalkText(event.target.value)} maxLength={180} placeholder={talkPlaceholder} />
-                      <div className="face-talk-input-footer"><small>お話はこの端末に保存されます</small><button className="face-talk-send" type="submit" disabled={!talkText.trim()}>話す</button></div>
-                    </>}
-                  </form>
-                  {promptedQuestionInput && <button className="face-talk-action face-talk-secondary prompted-skip-button" type="button" onClick={skipPromptedTalkQuestion}>わかんない</button>}
-                  {talkStage === 'followup' && <button className="face-talk-action face-talk-secondary" type="button" onClick={() => conversation.current && applyTalkResponse(conversation.current.finishEarly())}>今日はここまで</button>}
+                  {talkReviewOpen ? renderTalkReview() : <>
+                    {renderTalkAnswerContext()}
+                    <form className="face-talk-input" onSubmit={submitTalk}>
+                      <label htmlFor="talk-text" className="sr-only">返事を書く</label>
+                      {mobileRoomMode ? <SuuhimochiKeyboard
+                        value={talkText}
+                        onChange={setTalkText}
+                        onDecide={commitTalk}
+                        maxLength={180}
+                        placeholder={talkPlaceholder}
+                        ariaLabel="返事を書く"
+                      /> : <>
+                        <textarea id="talk-text" value={talkText} onChange={(event) => setTalkText(event.target.value)} maxLength={180} placeholder={talkPlaceholder} />
+                        <div className="face-talk-input-footer"><small>お話はこの端末に保存されます</small><button className="face-talk-send" type="submit" disabled={!talkText.trim()}>話す</button></div>
+                      </>}
+                    </form>
+                    {talkStage === 'followup' && <button className="face-talk-action face-talk-secondary" type="button" onClick={() => conversation.current && applyTalkResponse(conversation.current.finishEarly())}>今日はここまで</button>}
+                  </>}
                 </div>
               )}
 
               {!isMochiSpeaking && !talkCommandOpen && talkStage !== 'complete' && talkStage !== 'ended' && talkInputMode === 'choice' && talkChoices.length > 0 && (
                 <div className="face-talk-right">
-                  <div className="tactile-choice-list" aria-label="返事を選ぶ">
-                    {talkChoices.map((choice, index) => (
-                      <button className="tactile-choice-button" key={choice.id} onClick={() => chooseTalkChoice(choice)}>
-                        <span className="tactile-choice-number" aria-hidden="true">{index + 1}</span>
-                        <span className="tactile-choice-label">{choice.label}</span>
-                        <span className="tactile-choice-arrow" aria-hidden="true">›</span>
-                      </button>
-                    ))}
-                  </div>
-                  {talkStage === 'followup' && <button className="face-talk-action face-talk-secondary" type="button" onClick={() => conversation.current && applyTalkResponse(conversation.current.finishEarly())}>今日はここまで</button>}
+                  {talkReviewOpen ? renderTalkReview() : <>
+                    {renderTalkAnswerContext()}
+                    <div className="tactile-choice-list" aria-label="返事を選ぶ">
+                      {talkChoices.map((choice, index) => (
+                        <button className="tactile-choice-button" key={choice.id} onClick={() => chooseTalkChoice(choice)}>
+                          <span className="tactile-choice-number" aria-hidden="true">{index + 1}</span>
+                          <span className="tactile-choice-label">{choice.label}</span>
+                          <span className="tactile-choice-arrow" aria-hidden="true">›</span>
+                        </button>
+                      ))}
+                    </div>
+                    {talkStage === 'followup' && <button className="face-talk-action face-talk-secondary" type="button" onClick={() => conversation.current && applyTalkResponse(conversation.current.finishEarly())}>今日はここまで</button>}
+                  </>}
                 </div>
               )}
 
               {!isMochiSpeaking && !talkCommandOpen && talkStage !== 'complete' && talkStage !== 'ended' && talkInputMode === 'category' && categoryChoices.length > 0 && (
                 <div className="face-talk-right">
-                  <div className="tactile-choice-list" aria-label="言葉の種類を選ぶ">
-                    {visibleCategoryChoices.map((choice, index) => (
-                      <button className="tactile-choice-button" key={choice.category} onClick={() => chooseTalkCategory(choice)}>
-                        <span className="tactile-choice-number" aria-hidden="true">{index + 1}</span>
-                        <span className="tactile-choice-label">{choice.label}</span>
-                        <span className="tactile-choice-arrow" aria-hidden="true">›</span>
-                      </button>
-                    ))}
-                    {safeCategoryPage === categoryPageCount - 1 && otherCategoryChoice && (
-                      <button className="tactile-choice-button" key={otherCategoryChoice.category} onClick={() => chooseTalkCategory(otherCategoryChoice)}>
-                        <span className="tactile-choice-number" aria-hidden="true">{visibleCategoryChoices.length + 1}</span>
-                        <span className="tactile-choice-label">{otherCategoryChoice.label}</span>
-                        <span className="tactile-choice-arrow" aria-hidden="true">›</span>
-                      </button>
-                    )}
-                  </div>
-                  <div className="category-pagination" aria-label="カテゴリページ">
-                    <button type="button" className="category-pagination-button" onClick={() => setCategoryPage((page) => Math.max(0, page - 1))} disabled={safeCategoryPage === 0}>前へ</button>
-                    <span aria-live="polite">{safeCategoryPage + 1} / {categoryPageCount}</span>
-                    <button type="button" className="category-pagination-button" onClick={() => setCategoryPage((page) => Math.min(categoryPageCount - 1, page + 1))} disabled={safeCategoryPage === categoryPageCount - 1}>次へ</button>
-                  </div>
-                  {talkStage === 'followup' && <button className="face-talk-action face-talk-secondary" type="button" onClick={() => conversation.current && applyTalkResponse(conversation.current.finishEarly())}>今日はここまで</button>}
+                  {talkReviewOpen ? renderTalkReview() : <>
+                    {renderTalkAnswerContext()}
+                    <div className="tactile-choice-list" aria-label="言葉の種類を選ぶ">
+                      {visibleCategoryChoices.map((choice, index) => (
+                        <button className="tactile-choice-button" key={choice.category} onClick={() => chooseTalkCategory(choice)}>
+                          <span className="tactile-choice-number" aria-hidden="true">{index + 1}</span>
+                          <span className="tactile-choice-label">{choice.label}</span>
+                          <span className="tactile-choice-arrow" aria-hidden="true">›</span>
+                        </button>
+                      ))}
+                      {safeCategoryPage === categoryPageCount - 1 && otherCategoryChoice && (
+                        <button className="tactile-choice-button" key={otherCategoryChoice.category} onClick={() => chooseTalkCategory(otherCategoryChoice)}>
+                          <span className="tactile-choice-number" aria-hidden="true">{visibleCategoryChoices.length + 1}</span>
+                          <span className="tactile-choice-label">{otherCategoryChoice.label}</span>
+                          <span className="tactile-choice-arrow" aria-hidden="true">›</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="category-pagination" aria-label="カテゴリページ">
+                      <button type="button" className="category-pagination-button" onClick={() => setCategoryPage((page) => Math.max(0, page - 1))} disabled={safeCategoryPage === 0}>前へ</button>
+                      <span aria-live="polite">{safeCategoryPage + 1} / {categoryPageCount}</span>
+                      <button type="button" className="category-pagination-button" onClick={() => setCategoryPage((page) => Math.min(categoryPageCount - 1, page + 1))} disabled={safeCategoryPage === categoryPageCount - 1}>次へ</button>
+                    </div>
+                    {talkStage === 'followup' && <button className="face-talk-action face-talk-secondary" type="button" onClick={() => conversation.current && applyTalkResponse(conversation.current.finishEarly())}>今日はここまで</button>}
+                  </>}
                 </div>
               )}
 
               {!isMochiSpeaking && !talkCommandOpen && talkStage !== 'complete' && talkStage !== 'ended' && talkInputMode === 'category' && subCategoryChoices.length > 0 && (
                 <div className="face-talk-right">
-                  <div className="tactile-choice-list" aria-label="言葉の中分類を選ぶ">
-                    {subCategoryChoices.map((choice, index) => (
-                      <button className="tactile-choice-button" key={choice.id} onClick={() => chooseTalkSubCategory(choice)}>
-                        <span className="tactile-choice-number" aria-hidden="true">{index + 1}</span>
-                        <span className="tactile-choice-label">{choice.label}</span>
-                        <span className="tactile-choice-arrow" aria-hidden="true">›</span>
-                      </button>
-                    ))}
-                  </div>
+                  {talkReviewOpen ? renderTalkReview() : <>
+                    {renderTalkAnswerContext()}
+                    <div className="tactile-choice-list" aria-label="言葉の中分類を選ぶ">
+                      {subCategoryChoices.map((choice, index) => (
+                        <button className="tactile-choice-button" key={choice.id} onClick={() => chooseTalkSubCategory(choice)}>
+                          <span className="tactile-choice-number" aria-hidden="true">{index + 1}</span>
+                          <span className="tactile-choice-label">{choice.label}</span>
+                          <span className="tactile-choice-arrow" aria-hidden="true">›</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>}
                 </div>
               )}
 
@@ -5057,10 +5284,12 @@ export function SuuhimochiGame() {
             currentDay={conversationDay}
             currentPhase={conversationPhase}
             currentActivityDate={getActivityDateKey()}
+            userName={save.userName.trim() || save.callName.trim()}
             goalText={conversation.current?.getGoal() ?? ''}
             goalType={save.goalType ?? null}
             records={save.dailyProgressRecords ?? []}
             journalNotes={save.journalNotes ?? {}}
+            suuhimochiDiaries={save.suuhimochiDiaries ?? {}}
             strategyRecords={save.strategyRecords ?? []}
             divinationRecords={save.divinationRecords ?? []}
             memories={conversationMemories}
@@ -5178,12 +5407,16 @@ export function SuuhimochiGame() {
                 <span>現在：通常データ</span>
               </>}
             </section>
-            {!isInitialPreview && <>
             <section className="dev-initial-preview">
               <b>最終日テスト</b>
-              <button type="button" onClick={openGraduationPreview}>最終日の卒業を確認</button>
-              <span>現在の記録を使って卒業導線を開きます。プレビュー中は保存データを変更しません。</span>
+              <button type="button" onClick={startDevFarewellScene}>最終日にして、お別れを始める</button>
+              {!isInitialPreview && <button type="button" onClick={openGraduationPreview}>卒業・引き継ぎ画面を直接確認</button>}
+              <span>{isInitialPreview
+                ? '初回起動プレビューを終了し、元の記録でDAY 30のお別れを開始します。'
+                : 'お別れはDAY 30として開始します。卒業・引き継ぎ画面の確認はプレビューのため、保存データを変更しません。'
+              }</span>
             </section>
+            {!isInitialPreview && <>
             <button onClick={resetAll}><RotateCcw size={14} /> 初期化</button>
             <button onClick={() => { setPhase('birthday'); setBirthday(save.birthday); }}>生年月日変更</button>
             <label>タイプ<select value={save.mochiType} onChange={(event) => setSave((current) => ({ ...current, mochiType: Number(event.target.value) }))}>{Array.from({ length: 9 }, (_, index) => index + 1).map((type) => <option key={type}>{type}</option>)}</select></label>
@@ -5191,7 +5424,6 @@ export function SuuhimochiGame() {
             <button onClick={saySomething}><Sparkles size={14} /> 独り言</button>
             <button onClick={() => conversation.current && runDevConversation(conversation.current.advanceDay())}>+1日</button>
             <button onClick={() => conversation.current && runDevConversation(conversation.current.reopenToday())}>今日を再開</button>
-            <button onClick={() => conversation.current && runDevConversation(conversation.current.jumpFarewell())}>DAY 30</button>
             <button onClick={() => conversation.current && runDevConversation(conversation.current.clearOverride())}>現実の日付</button>
             <button onClick={() => setShowCollisionDebug((visible) => !visible)}>当たり判定 {showCollisionDebug ? 'OFF' : 'ON'}</button>
             <div className="dev-expression-preview">
@@ -5204,7 +5436,7 @@ export function SuuhimochiGame() {
                 <img src={zoomMouthAsset(devPreviewMouth, devPreviewEmotion)} alt="" draggable={false} />
               </div>
               <button type="button" onClick={() => setDevPreviewPlaying((playing) => !playing)}>{devPreviewPlaying ? 'アニメーション停止' : 'アニメーション再生'}</button>
-              <label>表情<select value={devPreviewEmotion} onChange={(event) => setDevPreviewEmotion(event.target.value as ZoomFaceEmotion)}><option value="neutral">通常</option><option value="happy">うれしい</option><option value="nervous">緊張</option><option value="sad">悲しい</option><option value="surprised">驚き</option><option value="thinking">考え中</option><option value="angry">怒り</option></select></label>
+              <label>表情<select value={devPreviewEmotion} onChange={(event) => setDevPreviewEmotion(event.target.value as ZoomFaceEmotion)}><option value="neutral">通常</option><option value="smile">smile（にっこり）</option><option value="really">Really（驚き）</option><option value="happy">うれしい（旧）</option><option value="nervous">緊張</option><option value="sad">悲しい</option><option value="surprised">驚き（旧）</option><option value="thinking">考え中</option><option value="angry">怒り</option></select></label>
               <label>目<select value={devPreviewEyes} onChange={(event) => setDevPreviewEyes(event.target.value as ZoomEyeFrame)}><option value="open">開き</option><option value="half">半開き</option><option value="closed">閉じ</option></select></label>
               <label>口<select value={devPreviewMouth} onChange={(event) => setDevPreviewMouth(event.target.value as ZoomMouthFrame)}><option value="closed">閉じ</option><option value="small">小さく開き</option><option value="open">開き</option></select></label>
               <label>左腕<select value={devPreviewLeftArm} onChange={(event) => setDevPreviewLeftArm(event.target.value as ZoomArmPose)}><option value="down">下げ</option><option value="up">上げ</option><option value="open">開き</option><option value="chest">胸元</option></select></label>

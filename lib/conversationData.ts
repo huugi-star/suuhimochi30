@@ -96,12 +96,7 @@ export const SUBCATEGORY_CHOICES: Partial<Record<WordCategory, SubCategoryChoice
   OTHER: subCategories('OTHER', ['どれにも当てはまらない', 'まだよくわからない']),
 };
 
-export const MOOD_CHOICES: ConversationChoice[] = [
-  { id: 'MOOD_GOOD', label: '元気' },
-  { id: 'MOOD_NORMAL', label: 'ふつう' },
-  { id: 'MOOD_TIRED', label: 'ちょっとつかれた' },
-];
-
+/** 明示的な「ことばを教える」機能専用。新しい通常会話では使用しない。 */
 export const WORD_FEELING_CHOICES: ConversationChoice[] = [
   { id: 'WORD_LOVE', label: '大好き' },
   { id: 'WORD_LIKE', label: '好き' },
@@ -950,12 +945,6 @@ export const MIDDLE_CATEGORY_DIALOGUE: Record<string, (word: string) => string[]
   ],
 };
 
-export const WORD_RECENCY_CHOICES: ConversationChoice[] = [
-  { id: 'WORD_OFTEN', label: 'よく見る・使う' },
-  { id: 'WORD_SOMETIMES', label: 'たまに' },
-  { id: 'WORD_NOT_RECENT', label: '最近はない' },
-];
-
 export const GOAL_STATUS_CHOICES: ConversationChoice[] = [
   { id: 'GOAL_ON_TRACK', label: '順調' },
   { id: 'GOAL_BEHIND', label: 'ちょっと遅れてる' },
@@ -967,10 +956,3 @@ export const GOAL_ACTION_CHOICES: ConversationChoice[] = [
   { id: 'GOAL_CHANGE_STRATEGY', label: '戦法を変える' },
   { id: 'GOAL_REVIEW', label: '目標を見直す' },
 ];
-
-export const NORMAL_CHAT_OPENINGS = {
-  newWord: '人間さん、新しいコトバをひとつ教えてほしいの。',
-  mood: '人間さん、今日はどんな感じ？',
-  recallFeeling: (word: string) => `前に「${word}」っていうコトバを教えてくれたよね。今はどんな感じ？`,
-  recallRecent: (word: string) => `「${word}」っていうコトバ、覚えてるの。最近もよく見る？`,
-};

@@ -68,6 +68,8 @@ const ROOM_ITEM_ASSETS = [
 const ZOOM_EYE_EMOTIONS = ['angry', 'happy', 'nervous', 'sad', 'surprised', 'thinking'] as const;
 const ZOOM_MOUTH_EMOTIONS = ['nervous', 'sad', 'surprised', 'thinking'] as const;
 const ZOOM_EXPRESSION_ASSETS = [
+  '/assets/suuhimochi/characters/suuhimochi-01/zoom/eyes/Really/Really.png',
+  '/assets/suuhimochi/characters/suuhimochi-01/zoom/eyes/smile/smile.png',
   ...ZOOM_EYE_EMOTIONS.flatMap((emotion) => (
     (['open', 'half', 'closed'] as const).map((frame) => {
       const assetFrame = emotion === 'angry' && frame === 'closed' ? 'close' : frame;

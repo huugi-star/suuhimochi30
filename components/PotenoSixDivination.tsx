@@ -548,7 +548,7 @@ export function PotenoSixDivination({
     try {
       if (!results) throw new Error('六占の元結果がありません。');
       if (!requestData) throw new Error('六占の照合用結果がありません。');
-      const parsed = parseSixDivinationResponse(returnText, master, requestData.sixResults);
+      const parsed = parseSixDivinationResponse(returnText, master, results);
       setResponse(parsed);
       setError('');
       if (!saved) {

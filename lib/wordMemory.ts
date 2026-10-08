@@ -3,35 +3,25 @@ import {
   CATEGORY_LABELS,
   GOAL_ACTION_CHOICES,
   GOAL_STATUS_CHOICES,
-  MOOD_CHOICES,
-  NORMAL_CHAT_OPENINGS,
   MIDDLE_CATEGORY_DIALOGUE,
   SYSTEM_WORDS,
   SUBCATEGORY_CHOICES,
   WORD_FEELING_CHOICES,
   WORD_FEELING_PROMPTS,
-  WORD_RECENCY_CHOICES,
 } from './conversationData';
-import { commonKnowledgeReaction, findCommonKnowledge } from './commonKnowledgeData';
-import {
-  buildPromptedLearningOpinion,
-  buildPromptedLearningRecall,
-  findPromptedLearningAxis,
-  findPromptedLearningChoice,
-  findPromptedLearningQuestion,
-  getPromptedLearningChoices,
-  getPromptedLearningSuggestions,
-  isTooGenericPromptedAnswer,
-  pickPromptedLearningAxis,
-  pickPromptedLearningQuestion,
-} from './promptedLearningData';
-import { buildMemoryConversationCandidate, memoryPairKey, memoryWordKey } from './memoryConversationEngine';
+import { findCommonKnowledge } from './commonKnowledgeData';
+import { runConversationEngine } from './conversation/conversationEngine';
 import type {
-  MemoryAfterthought,
-  MemoryCalloutKind,
-  MemoryConversationCandidate,
-  MemoryConversationRecord,
-} from './memoryConversationTypes';
+  ConversationChoiceRecord,
+  ConversationScript,
+  CuriousConversation,
+  CuriousConversationChoice,
+  DialogueBeat,
+  DialoguePage,
+  KnowledgeLevel,
+  MemoryRelationType,
+  OpenQuestionField,
+} from './conversation/conversationTypes';
 import type {
   CategoryChoice,
   ConversationChoice,
@@ -47,7 +37,11 @@ import type {
   GoalStatus,
   InputMode,
   LearnedWord,
+  MemoryEpisode,
   MemoryEvent,
+  MemoryHypothesis,
+  MemoryRelation,
+  OpenQuestion,
   OshiStatus,
   Relation,
   RelationType,
@@ -58,6 +52,8 @@ import type {
   WordCategory,
   WordEntry,
 } from './conversationTypes';
+
+export type { DialoguePage } from './conversation/conversationTypes';
 
 export type {
   CategoryChoice,
@@ -72,7 +68,11 @@ export type {
   GoalStatus,
   InputMode,
   LearnedWord,
+  MemoryEpisode,
   MemoryEvent,
+  MemoryHypothesis,
+  MemoryRelation,
+  OpenQuestion,
   OshiStatus,
   Relation,
   RelationType,
@@ -83,8 +83,6 @@ export type {
   WordCategory,
   WordEntry,
 } from './conversationTypes';
-export type { MemoryConversationRecord } from './memoryConversationTypes';
-
 const STORAGE_KEY = 'suuhimochi_conversation_v6_choices';
 const INTERNAL_TOPICS = new Set(['今日の調子', '30日の目標']);
 const MAX_WORD_LENGTH = 30;
@@ -92,10 +90,6 @@ const MAX_GOAL_LENGTH = 100;
 const GOAL_CHECK_INTERVAL = 20;
 const GOAL_CHECK_MAX_DAYS = 5;
 const UNDECIDED_GOAL = 'まだ決まっていない';
-
-// Prompted Learning の最初の質問で「ない・知らない・わからない」を
-// 単語として誤登録しない。UI の「わかんない」ボタンも同じ処理へ流す。
-const PROMPTED_SKIP_ANSWERS = /^(?:ない|特にない|とくにない|思いつかない|おもいつかない|知らない|しらない|知らん|わからない|分からない|分かんない|わかんない|わからん|わからないな|知らないな)(?:です|よ|かな|かも)?[。！!？?]*$/;
 
 const OSHI_CONFIRM_CHOICES: ConversationChoice[] = [
   { id: 'OSHI_YES', label: '推し！' },
@@ -134,15 +128,8 @@ const OSHI_NO_REACTIONS = [
   () => '人間さんの「大好き」にも、いろんな種類があるんだね。',
 ];
 
-const OSHI_RECALL_LINES = [
-  (word: string) => `そういえば、${word}って人間さんの推しだったよね。`,
-  (word: string) => `${word}のこと、ちゃんと覚えてるの。人間さんの推しだからね。`,
-  (word: string) => `${word}の名前を見ると、人間さんのこと思い出すようになったの。`,
-  (word: string) => `最近、推しの${word}の話してないね。`,
-];
-
 type StoredState = {
-  version: 6;
+  version: 9;
   words: Record<string, WordEntry>;
   memories: ConversationMemory[];
   relations: Relation[];
@@ -156,23 +143,16 @@ type StoredState = {
   goalSetAt: string | null;
   lastGoalCheckDate: string | null;
   goalChecks: GoalCheck[];
-  lastNormalMode: 'WORD' | 'QUESTION' | 'MOOD' | 'RECALL' | null;
   lastWordSurface: string | null;
-  lastPromptedQuestionId: string | null;
-  promptedRecentQuestionIds: string[];
-  promptedRecentGroups: string[];
-  promptedRecentEntityKinds: string[];
-  promptedRecentStarterKeys: string[];
-  promptedQuestionCounts: Record<string, number>;
-  promptedStarterCounts: Record<string, number>;
   oshiLoveCounts: Record<string, number>;
-  memoryConversationRecords: MemoryConversationRecord[];
-  memoryConversationRecentTemplateIds: string[];
-  memoryConversationRecentWordKeys: string[];
-  memoryConversationRecentPairKeys: string[];
-  memoryConversationRecentCalloutKinds: MemoryCalloutKind[];
-  memoryConversationAfterthoughts: MemoryAfterthought[];
-  normalConversationDeck: Array<'MEMORY' | 'OTHER'>;
+  /** この個体が見た新会話のID。次回は未閲覧の台本を優先する。 */
+  seenConversationIds: string[];
+  /** 選択肢の記録。単語記憶・性格診断へは今回接続しない。 */
+  conversationChoiceRecords: ConversationChoiceRecord[];
+  memoryRelations: MemoryRelation[];
+  openQuestions: OpenQuestion[];
+  memoryEpisodes: MemoryEpisode[];
+  memoryHypotheses: MemoryHypothesis[];
 };
 
 type Session = {
@@ -193,7 +173,7 @@ type Session = {
 
 function emptyState(): StoredState {
   return {
-    version: 6,
+    version: 9,
     words: Object.create(null),
     memories: [],
     relations: [],
@@ -207,23 +187,14 @@ function emptyState(): StoredState {
     goalSetAt: null,
     lastGoalCheckDate: null,
     goalChecks: [],
-    lastNormalMode: null,
     lastWordSurface: null,
-    lastPromptedQuestionId: null,
-    promptedRecentQuestionIds: [],
-    promptedRecentGroups: [],
-    promptedRecentEntityKinds: [],
-    promptedRecentStarterKeys: [],
-    promptedQuestionCounts: Object.create(null),
-    promptedStarterCounts: Object.create(null),
     oshiLoveCounts: Object.create(null),
-    memoryConversationRecords: [],
-    memoryConversationRecentTemplateIds: [],
-    memoryConversationRecentWordKeys: [],
-    memoryConversationRecentPairKeys: [],
-    memoryConversationRecentCalloutKinds: [],
-    memoryConversationAfterthoughts: [],
-    normalConversationDeck: [],
+    seenConversationIds: [],
+    conversationChoiceRecords: [],
+    memoryRelations: [],
+    openQuestions: [],
+    memoryEpisodes: [],
+    memoryHypotheses: [],
   };
 }
 
@@ -240,14 +211,102 @@ function cleanText(value: string) {
   return value.normalize('NFKC').trim();
 }
 
-function pushRecent<T extends string>(items: T[], value: T, max: number) {
-  const next = items.filter((item) => item !== value);
-  next.unshift(value);
-  return next.slice(0, max);
-}
-
 function quote(value: string) {
   return `「${value}」`;
+}
+
+/** 演出指示を表示文へ混ぜず、台詞だけを既存UIへ渡す。 */
+function dialogueLines(beats: readonly DialogueBeat[]) {
+  return beats.flatMap((beat) => beat.text ? [beat.text] : []);
+}
+
+const DIALOGUE_PAGE_CHARACTER_LIMIT = 92;
+const DIALOGUE_PAGE_LINE_LIMIT = 4;
+
+/** 細かい原稿beatを、3〜5行を目安にした表示ページへまとめる。 */
+function dialoguePages(beats: readonly DialogueBeat[]): DialoguePage[] {
+  const pages: DialoguePage[] = [];
+  let current: DialoguePage = { lines: [] };
+  let characterCount = 0;
+  let pendingEmotion: DialoguePage['emotion'];
+  let pendingAction: string | undefined;
+  let pendingPauseBeforeMs = 0;
+
+  const flush = () => {
+    if (current.lines.length === 0) return;
+    const lastLineIndex = current.lines.length - 1;
+    const trailingPause = current.linePauseAfterMs?.[lastLineIndex] ?? 0;
+    if (trailingPause > 0) {
+      current.pauseAfterMs = Math.min(1200, (current.pauseAfterMs ?? 0) + trailingPause);
+      if (current.linePauseAfterMs) current.linePauseAfterMs[lastLineIndex] = 0;
+    }
+    if (current.linePauseAfterMs?.every((duration) => !duration)) delete current.linePauseAfterMs;
+    pages.push(current);
+    current = { lines: [] };
+    characterCount = 0;
+  };
+
+  for (const beat of beats) {
+    if (!beat.text) {
+      if (beat.emotion) pendingEmotion = beat.emotion;
+      if (beat.action) pendingAction = beat.action;
+      if (beat.pauseMs) {
+        if (current.lines.length > 0) {
+          const lineIndex = current.lines.length - 1;
+          current.linePauseAfterMs ??= [];
+          current.linePauseAfterMs[lineIndex] = Math.min(
+            1200,
+            (current.linePauseAfterMs[lineIndex] ?? 0) + beat.pauseMs,
+          );
+        } else {
+          pendingPauseBeforeMs = Math.min(1200, pendingPauseBeforeMs + beat.pauseMs);
+        }
+      }
+      continue;
+    }
+
+    const textLength = Array.from(beat.text).length;
+    const emotion = beat.emotion ?? pendingEmotion;
+    const action = beat.action ?? pendingAction;
+    const emotionChanged = Boolean(
+      current.emotion
+      && emotion
+      && current.emotion !== emotion
+      && current.lines.length > 0,
+    );
+    if (
+      current.lines.length >= DIALOGUE_PAGE_LINE_LIMIT
+      || (current.lines.length > 0 && characterCount + textLength > DIALOGUE_PAGE_CHARACTER_LIMIT)
+      || emotionChanged
+    ) {
+      flush();
+    }
+
+    current.lines.push(beat.text);
+    characterCount += textLength;
+    if (current.lines.length === 1 && pendingPauseBeforeMs > 0) {
+      current.pauseBeforeMs = pendingPauseBeforeMs;
+      pendingPauseBeforeMs = 0;
+    }
+    current.emotion ??= emotion;
+    current.action ??= action;
+    pendingEmotion = undefined;
+    pendingAction = undefined;
+  }
+  flush();
+  return pages;
+}
+
+function dialoguePagesFromLines(lines: readonly string[]) {
+  return dialoguePages(lines.map((text) => ({ text })));
+}
+
+function sayForRuntime(...texts: string[]): DialogueBeat[] {
+  return texts.map((text) => ({ text }));
+}
+
+function pathIsKnownChoice(choiceId: string) {
+  return choiceId.includes('_KNOWN_');
 }
 
 function phaseLabel(day: number) {
@@ -260,10 +319,9 @@ function phaseLabel(day: number) {
 
 function sentimentForChoice(id: string): Sentiment {
   if (id === 'WORD_LOVE') return 'LOVE';
-  if (id === 'WORD_LIKE' || id === 'MOOD_GOOD') return 'LIKE';
+  if (id === 'WORD_LIKE') return 'LIKE';
   if (id === 'WORD_DISLIKE' || id === 'WORD_HATE') return 'DISLIKE';
   if (id === 'WORD_INTERESTED') return 'INTERESTED';
-  if (id === 'MOOD_TIRED') return 'TIRED';
   return 'NEUTRAL';
 }
 
@@ -274,11 +332,13 @@ export class SuuhimochiConversation {
   private random: () => number;
   private now: () => Date;
   private farewellQueue: string[] = [];
+  private activeDayConversation: ConversationScript | null = null;
+  private activeCuriousWord: WordEntry | null = null;
+  private activeCuriousRelatedWord: WordEntry | null = null;
+  private activeCuriousRelationIds: string[] = [];
+  private activeCuriousOpenQuestionIds: string[] = [];
   private sessionSequence = 0;
   private debug: DebugSnapshot;
-  private pendingMemoryConversation: MemoryConversationCandidate | null = null;
-  private preparedAmbientConversation: MemoryConversationCandidate | null = null;
-  private preparedAmbientOffer = false;
 
   constructor(options: { storage?: StorageLike; random?: () => number; now?: () => Date } = {}) {
     this.storage = options.storage ?? (typeof localStorage === 'undefined' ? memoryStorage() : localStorage);
@@ -333,33 +393,48 @@ export class SuuhimochiConversation {
       const words = Object.fromEntries(
         Object.entries(parsed.words ?? {}).map(([surface, word]) => [
           surface,
-          { ...word, oshiStatus: word.oshiStatus ?? 'UNKNOWN' as OshiStatus },
+          {
+            ...word,
+            oshiStatus: word.oshiStatus ?? 'UNKNOWN' as OshiStatus,
+            knowledgeLevel: word.knowledgeLevel
+              ?? (word.category && word.category !== 'UNKNOWN' ? 'KNOWN' : 'UNKNOWN'),
+            subcategory: word.subcategory ?? word.attributes?.['subCategoryId'],
+            firstSeenDay: word.firstSeenDay ?? 1,
+            lastSeenDay: word.lastSeenDay ?? word.firstSeenDay ?? 1,
+          },
         ]),
       ) as Record<string, WordEntry>;
       return {
-        ...emptyState(),
-        ...parsed,
-        version: 6,
+        version: 9,
         words: Object.assign(Object.create(null), words),
         memories: parsed.memories ?? [],
         relations: parsed.relations ?? [],
         events: parsed.events ?? [],
         conversations: parsed.conversations ?? [],
+        startDate: parsed.startDate ?? null,
+        dayOverride: parsed.dayOverride ?? null,
+        ended: parsed.ended ?? false,
+        conversationCount: parsed.conversationCount ?? 0,
+        goalText: parsed.goalText ?? null,
+        goalSetAt: parsed.goalSetAt ?? null,
+        lastGoalCheckDate: parsed.lastGoalCheckDate ?? null,
         goalChecks: parsed.goalChecks ?? [],
-        promptedRecentQuestionIds: parsed.promptedRecentQuestionIds ?? [],
-        promptedRecentGroups: parsed.promptedRecentGroups ?? [],
-        promptedRecentEntityKinds: parsed.promptedRecentEntityKinds ?? [],
-        promptedRecentStarterKeys: parsed.promptedRecentStarterKeys ?? [],
-        promptedQuestionCounts: Object.assign(Object.create(null), parsed.promptedQuestionCounts ?? {}),
-        promptedStarterCounts: Object.assign(Object.create(null), parsed.promptedStarterCounts ?? {}),
+        lastWordSurface: parsed.lastWordSurface ?? null,
         oshiLoveCounts: Object.assign(Object.create(null), parsed.oshiLoveCounts ?? {}),
-        memoryConversationRecords: parsed.memoryConversationRecords ?? [],
-        memoryConversationRecentTemplateIds: parsed.memoryConversationRecentTemplateIds ?? [],
-        memoryConversationRecentWordKeys: parsed.memoryConversationRecentWordKeys ?? [],
-        memoryConversationRecentPairKeys: parsed.memoryConversationRecentPairKeys ?? [],
-        memoryConversationRecentCalloutKinds: parsed.memoryConversationRecentCalloutKinds ?? [],
-        memoryConversationAfterthoughts: parsed.memoryConversationAfterthoughts ?? [],
-        normalConversationDeck: parsed.normalConversationDeck ?? [],
+        seenConversationIds: Array.isArray(parsed.seenConversationIds) ? parsed.seenConversationIds.filter((id): id is string => typeof id === 'string') : [],
+        conversationChoiceRecords: Array.isArray(parsed.conversationChoiceRecords)
+          ? parsed.conversationChoiceRecords.filter((record): record is ConversationChoiceRecord => (
+            Boolean(record)
+            && typeof record.conversationId === 'string'
+            && typeof record.choiceId === 'string'
+            && typeof record.day === 'number'
+            && typeof record.timestamp === 'string'
+          ))
+          : [],
+        memoryRelations: Array.isArray(parsed.memoryRelations) ? parsed.memoryRelations : [],
+        openQuestions: Array.isArray(parsed.openQuestions) ? parsed.openQuestions : [],
+        memoryEpisodes: Array.isArray(parsed.memoryEpisodes) ? parsed.memoryEpisodes : [],
+        memoryHypotheses: Array.isArray(parsed.memoryHypotheses) ? parsed.memoryHypotheses : [],
       };
     } catch {
       return emptyState();
@@ -412,6 +487,31 @@ export class SuuhimochiConversation {
     return this.state.goalChecks.map((item) => ({ ...item }));
   }
 
+  getSeenConversationIds() {
+    return [...this.state.seenConversationIds];
+  }
+
+  getConversationChoiceRecords() {
+    return this.state.conversationChoiceRecords.map((record) => ({ ...record }));
+  }
+
+  getMemoryRelations() {
+    return this.state.memoryRelations.map((relation) => ({ ...relation }));
+  }
+
+  getOpenQuestions() {
+    return this.state.openQuestions.map((question) => ({ ...question }));
+  }
+
+  getMemoryEpisodes() {
+    return this.state.memoryEpisodes.map((episode) => ({
+      ...episode,
+      topicWordIds: [...episode.topicWordIds],
+      learnedRelationIds: [...episode.learnedRelationIds],
+      createdOpenQuestionIds: [...episode.createdOpenQuestionIds],
+    }));
+  }
+
   setGoal(goalText: string): ConversationResponse {
     return this.handleGoalText(goalText);
   }
@@ -432,6 +532,7 @@ export class SuuhimochiConversation {
 
   startSession(): ConversationResponse {
     this.rememberSession();
+    this.clearActiveDayConversation();
 
     if (this.state.ended) {
       this.session = this.blankSession();
@@ -471,52 +572,11 @@ export class SuuhimochiConversation {
     }
 
     this.rememberSession();
+    this.clearActiveDayConversation();
     this.session = this.blankSession();
     this.state.conversationCount += 1;
     this.save();
     return this.openNewWord();
-  }
-
-  /** Start a question led by Suuhimochi rather than a player-led word lesson. */
-  startPromptedLearning(): ConversationResponse {
-    if (!this.state.goalText || this.state.ended || this.getCurrentDay() >= 30) {
-      return this.startSession();
-    }
-
-    this.rememberSession();
-    this.session = this.blankSession();
-    this.state.conversationCount += 1;
-    this.save();
-    return this.openPromptedLearningQuestion();
-  }
-
-  /**
-   * Selects and freezes a room-originated memory conversation before its
-   * callout is shown. Clicking the callout therefore cannot reroll the topic.
-   */
-  prepareAmbientMemoryConversation(): string | null {
-    this.preparedAmbientConversation = null;
-    this.preparedAmbientOffer = true;
-    if (!this.state.goalText || this.state.ended || this.getCurrentDay() >= 30) return null;
-    this.ensureNormalConversationDeck();
-    if (this.state.normalConversationDeck[0] !== 'MEMORY') return null;
-    const candidate = this.buildMemoryCandidate();
-    if (!candidate) return null;
-    this.preparedAmbientConversation = candidate;
-    return candidate.callout;
-  }
-
-  startPreparedAmbientConversation(): ConversationResponse {
-    const candidate = this.preparedAmbientConversation;
-    this.preparedAmbientConversation = null;
-    const slot = this.preparedAmbientOffer ? this.takeNormalConversationSlot() : 'OTHER';
-    this.preparedAmbientOffer = false;
-    if (slot !== 'MEMORY' || !candidate || !this.memoryCandidateStillValid(candidate)) return this.startPromptedLearning();
-    this.rememberSession();
-    this.session = this.blankSession();
-    this.state.conversationCount += 1;
-    this.save();
-    return this.openMemoryConversation(candidate);
   }
 
   submit(text: string): ConversationResponse {
@@ -550,14 +610,15 @@ export class SuuhimochiConversation {
 
     // New words keep the player's spelling; the common-knowledge lookup does
     // its own NFKC / kana-normalised comparison without changing that surface.
-    const userText = this.session.expected === 'NEW_WORD' || this.session.expected === 'PROMPTED_WORD' ? surface : value;
+    const userText = this.session.expected === 'NEW_WORD' || this.session.expected === 'DAY_CURIOUS_WORD'
+      ? surface
+      : value;
     this.session.lastUserText = userText;
     this.log('USER', userText);
 
     if (this.session.expected === 'GOAL_TEXT') return this.handleGoalText(value, false);
     if (this.session.expected === 'NEW_WORD') return this.handleNewWord(surface, false);
-    if (this.session.expected === 'PROMPTED_WORD') return this.handlePromptedLearningText(surface, false);
-
+    if (this.session.expected === 'DAY_CURIOUS_WORD') return this.handleCuriousWord(surface);
     return this.respond(['今は下の選択肢から選んでほしいの。'], this.session.stage, this.session.inputMode, 'UNEXPECTED_TEXT');
   }
 
@@ -605,21 +666,22 @@ export class SuuhimochiConversation {
 
   private choicesForExpected(expected: ExpectedAnswer): ConversationChoice[] {
     switch (expected) {
-      case 'MOOD':
-        return MOOD_CHOICES;
+      case 'DAY_CONVERSATION_CHOICE':
+        return this.activeDayConversation?.category === 'SELF'
+          ? this.activeDayConversation.choices.map(({ id, label }) => ({ id, label }))
+          : [];
+      case 'DAY_CURIOUS_KNOWN_CHOICE':
+        return this.activeDayConversation?.category === 'CURIOUS'
+          ? this.activeDayConversation.known.choices.map(({ id, label }) => ({ id, label }))
+          : [];
+      case 'DAY_CURIOUS_UNKNOWN_CHOICE':
+        return this.activeDayConversation?.category === 'CURIOUS'
+          ? this.activeDayConversation.unknown.choices.map(({ id, label }) => ({ id, label }))
+          : [];
       case 'WORD_FEELING':
         return WORD_FEELING_CHOICES;
-      case 'PROMPTED_CORRECTION':
-        return getPromptedLearningChoices(
-          this.session.attributes['promptedQuestionId'],
-          this.session.attributes['promptedAxisId'],
-        );
       case 'OSHI_CONFIRM':
         return OSHI_CONFIRM_CHOICES;
-      case 'WORD_RECENCY':
-        return WORD_RECENCY_CHOICES;
-      case 'MEMORY_REFLECTION':
-        return this.pendingMemoryConversation?.choices.map(({ id, label }) => ({ id, label })) ?? [];
       case 'GOAL_STATUS':
         return GOAL_STATUS_CHOICES;
       case 'GOAL_ACTION':
@@ -649,18 +711,6 @@ export class SuuhimochiConversation {
 
   skipUnknown() {
     return this.finishConversation(['分からないままでも大丈夫なの。']);
-  }
-
-  /**
-   * Prompted Learning の最初の自由入力質問だけをスキップする。
-   * 「わかんない」は辞書へ登録せず、別方向の質問へ切り替える。
-   * 3回続けて分からなければ、その会話だけ自然に終了する。
-   */
-  skipPromptedQuestion(): ConversationResponse {
-    if (this.session.expected !== 'PROMPTED_WORD') {
-      return this.respond(['今は「わかんない」を使う質問じゃないの。'], this.session.stage, this.session.inputMode, 'PROMPTED_SKIP_UNAVAILABLE');
-    }
-    return this.handlePromptedLearningSkip('わかんない', true);
   }
 
   finishEarly() {
@@ -705,9 +755,7 @@ export class SuuhimochiConversation {
     this.session = this.blankSession();
     this.debug = this.blankDebug();
     this.farewellQueue = [];
-    this.pendingMemoryConversation = null;
-    this.preparedAmbientConversation = null;
-    this.preparedAmbientOffer = false;
+    this.clearActiveDayConversation();
     this.ensureStartDate();
   }
 
@@ -722,9 +770,7 @@ export class SuuhimochiConversation {
     this.session = this.blankSession();
     this.debug = this.blankDebug();
     this.farewellQueue = [];
-    this.pendingMemoryConversation = null;
-    this.preparedAmbientConversation = null;
-    this.preparedAmbientOffer = false;
+    this.clearActiveDayConversation();
     this.state.startDate = this.dateKey();
     this.state.goalText = goal || UNDECIDED_GOAL;
     this.state.goalSetAt = this.dateKey();
@@ -761,16 +807,14 @@ export class SuuhimochiConversation {
     const normalized = cleanText(surface).toLowerCase();
     const storedKey = Object.keys(this.state.words).find((key) => cleanText(key).toLowerCase() === normalized);
     if (!normalized || !storedKey) return false;
-    const memoryKey = memoryWordKey(this.state.words[storedKey]!);
+    const wordId = this.state.words[storedKey]?.id;
     delete this.state.words[storedKey];
     if (this.state.lastWordSurface === storedKey) this.state.lastWordSurface = null;
     this.state.relations = this.state.relations.filter((relation) => cleanText(relation.object).toLowerCase() !== normalized);
-    this.state.memoryConversationRecords = this.state.memoryConversationRecords.filter((record) => !record.wordKeys.includes(memoryKey));
-    this.state.memoryConversationAfterthoughts = this.state.memoryConversationAfterthoughts.filter((item) => !item.wordKeys.includes(memoryKey));
-    this.state.memoryConversationRecentWordKeys = this.state.memoryConversationRecentWordKeys.filter((key) => key !== memoryKey);
-    this.state.memoryConversationRecentPairKeys = this.state.memoryConversationRecentPairKeys.filter((key) => !key.split('::').includes(memoryKey));
-    if (this.pendingMemoryConversation?.wordKeys.includes(memoryKey)) this.pendingMemoryConversation = null;
-    if (this.preparedAmbientConversation?.wordKeys.includes(memoryKey)) this.preparedAmbientConversation = null;
+    if (wordId) {
+      this.state.memoryRelations = this.state.memoryRelations.filter((relation) => relation.subjectId !== wordId && relation.objectId !== wordId);
+      this.state.openQuestions = this.state.openQuestions.filter((question) => question.wordId !== wordId);
+    }
     this.save();
     return true;
   }
@@ -789,43 +833,6 @@ export class SuuhimochiConversation {
 
   getConversationLogs() {
     return [...this.state.conversations];
-  }
-
-  getMemoryConversationRecords() {
-    return this.state.memoryConversationRecords.map((record) => ({
-      ...record,
-      wordKeys: [...record.wordKeys],
-      evidence: record.evidence.map((item) => ({ ...item })),
-    }));
-  }
-
-  getAmbientMemoryLine(): string | null {
-    while (this.state.memoryConversationAfterthoughts.length) {
-      const afterthought = this.state.memoryConversationAfterthoughts.shift();
-      if (!afterthought) break;
-      const currentKeys = new Set(Object.values(this.state.words).map(memoryWordKey));
-      if (!afterthought.wordKeys.every((key) => currentKeys.has(key))) continue;
-      this.save();
-      return afterthought.line;
-    }
-    const words = Object.values(this.state.words)
-      .filter((word) => !INTERNAL_TOPICS.has(word.surface) && !SYSTEM_WORDS.has(word.surface));
-    if (!words.length) return null;
-    const picked = words[Math.floor(this.random() * words.length)];
-    if (!picked) return null;
-    if (picked.category === 'UNKNOWN') {
-      return `${quote(picked.surface)}は名前だけ覚えてるの。何なのかは、まだ人間さんに聞けてないの。`;
-    }
-    const promptedRecall = buildPromptedLearningRecall(
-      picked.attributes['promptedQuestionId'],
-      picked.attributes['promptedLastAxisId'],
-      picked.attributes['promptedLastChoiceId'],
-      picked.surface,
-    );
-    if (promptedRecall) return promptedRecall;
-
-    const label = CATEGORY_LABELS[picked.category] ?? 'コトバ';
-    return `${quote(picked.surface)}は${label}って教えてくれたよね。覚えてるの。`;
   }
 
   getDebugSnapshot() {
@@ -918,138 +925,54 @@ export class SuuhimochiConversation {
   }
 
   private openNormalConversation(): ConversationResponse {
-    const words = this.learnedWordEntries();
-    const slot = this.takeNormalConversationSlot();
-    if (slot === 'MEMORY') {
-      const candidate = this.buildMemoryCandidate();
-      if (candidate) return this.openMemoryConversation(candidate);
-      // Older saves may have categorized words but no structured prompted
-      // answers yet. Keep the legacy recall available until enough evidence
-      // has been learned for the richer conversation.
-      if (words.length) return this.openRecall(words);
-    }
-    if (!words.length || this.random() < 0.38) return this.openNewWord();
-    if (this.random() < 0.62) return this.openPromptedLearningQuestion();
-    return this.openMood();
-  }
+    const turn = runConversationEngine({
+      intent: 'CHAT',
+      day: this.getCurrentDay(),
+      seenConversationIds: this.state.seenConversationIds,
+      random: this.random,
+    });
 
-  private takeNormalConversationSlot(): 'MEMORY' | 'OTHER' {
-    this.ensureNormalConversationDeck();
-    const slot = this.state.normalConversationDeck.shift() ?? 'OTHER';
+    if (!turn.conversation) {
+      this.session.stage = 'complete';
+      this.session.phase = 'CHAT';
+      this.session.startType = 'CHAT';
+      this.session.expected = 'NONE';
+      this.session.inputMode = 'none';
+      this.session.topic = null;
+      this.session.choices = [];
+      return this.respond(['新しい会話システムは準備中なの。'], 'complete', 'none', `NEW_${turn.intent}`);
+    }
+
+    this.activeDayConversation = turn.conversation;
+    if (!this.state.seenConversationIds.includes(turn.conversation.id)) {
+      this.state.seenConversationIds.push(turn.conversation.id);
+    }
     this.save();
-    return slot;
-  }
 
-  private ensureNormalConversationDeck() {
-    if (!this.state.normalConversationDeck.length) {
-      const deck: Array<'MEMORY' | 'OTHER'> = ['MEMORY', 'MEMORY', 'MEMORY', 'MEMORY', 'OTHER', 'OTHER'];
-      for (let index = deck.length - 1; index > 0; index -= 1) {
-        const swap = Math.floor(this.random() * (index + 1));
-        [deck[index], deck[swap]] = [deck[swap]!, deck[index]!];
-      }
-      this.state.normalConversationDeck = deck;
-      this.save();
-    }
-  }
-
-  private buildMemoryCandidate() {
-    return buildMemoryConversationCandidate(this.learnedWordEntries(), {
-      recentTemplateIds: this.state.memoryConversationRecentTemplateIds,
-      recentWordKeys: this.state.memoryConversationRecentWordKeys,
-      recentPairKeys: this.state.memoryConversationRecentPairKeys,
-      recentCalloutKinds: this.state.memoryConversationRecentCalloutKinds,
-      records: this.state.memoryConversationRecords,
-    }, this.random);
-  }
-
-  private memoryCandidateStillValid(candidate: MemoryConversationCandidate) {
-    const currentKeys = new Set(this.learnedWordEntries().map(memoryWordKey));
-    return candidate.wordKeys.every((key) => currentKeys.has(key));
-  }
-
-  private openMemoryConversation(candidate: MemoryConversationCandidate): ConversationResponse {
-    if (!this.memoryCandidateStillValid(candidate)) return this.openPromptedLearningQuestion();
-    this.pendingMemoryConversation = candidate;
-    this.state.lastNormalMode = 'RECALL';
     this.session.stage = 'followup';
     this.session.phase = 'CHAT';
-    this.session.startType = 'RECALL';
-    this.session.expected = 'MEMORY_REFLECTION';
-    this.session.inputMode = 'choice';
-    this.session.topic = candidate.evidence[0]?.wordSurface ?? candidate.wordKeys[0] ?? null;
-    this.session.choices = candidate.choices.map(({ id, label }) => ({ id, label }));
-    this.session.attributes['memoryTemplateId'] = candidate.templateId;
-    this.session.attributes['memoryFamily'] = candidate.family;
-    this.session.attributes['memoryWordKeys'] = candidate.wordKeys.join('|');
-    for (const word of this.learnedWordEntries().filter((item) => candidate.wordKeys.includes(memoryWordKey(item)))) {
-      word.lastRecalled = this.dateKey();
-      word.lastReferencedAt = this.now().getTime();
+    this.session.startType = 'CHAT';
+    this.session.topic = turn.conversation.title;
+    this.session.attributes['dayConversationId'] = turn.conversation.id;
+    if (turn.conversation.category === 'CURIOUS') {
+      this.session.expected = 'DAY_CURIOUS_WORD';
+      this.session.inputMode = 'text';
+      this.session.choices = [];
+    } else {
+      this.session.expected = 'DAY_CONVERSATION_CHOICE';
+      this.session.inputMode = 'choice';
+      this.session.choices = turn.conversation.choices.map(({ id, label }) => ({ id, label }));
     }
-    this.save();
-    return this.respond(candidate.lines, 'followup', 'choice', `MEMORY_${candidate.family}`);
-  }
-
-  private openPromptedLearningQuestion(preface: string[] = []): ConversationResponse {
-    const question = pickPromptedLearningQuestion(this.random, {
-      recentQuestionIds: this.state.promptedRecentQuestionIds,
-      recentGroups: this.state.promptedRecentGroups,
-      recentEntityKinds: this.state.promptedRecentEntityKinds,
-      recentStarterKeys: this.state.promptedRecentStarterKeys,
-      questionCounts: this.state.promptedQuestionCounts,
-      starterCounts: this.state.promptedStarterCounts,
-    });
-    if (!question) return this.openNewWord();
-
-    this.state.lastNormalMode = 'QUESTION';
-    this.state.lastPromptedQuestionId = question.id;
-    this.state.promptedRecentQuestionIds = pushRecent(this.state.promptedRecentQuestionIds, question.id, 18);
-    this.state.promptedRecentGroups = pushRecent(this.state.promptedRecentGroups, question.group, 6);
-    this.state.promptedRecentEntityKinds = pushRecent(this.state.promptedRecentEntityKinds, question.entityKind, 12);
-    this.state.promptedRecentStarterKeys = pushRecent(
-      this.state.promptedRecentStarterKeys,
-      question.selectedStarterKey,
-      120,
+    return this.respond(
+      dialogueLines(turn.conversation.opening),
+      'followup',
+      turn.conversation.category === 'CURIOUS' ? 'text' : 'choice',
+      turn.conversation.id,
+      dialoguePages(turn.conversation.opening),
     );
-    this.state.promptedQuestionCounts[question.id] = (this.state.promptedQuestionCounts[question.id] ?? 0) + 1;
-    this.state.promptedStarterCounts[question.selectedStarterKey] =
-      (this.state.promptedStarterCounts[question.selectedStarterKey] ?? 0) + 1;
-    this.save();
-
-    this.session.stage = 'topic';
-    this.session.phase = 'LEARN';
-    this.session.startType = 'QUESTION';
-    this.session.expected = 'PROMPTED_WORD';
-    this.session.inputMode = 'text';
-    this.session.topic = null;
-    this.session.category = question.category;
-    this.session.attributes['promptedQuestionId'] = question.id;
-    this.session.attributes['askedCategory'] = question.category;
-    this.session.attributes['promptedEntityKind'] = question.entityKind;
-    this.session.attributes['promptedGroup'] = question.group;
-    this.session.attributes['promptedStarterPrompt'] = question.prompt;
-    this.session.attributes['promptedStarterIndex'] = String(question.selectedStarterIndex);
-    this.session.attributes['promptedStarterKey'] = question.selectedStarterKey;
-
-    const suggestions = getPromptedLearningSuggestions(
-      question.id,
-      this.random,
-      4,
-      Object.keys(this.state.words),
-    );
-    for (let index = 0; index < 4; index += 1) {
-      const key = `promptedSuggestion${index}`;
-      const suggestion = suggestions[index];
-      if (suggestion) this.session.attributes[key] = suggestion;
-      else delete this.session.attributes[key];
-    }
-
-    return this.respond([...preface, question.prompt], 'topic', 'text', 'PROMPTED_QUESTION');
   }
 
   private openNewWord(): ConversationResponse {
-    this.state.lastNormalMode = 'WORD';
-    this.save();
-
     this.session.stage = 'topic';
     this.session.phase = 'LEARN';
     this.session.startType = 'WORD';
@@ -1057,47 +980,7 @@ export class SuuhimochiConversation {
     this.session.inputMode = 'text';
     this.session.topic = null;
 
-    return this.respond([NORMAL_CHAT_OPENINGS.newWord], 'topic', 'text', 'NEW_WORD');
-  }
-
-  private openMood(): ConversationResponse {
-    this.state.lastNormalMode = 'MOOD';
-    this.save();
-
-    this.session.stage = 'followup';
-    this.session.phase = 'CHAT';
-    this.session.startType = 'MOOD';
-    this.session.expected = 'MOOD';
-    this.session.inputMode = 'choice';
-    this.session.topic = '今日の調子';
-    this.session.choices = [...MOOD_CHOICES];
-
-    return this.respond([NORMAL_CHAT_OPENINGS.mood], 'followup', 'choice', 'MOOD');
-  }
-
-  private pickRecallWord(pool: WordEntry[]) {
-    if (!pool.length) return undefined;
-    const now = this.now().getTime();
-    const cooldownPool = pool.filter((word) => !word.lastReferencedAt || now - word.lastReferencedAt >= 10 * 60 * 1000);
-    const eligible = cooldownPool.length ? cooldownPool : pool;
-    const weights = eligible.map((word) => {
-      if (word.oshiStatus === 'YES') return 2.5;
-      if (word.userSentiment === 'LOVE') return 1.7;
-      if (word.userSentiment === 'LIKE') return 1.3;
-      return 1;
-    });
-    const total = weights.reduce((sum, weight) => sum + weight, 0);
-    let cursor = this.random() * total;
-    for (let index = 0; index < eligible.length; index += 1) {
-      cursor -= weights[index] ?? 0;
-      if (cursor < 0) return eligible[index];
-    }
-    return eligible.at(-1);
-  }
-
-  private pickOshiRecallLine(word: string) {
-    const index = Math.min(OSHI_RECALL_LINES.length - 1, Math.floor(this.random() * OSHI_RECALL_LINES.length));
-    return OSHI_RECALL_LINES[index]?.(word) ?? `そういえば、${word}って人間さんの推しだったよね。`;
+    return this.respond(['人間さん、新しいコトバをひとつ教えてほしいの。'], 'topic', 'text', 'NEW_WORD');
   }
 
   private shouldAskOshi(word: WordEntry) {
@@ -1122,207 +1005,6 @@ export class SuuhimochiConversation {
     return nextCount % interval === 0;
   }
 
-  private openRecall(words: WordEntry[]): ConversationResponse {
-    this.state.lastNormalMode = 'RECALL';
-    const candidates = words.filter((word) => word.surface !== this.state.lastWordSurface);
-    const pool = candidates.length ? candidates : words;
-    const word = this.pickRecallWord(pool);
-    if (!word) return this.openNewWord();
-
-    this.state.lastWordSurface = word.surface;
-    word.lastRecalled = this.dateKey();
-    word.lastReferencedAt = this.now().getTime();
-    this.save();
-
-    this.session.stage = 'followup';
-    this.session.phase = 'CHAT';
-    this.session.startType = 'RECALL';
-    this.session.topic = word.surface;
-    this.session.category = word.category;
-
-    const recallLines = word.oshiStatus === 'YES'
-      ? [this.pickOshiRecallLine(word.surface)]
-      : [];
-
-    const promptedRecall = buildPromptedLearningRecall(
-      word.attributes['promptedQuestionId'],
-      word.attributes['promptedLastAxisId'],
-      word.attributes['promptedLastChoiceId'],
-      word.surface,
-    );
-    if (promptedRecall && this.random() < 0.45) recallLines.push(promptedRecall);
-
-    if (this.random() < 0.5) {
-      this.session.expected = 'WORD_FEELING';
-      this.session.inputMode = 'choice';
-      this.session.choices = [...WORD_FEELING_CHOICES];
-      return this.respond([...recallLines, NORMAL_CHAT_OPENINGS.recallFeeling(word.surface)], 'followup', 'choice', 'RECALL_FEELING');
-    }
-
-    this.session.expected = 'WORD_RECENCY';
-    this.session.inputMode = 'choice';
-    this.session.choices = [...WORD_RECENCY_CHOICES];
-    return this.respond([...recallLines, NORMAL_CHAT_OPENINGS.recallRecent(word.surface)], 'followup', 'choice', 'RECALL_RECENCY');
-  }
-
-  private handlePromptedLearningSkip(label: string, logUser: boolean): ConversationResponse {
-    if (logUser) {
-      this.session.lastUserText = label;
-      this.log('USER', label);
-    }
-
-    const skipCount = Number(this.session.attributes['promptedSkipCount'] ?? '0') + 1;
-    this.session.attributes['promptedSkipCount'] = String(skipCount);
-    this.session.topic = null;
-
-    if (skipCount >= 3) {
-      return this.finishPromptedConversation([
-        '今日はぼくの質問が空振りの日なの。',
-        '知らないものを無理にひねり出すより、また別の日に聞くの。',
-      ]);
-    }
-
-    const line = skipCount === 1
-      ? 'そっか。じゃあ、別のところから聞いてみるの。'
-      : 'むむ、これも外れたのね。じゃあ最後に、ぜんぜん違う方向から聞くの。';
-
-    return this.openPromptedLearningQuestion([line]);
-  }
-
-  private handlePromptedLearningText(text: string, logUser = true): ConversationResponse {
-    const surface = text.trim();
-    const value = cleanText(surface);
-    if (logUser) {
-      this.session.lastUserText = surface;
-      this.log('USER', surface);
-    }
-    if (PROMPTED_SKIP_ANSWERS.test(value)) {
-      return this.handlePromptedLearningSkip(surface || 'わかんない', false);
-    }
-    if (!value) return this.respond(['コトバをひとつ、聞かせてほしいの。'], 'topic', 'text', 'PROMPTED_EMPTY');
-    if (value.length > MAX_WORD_LENGTH || /[。！？!?\n\r]/.test(value)) {
-      return this.respond(['文章じゃなくて、コトバをひとつだけ聞かせてほしいの。'], 'topic', 'text', 'PROMPTED_WORD_ONLY');
-    }
-
-    if (isTooGenericPromptedAnswer(value)) {
-      return this.respond([
-        `「${surface}」みたいな種類じゃなくて、作品名や人の名前みたいな固有の名前をひとつ知りたいの。`,
-      ], 'topic', 'text', 'PROMPTED_NEEDS_NAME');
-    }
-
-    const question = findPromptedLearningQuestion(this.session.attributes['promptedQuestionId']);
-    if (!question) return this.openPromptedLearningQuestion();
-
-    // A prompted question asks for something new to talk about.  If the
-    // player enters a word that is already in memory (or one of the built-in
-    // common words), acknowledge it briefly but keep the text input open for a
-    // different word.  Do not call ensureWord here: this path must not create
-    // a duplicate entry or increment an existing word's mention count.
-    const knownWord = Object.values(this.state.words)
-      .find((entry) => cleanText(entry.surface) === value);
-    if (knownWord) {
-      this.session.topic = null;
-      this.session.expected = 'PROMPTED_WORD';
-      this.session.inputMode = 'text';
-      this.session.choices = [];
-      return this.respond([
-        `「${knownWord.surface}」は、前に教えてくれたよね。${CATEGORY_LABELS[knownWord.category] ?? 'コトバ'}として覚えてるの。`,
-        'それはもう知ってるから、別のコトバをひとつ教えてほしいの。',
-      ], 'topic', 'text', 'PROMPTED_ALREADY_KNOWN');
-    }
-
-    const commonKnowledge = findCommonKnowledge(value);
-    if (commonKnowledge) {
-      this.session.topic = null;
-      this.session.expected = 'PROMPTED_WORD';
-      this.session.inputMode = 'text';
-      this.session.choices = [];
-      return this.respond([
-        commonKnowledgeReaction(surface, commonKnowledge, this.random),
-        'それは知ってるから、別のコトバをひとつ教えてほしいの。',
-      ], 'topic', 'text', 'PROMPTED_COMMON_KNOWN');
-    }
-
-    // The category is known from Suuhimochi's question, so the word can be
-    // registered immediately.  The next step is not a generic correctness
-    // check: it asks one category-specific conversation axis and stores the
-    // player's answer as a semantic attribute.
-    const word = this.ensureWord(surface, question.category);
-    if (word.category === 'UNKNOWN') word.category = question.category;
-    word.attributes['learnedBy'] = 'prompted_conversation';
-    word.attributes['askedCategory'] = question.category;
-    word.attributes['promptedQuestionId'] = question.id;
-    word.attributes['promptedEntityKind'] = question.entityKind;
-    word.attributes['promptedGroup'] = question.group;
-    word.attributes['promptedStarterIndex'] = this.session.attributes['promptedStarterIndex'] ?? '';
-    word.attributes['promptedStarterKey'] = this.session.attributes['promptedStarterKey'] ?? '';
-    word.attributes['promptedStarterPrompt'] = this.session.attributes['promptedStarterPrompt'] ?? '';
-    word.lastSeen = this.now().toISOString();
-
-    const axis = pickPromptedLearningAxis(question, word.attributes, this.random);
-    if (!axis) {
-      this.save();
-      return this.finishPromptedConversation([`${word.surface}のこと、今日は名前を覚えておくの。`]);
-    }
-
-    this.session.topic = word.surface;
-    this.session.category = word.category;
-    this.session.stage = 'followup';
-    this.session.phase = 'LEARN';
-    // Keep the existing ExpectedAnswer name for compatibility with the UI and
-    // conversationTypes.  It now means "answer the prompted conversation axis".
-    this.session.expected = 'PROMPTED_CORRECTION';
-    this.session.inputMode = 'choice';
-    this.session.choices = axis.choices.map(({ id, label }) => ({ id, label }));
-    this.session.attributes['promptedWord'] = word.surface;
-    this.session.attributes['promptedAxisId'] = axis.id;
-    this.session.attributes['promptedAttributeKey'] = axis.attributeKey;
-    this.save();
-
-    return this.respond([
-      axis.prompt(word.surface),
-    ], 'followup', 'choice', 'PROMPTED_AXIS');
-  }
-
-  private handlePromptedLearningCorrection(choice: ConversationChoice): ConversationResponse {
-    const topic = this.session.topic;
-    const word = topic ? this.state.words[topic] : undefined;
-    if (!word || !topic) {
-      return this.finishPromptedConversation(['あれ……うまくつながらなかったの。また今度聞かせて。']);
-    }
-
-    const questionId = this.session.attributes['promptedQuestionId'];
-    const axisId = this.session.attributes['promptedAxisId'];
-    const axis = findPromptedLearningAxis(questionId, axisId);
-    const selected = findPromptedLearningChoice(questionId, axisId, choice.id);
-
-    if (!axis || !selected) {
-      return this.finishPromptedConversation(['むむ……今の答え、うまく受け取れなかったの。また今度聞かせて。']);
-    }
-
-    // Store the actual meaning of the selected answer instead of a generic
-    // "correct / almost / wrong" flag.  The label is also kept so debug views
-    // and future UI can show what Suuhimochi learned without decoding enums.
-    word.attributes[axis.attributeKey] = selected.value;
-    word.attributes[`${axis.attributeKey}Label`] = selected.memoryLabel;
-    word.attributes['promptedQuestionId'] = questionId ?? '';
-    word.attributes['promptedLastAxisId'] = axis.id;
-    word.attributes['promptedLastChoiceId'] = selected.id;
-    word.attributes['promptedLastMemoryLabel'] = selected.memoryLabel;
-    word.attributes['learnedBy'] = 'prompted_conversation';
-    word.lastSeen = this.now().toISOString();
-    word.importance = this.calculateImportance(word);
-    this.recordEvent('LEARN', topic, selected.memoryLabel, word.userSentiment);
-    this.save();
-
-    // Do not repeat the player's selected meaning before the conclusion.
-    // The visible ending is only Suuhimochi's own slightly-off opinion.
-    // selected.reply remains as a fallback for an axis that has no opinion.
-    const opinion = buildPromptedLearningOpinion(questionId, axisId, selected.id, topic);
-    const lines = opinion ? [opinion] : selected.reply(topic);
-    return this.finishPromptedConversation(lines);
-  }
-
   private handleNewWord(text: string, logUser = true): ConversationResponse {
     const surface = text.trim();
     const value = cleanText(surface);
@@ -1343,7 +1025,7 @@ export class SuuhimochiConversation {
       this.session.attributes['commonCategory'] = commonKnowledge.category;
       // Common words are not added to the player's taught-word memory. They
       // remain a built-in baseline, while the original spelling stays in logs.
-      return this.finishConversation([commonKnowledgeReaction(surface, commonKnowledge, this.random)]);
+      return this.finishConversation([`${quote(surface)}は知ってるの。`]);
     }
 
     if (SYSTEM_WORDS.has(value)) {
@@ -1371,6 +1053,7 @@ export class SuuhimochiConversation {
 
     const word = this.ensureWord(topic, category);
     word.category = category;
+    if (word.knowledgeLevel === 'UNKNOWN') word.knowledgeLevel = 'PARTIAL';
     word.attributes['categoryLabel'] = CATEGORY_LABELS[category] ?? 'その他';
     this.save();
 
@@ -1409,6 +1092,8 @@ export class SuuhimochiConversation {
     const word = this.ensureWord(topic, this.session.category);
     word.attributes['subCategoryId'] = selected.id;
     word.attributes['subCategoryLabel'] = selected.label;
+    word.subcategory = selected.id;
+    if (word.knowledgeLevel === 'UNKNOWN') word.knowledgeLevel = 'PARTIAL';
     this.save();
 
     this.session.stage = 'followup';
@@ -1442,18 +1127,16 @@ export class SuuhimochiConversation {
     }
 
     switch (this.session.expected) {
-      case 'MOOD':
-        return this.handleMoodChoice(choice);
+      case 'DAY_CONVERSATION_CHOICE':
+        return this.handleDayConversationChoice(choice);
+      case 'DAY_CURIOUS_KNOWN_CHOICE':
+        return this.handleCuriousChoice(choice, 'known');
+      case 'DAY_CURIOUS_UNKNOWN_CHOICE':
+        return this.handleCuriousChoice(choice, 'unknown');
       case 'WORD_FEELING':
         return this.handleWordFeelingChoice(choice);
-      case 'PROMPTED_CORRECTION':
-        return this.handlePromptedLearningCorrection(choice);
       case 'OSHI_CONFIRM':
         return this.handleOshiChoice(choice);
-      case 'WORD_RECENCY':
-        return this.handleWordRecencyChoice(choice);
-      case 'MEMORY_REFLECTION':
-        return this.handleMemoryConversationChoice(choice);
       case 'GOAL_STATUS':
         return this.handleGoalStatusChoice(choice);
       case 'GOAL_ACTION':
@@ -1463,14 +1146,326 @@ export class SuuhimochiConversation {
     }
   }
 
-  private handleMoodChoice(choice: ConversationChoice): ConversationResponse {
-    const sentiment = sentimentForChoice(choice.id);
-    this.session.attributes['mood'] = choice.label;
-    this.recordEvent('TALK', '今日の調子', choice.label, sentiment);
+  private handleCuriousWord(text: string): ConversationResponse {
+    const conversation = this.activeDayConversation?.category === 'CURIOUS'
+      ? this.activeDayConversation
+      : null;
+    const surface = text.trim();
+    const value = cleanText(surface);
+    if (!conversation) return this.finishConversation();
+    if (!value) return this.respond(['一個だけ教えてほしいの。'], 'followup', 'text', 'CURIOUS_WORD_EMPTY');
+    if (value.length > MAX_WORD_LENGTH || /[。！？!?\n\r]/.test(value)) {
+      return this.respond(['長いお話じゃなくて、今は名前を一個だけ教えてほしいの。'], 'followup', 'text', 'CURIOUS_WORD_ONLY');
+    }
 
-    if (choice.id === 'MOOD_GOOD') return this.finishConversation(['おお、元気なの。なんだかぼくも嬉しいの。']);
-    if (choice.id === 'MOOD_TIRED') return this.finishConversation(['そっか。今日はちょっとゆっくりでもいいの。']);
-    return this.finishConversation(['ふつうの日も、ちゃんと一日なの。']);
+    const existing = this.findWordBySurface(surface);
+    const common = findCommonKnowledge(value);
+    const known = Boolean(
+      common
+      || SYSTEM_WORDS.has(value)
+      || existing?.knowledgeLevel === 'KNOWN',
+    );
+    const category = common?.category
+      ?? (existing?.category !== 'UNKNOWN' ? existing?.category : undefined)
+      ?? conversation.context.category
+      ?? 'UNKNOWN';
+    const word = this.ensureWord(
+      surface,
+      category,
+      known ? 'KNOWN' : (category === 'UNKNOWN' ? 'UNKNOWN' : 'PARTIAL'),
+    );
+    word.lastUsedInConversationDay = this.getCurrentDay();
+    this.session.topic = word.surface;
+    this.session.category = word.category;
+    this.activeCuriousWord = word;
+    this.activeCuriousRelationIds = [];
+    this.activeCuriousOpenQuestionIds = [];
+
+    if (category !== 'UNKNOWN') {
+      this.activeCuriousRelationIds.push(this.rememberMeaningRelation(
+        word.id,
+        'IS_A',
+        `concept:${category.toLowerCase()}`,
+        'CONTEXT_INFERRED',
+      ));
+    }
+    for (const relationType of conversation.context.humanRelations) {
+      this.activeCuriousRelationIds.push(this.rememberMeaningRelation(
+        'human',
+        relationType,
+        word.id,
+        'USER_EXPLICIT',
+      ));
+    }
+
+    this.activeCuriousRelatedWord = conversation.id === 'DAY01_CURIOUS_05'
+      ? this.findRelatedWordCandidate(word)
+      : null;
+    this.save();
+
+    if (known && conversation.id === 'DAY01_CURIOUS_05' && !this.activeCuriousRelatedWord) {
+      this.session.expected = 'DAY_CURIOUS_UNKNOWN_CHOICE';
+      this.session.inputMode = 'choice';
+      this.session.choices = conversation.unknown.choices.map(({ id, label }) => ({ id, label }));
+      return this.respond(
+        this.fillCuriousLines(sayForRuntime(
+          '{word}。', 'そこは知ってるの。', '人間さん、そこによくいるんだ。',
+          'そこで、人間さんは何をすることが多い？',
+        )),
+        'followup',
+        'choice',
+        `${conversation.id}_KNOWN_PURPOSE`,
+      );
+    }
+
+    const path = known ? conversation.known : conversation.unknown;
+    this.session.expected = known ? 'DAY_CURIOUS_KNOWN_CHOICE' : 'DAY_CURIOUS_UNKNOWN_CHOICE';
+    this.session.inputMode = 'choice';
+    this.session.choices = path.choices.map(({ id, label }) => ({ id, label }));
+    const responseBeats = this.fillCuriousBeats(path.response);
+    return this.respond(
+      dialogueLines(responseBeats),
+      'followup',
+      'choice',
+      `${conversation.id}_${known ? 'KNOWN' : 'UNKNOWN'}`,
+      dialoguePages(responseBeats),
+    );
+  }
+
+  private handleCuriousChoice(choice: ConversationChoice, path: 'known' | 'unknown'): ConversationResponse {
+    const conversation = this.activeDayConversation?.category === 'CURIOUS'
+      ? this.activeDayConversation
+      : null;
+    const word = this.activeCuriousWord;
+    const branch = conversation?.[path].choices.find((item) => item.id === choice.id);
+    if (!conversation || !word || !branch) return this.finishConversation();
+
+    this.state.conversationChoiceRecords.push({
+      conversationId: conversation.id,
+      choiceId: branch.id,
+      choiceLabel: branch.label,
+      day: this.getCurrentDay(),
+      timestamp: this.now().toISOString(),
+    });
+    this.applyCuriousMemoryEffect(conversation, word, branch);
+    this.state.memoryEpisodes.push({
+      id: `episode_${this.session.id}_${this.state.memoryEpisodes.length + 1}`,
+      day: this.getCurrentDay(),
+      conversationId: conversation.id,
+      topicWordIds: [word.id],
+      learnedRelationIds: [...new Set(this.activeCuriousRelationIds)],
+      createdOpenQuestionIds: [...new Set(this.activeCuriousOpenQuestionIds)],
+      timestamp: this.now().toISOString(),
+    });
+    this.save();
+
+    const responseBeats = this.fillCuriousBeats(branch.response);
+    const response = dialogueLines(responseBeats);
+    this.session.topic = null;
+    this.clearActiveDayConversation();
+    return this.finishConversation(response, dialoguePages(responseBeats));
+  }
+
+  private applyCuriousMemoryEffect(
+    conversation: CuriousConversation,
+    word: WordEntry,
+    branch: CuriousConversationChoice,
+  ) {
+    const effect = branch.memory;
+    if (effect.category && word.category === 'UNKNOWN') {
+      word.category = effect.category;
+    }
+    if (effect.subcategory) {
+      word.subcategory = effect.subcategory;
+      word.attributes['semanticSubcategory'] = effect.subcategory;
+      this.resolveOpenQuestions(word.id, 'SUBCATEGORY');
+    }
+    if (effect.category) this.resolveOpenQuestions(word.id, 'CATEGORY');
+    if (effect.knowledgeLevel && word.knowledgeLevel !== 'KNOWN') word.knowledgeLevel = effect.knowledgeLevel;
+    word.lastSeenDay = this.getCurrentDay();
+    word.lastSeen = this.now().toISOString();
+
+    if (effect.relationQualifier) {
+      for (const relationType of conversation.context.humanRelations) {
+        const id = this.rememberMeaningRelation(
+          'human', relationType, word.id, 'USER_EXPLICIT',
+          effect.relationQualifier,
+        );
+        this.activeCuriousRelationIds.push(id);
+      }
+    }
+    for (const relationType of effect.humanRelations ?? []) {
+      this.activeCuriousRelationIds.push(this.rememberMeaningRelation(
+        'human', relationType, word.id, 'USER_EXPLICIT', effect.relationQualifier,
+      ));
+    }
+
+    if (conversation.id === 'DAY01_CURIOUS_05' && pathIsKnownChoice(branch.id) && this.activeCuriousRelatedWord) {
+      const status = effect.relationStatus ?? 'ACTIVE';
+      this.activeCuriousRelationIds.push(this.rememberMeaningRelation(
+        word.id,
+        'RELATED_TO',
+        this.activeCuriousRelatedWord.id,
+        status === 'REJECTED' ? 'USER_CORRECTION' : 'USER_EXPLICIT',
+        effect.relationQualifier,
+        status,
+      ));
+    } else if (effect.relatedConcept) {
+      const type: MemoryRelationType = conversation.id === 'DAY01_CURIOUS_05' ? 'RELATED_TO' : 'IS_A';
+      this.activeCuriousRelationIds.push(this.rememberMeaningRelation(
+        word.id,
+        type,
+        `concept:${effect.relatedConcept}`,
+        'USER_EXPLICIT',
+        effect.relatedConceptLabel,
+        effect.relationStatus ?? 'ACTIVE',
+      ));
+    }
+
+    for (const question of effect.openQuestions ?? []) {
+      this.activeCuriousOpenQuestionIds.push(this.rememberOpenQuestion(
+        word.id,
+        question.field,
+        question.questionHint,
+      ));
+    }
+  }
+
+  private findWordBySurface(surface: string) {
+    const normalized = cleanText(surface).toLocaleLowerCase('ja');
+    return Object.values(this.state.words).find(
+      (word) => cleanText(word.surface).toLocaleLowerCase('ja') === normalized,
+    );
+  }
+
+  private findRelatedWordCandidate(current: WordEntry) {
+    return Object.values(this.state.words)
+      .filter((word) => (
+        word.id !== current.id
+        && !INTERNAL_TOPICS.has(word.surface)
+        && !this.state.memoryRelations.some((relation) => (
+          relation.subjectId === current.id
+          && relation.type === 'RELATED_TO'
+          && relation.objectId === word.id
+        ))
+      ))
+      .sort((a, b) => b.lastSeenDay - a.lastSeenDay || b.lastSeen.localeCompare(a.lastSeen))[0] ?? null;
+  }
+
+  private fillCuriousLines(beats: readonly DialogueBeat[]) {
+    return dialogueLines(this.fillCuriousBeats(beats));
+  }
+
+  private fillCuriousBeats(beats: readonly DialogueBeat[]) {
+    const word = this.activeCuriousWord?.surface ?? '';
+    const relatedWord = this.activeCuriousRelatedWord?.surface ?? '';
+    return beats.map((beat) => ({
+      ...beat,
+      text: beat.text
+        ?.replaceAll('{word}', word)
+        .replaceAll('{relatedWord}', relatedWord),
+    }));
+  }
+
+  private rememberMeaningRelation(
+    subjectId: string,
+    type: MemoryRelationType,
+    objectId: string,
+    source: MemoryRelation['source'],
+    qualifier?: string,
+    status: MemoryRelation['status'] = 'ACTIVE',
+  ) {
+    const existing = this.state.memoryRelations.find((relation) => (
+      relation.subjectId === subjectId
+      && relation.type === type
+      && relation.objectId === objectId
+    ));
+    if (existing) {
+      existing.source = source;
+      existing.status = status;
+      existing.qualifier = qualifier ?? existing.qualifier;
+      existing.lastSeenDay = this.getCurrentDay();
+      existing.mentionCount += 1;
+      return existing.id;
+    }
+    const relation: MemoryRelation = {
+      id: `meaning_relation_${this.state.memoryRelations.length + 1}_${this.now().getTime()}`,
+      subjectId,
+      type,
+      objectId,
+      source,
+      status,
+      firstSeenDay: this.getCurrentDay(),
+      lastSeenDay: this.getCurrentDay(),
+      mentionCount: 1,
+    };
+    if (qualifier) relation.qualifier = qualifier;
+    this.state.memoryRelations.push(relation);
+    return relation.id;
+  }
+
+  private rememberOpenQuestion(wordId: string, field: OpenQuestionField, questionHint: string) {
+    const existing = this.state.openQuestions.find((question) => (
+      question.wordId === wordId
+      && question.field === field
+      && question.questionHint === questionHint
+      && question.status === 'OPEN'
+    ));
+    if (existing) return existing.id;
+    const question: OpenQuestion = {
+      id: `open_question_${this.state.openQuestions.length + 1}_${this.now().getTime()}`,
+      wordId,
+      field,
+      questionHint,
+      createdDay: this.getCurrentDay(),
+      status: 'OPEN',
+    };
+    this.state.openQuestions.push(question);
+    return question.id;
+  }
+
+  private resolveOpenQuestions(wordId: string, field: OpenQuestionField) {
+    for (const question of this.state.openQuestions) {
+      if (question.wordId === wordId && question.field === field && question.status === 'OPEN') {
+        question.status = 'RESOLVED';
+      }
+    }
+  }
+
+  private clearActiveDayConversation() {
+    this.activeDayConversation = null;
+    this.activeCuriousWord = null;
+    this.activeCuriousRelatedWord = null;
+    this.activeCuriousRelationIds = [];
+    this.activeCuriousOpenQuestionIds = [];
+  }
+
+  private handleDayConversationChoice(choice: ConversationChoice): ConversationResponse {
+    const conversation = this.activeDayConversation?.category === 'SELF' ? this.activeDayConversation : null;
+    const branch = conversation?.choices.find((item) => item.id === choice.id);
+    if (!conversation || !branch) {
+      this.session.expected = 'NONE';
+      this.session.inputMode = 'none';
+      this.session.choices = [];
+      return this.finishConversation();
+    }
+
+    this.state.conversationChoiceRecords.push({
+      conversationId: conversation.id,
+      choiceId: branch.id,
+      choiceLabel: branch.label,
+      day: this.getCurrentDay(),
+      timestamp: this.now().toISOString(),
+    });
+    this.save();
+
+    this.session.expected = 'NONE';
+    this.session.inputMode = 'none';
+    this.session.choices = [];
+    // この選択は人間さんの単語記憶ではないため、旧 memories には混ぜない。
+    this.session.topic = null;
+    this.clearActiveDayConversation();
+    return this.finishConversation(dialogueLines(branch.response), dialoguePages(branch.response));
   }
 
   private handleWordFeelingChoice(choice: ConversationChoice): ConversationResponse {
@@ -1481,6 +1476,7 @@ export class SuuhimochiConversation {
       word = this.state.words[topic];
       if (word) {
         word.userSentiment = sentiment;
+        word.knowledgeLevel = 'KNOWN';
         word.attributes['feeling'] = choice.label;
         word.lastSeen = this.now().toISOString();
         this.recordEvent('RECALL', topic, choice.label, sentiment);
@@ -1522,79 +1518,6 @@ export class SuuhimochiConversation {
     }
     const reaction = OSHI_NO_REACTIONS[Math.min(OSHI_NO_REACTIONS.length - 1, Math.floor(this.random() * OSHI_NO_REACTIONS.length))];
     return this.finishConversation([reaction?.(topic) ?? 'そっか。大好きだけど、推しとはちょっと違うんだね。']);
-  }
-
-  private handleWordRecencyChoice(choice: ConversationChoice): ConversationResponse {
-    const topic = this.session.topic;
-    if (topic) {
-      const word = this.state.words[topic];
-      if (word) {
-        word.attributes['recency'] = choice.label;
-        word.lastSeen = this.now().toISOString();
-        this.recordEvent('RECALL', topic, choice.label, word.userSentiment);
-      }
-    }
-
-    if (choice.id === 'WORD_OFTEN') return this.finishConversation(['まだよく出会うコトバなんだね。']);
-    if (choice.id === 'WORD_NOT_RECENT') return this.finishConversation(['最近はあんまり出てこないんだね。']);
-    return this.finishConversation(['たまに出会うくらいなんだね。']);
-  }
-
-  private handleMemoryConversationChoice(choice: ConversationChoice): ConversationResponse {
-    const candidate = this.pendingMemoryConversation;
-    const selected = candidate?.choices.find((item) => item.id === choice.id);
-    if (!candidate || !selected || !this.memoryCandidateStillValid(candidate)) {
-      this.pendingMemoryConversation = null;
-      return this.finishConversation(['うまく続きを受け取れなかったの。また別の時に話すの。']);
-    }
-
-    const record: MemoryConversationRecord = {
-      id: `memory_conversation_${this.now().getTime()}_${this.state.memoryConversationRecords.length + 1}`,
-      templateId: candidate.templateId,
-      family: candidate.family,
-      calloutKind: candidate.calloutKind,
-      wordKeys: [...candidate.wordKeys],
-      evidence: candidate.evidence.map((item) => ({ ...item })),
-      hypothesis: candidate.hypothesis,
-      choiceId: selected.id,
-      choiceLabel: selected.label,
-      responseMeaning: selected.meaning,
-      reaction: selected.reaction,
-      date: this.now().toISOString(),
-      day: this.getCurrentDay(),
-      usedAsContinuation: false,
-    };
-    if (candidate.continuationOf) {
-      const previous = this.state.memoryConversationRecords.find((item) => item.id === candidate.continuationOf);
-      if (previous) previous.usedAsContinuation = true;
-    }
-    this.state.memoryConversationRecords.push(record);
-    this.state.memoryConversationRecentTemplateIds = pushRecent(this.state.memoryConversationRecentTemplateIds, candidate.templateId, 12);
-    this.state.memoryConversationRecentWordKeys = candidate.wordKeys.reduce((items, key) => pushRecent(items, key, 10), this.state.memoryConversationRecentWordKeys);
-    if (candidate.wordKeys.length === 2) {
-      this.state.memoryConversationRecentPairKeys = pushRecent(
-        this.state.memoryConversationRecentPairKeys,
-        memoryPairKey(candidate.wordKeys[0] ?? '', candidate.wordKeys[1] ?? ''),
-        8,
-      );
-    }
-    this.state.memoryConversationRecentCalloutKinds = pushRecent(
-      this.state.memoryConversationRecentCalloutKinds,
-      candidate.calloutKind,
-      6,
-    );
-    this.state.memoryConversationAfterthoughts.push({
-      id: `memory_afterthought_${this.now().getTime()}`,
-      recordId: record.id,
-      wordKeys: [...candidate.wordKeys],
-      line: selected.afterthought,
-      createdAt: this.now().toISOString(),
-    });
-    this.state.memoryConversationAfterthoughts = this.state.memoryConversationAfterthoughts.slice(-8);
-    this.pendingMemoryConversation = null;
-    this.recordEvent('TALK', candidate.evidence[0]?.wordSurface ?? this.session.topic ?? '想起会話', selected.meaning, 'NEUTRAL');
-    this.save();
-    return this.finishConversation(selected.reply);
   }
 
   private handleGoalStatusChoice(choice: ConversationChoice): ConversationResponse {
@@ -1644,18 +1567,20 @@ export class SuuhimochiConversation {
     return this.finishConversation(['うん。もう一度試して、また結果を見ようね。']);
   }
 
-  private learnedWordEntries() {
-    return Object.values(this.state.words)
-      .filter((word) => word.category !== 'UNKNOWN' && !SYSTEM_WORDS.has(word.surface) && !INTERNAL_TOPICS.has(word.surface))
-      .sort((a, b) => b.importance - a.importance || b.mentionCount - a.mentionCount);
-  }
-
-  private ensureWord(surface: string, category: WordCategory): WordEntry {
-    const existing = this.state.words[surface];
+  private ensureWord(
+    surface: string,
+    category: WordCategory,
+    knowledgeLevel?: KnowledgeLevel,
+  ): WordEntry {
+    const existing = this.findWordBySurface(surface);
     if (existing) {
       existing.lastSeen = this.now().toISOString();
+      existing.lastSeenDay = this.getCurrentDay();
       existing.mentionCount += 1;
       if (existing.category === 'UNKNOWN' && category !== 'UNKNOWN') existing.category = category;
+      if (knowledgeLevel === 'KNOWN' || (knowledgeLevel === 'PARTIAL' && existing.knowledgeLevel === 'UNKNOWN')) {
+        existing.knowledgeLevel = knowledgeLevel;
+      }
       existing.oshiStatus ??= 'UNKNOWN';
       existing.importance = this.calculateImportance(existing);
       this.save();
@@ -1667,6 +1592,9 @@ export class SuuhimochiConversation {
       id: `word_${now.replace(/\D/g, '').slice(0, 14)}_${Object.keys(this.state.words).length + 1}`,
       surface,
       category,
+      knowledgeLevel: knowledgeLevel ?? (category === 'UNKNOWN' ? 'UNKNOWN' : 'KNOWN'),
+      firstSeenDay: this.getCurrentDay(),
+      lastSeenDay: this.getCurrentDay(),
       firstSeen: now,
       lastSeen: now,
       mentionCount: 1,
@@ -1728,24 +1656,14 @@ export class SuuhimochiConversation {
     this.save();
   }
 
-  private finishPromptedConversation(lines: string[]) {
+  private finishConversation(preface: string[] = [], pages?: DialoguePage[]) {
     this.rememberSession();
     this.session.expected = 'NONE';
     this.session.inputMode = 'none';
     this.session.choices = [];
     this.session.phase = 'CLOSE';
     this.session.stage = 'complete';
-    return this.respond(lines, 'complete', 'none', 'PROMPTED_CLOSE');
-  }
-
-  private finishConversation(preface: string[] = []) {
-    this.rememberSession();
-    this.session.expected = 'NONE';
-    this.session.inputMode = 'none';
-    this.session.choices = [];
-    this.session.phase = 'CLOSE';
-    this.session.stage = 'complete';
-    return this.respond([...preface, 'また話そうね。'], 'complete', 'none', 'CLOSE');
+    return this.respond(preface, 'complete', 'none', 'CLOSE', pages);
   }
 
   private respond(
@@ -1753,6 +1671,7 @@ export class SuuhimochiConversation {
     stage: ConversationStage,
     inputMode: InputMode,
     template: string,
+    pages?: DialoguePage[],
   ): ConversationResponse {
     this.session.stage = stage;
     this.session.inputMode = inputMode;
@@ -1778,6 +1697,7 @@ export class SuuhimochiConversation {
 
     return {
       lines,
+      pages: pages?.length ? pages : dialoguePagesFromLines(lines),
       stage,
       day: this.getCurrentDay(),
       phaseLabel: this.getPhaseLabel(),
