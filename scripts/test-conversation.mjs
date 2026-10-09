@@ -49,12 +49,14 @@ try {
     if (response.lines.length > 1) assert.ok(response.pages.length < response.lines.length);
   };
 
-  run('Day1会話エンジンは未閲覧の完成台本を返す', () => {
+  run('Day1・Day2会話エンジンは未閲覧の完成台本を返す', () => {
     const result = runConversationEngine({ intent: 'CHAT', day: 1, seenConversationIds: [], random: () => 0 });
     assert.equal(result.conversation?.id, 'DAY01_SELF_01');
     assert.equal(result.conversation?.choices.length, 3);
     assert.equal(result.conversation?.opening[0]?.text, '人間さん。');
-    assert.equal(runConversationEngine({ intent: 'CHAT', day: 2, seenConversationIds: [], random: () => 0 }).conversation, undefined);
+    const day2 = runConversationEngine({ intent: 'CHAT', day: 2, seenConversationIds: [], random: () => 0 }).conversation;
+    assert.equal(day2?.id, 'DAY02_SELF_01');
+    assert.equal(day2?.choices.length, 3);
   });
 
   run('Day1前半6会話は未閲覧優先で進め、選択と終点を保存する', () => {
@@ -144,6 +146,65 @@ try {
     assert.equal(reloaded.getMemoryEpisodes().length, 6);
     assert.equal(reloaded.getWordEntries().find((entry) => entry.surface === 'ビリヤニ')?.subcategory, 'RICE');
     assert.ok(reloaded.getOpenQuestions().some((question) => question.wordId === biriyani?.id));
+  });
+
+  run('Day2の前半6会話の後に共通分岐の後半6会話が続き、意味記憶を保存する', () => {
+    const storage = memory();
+    const conversation = create(storage, undefined, () => 0);
+    prepare(conversation);
+    let opening = conversation.advanceDay();
+    for (let index = 0; index < 6; index += 1) {
+      if (index > 0) opening = conversation.startSession();
+      assert.equal(opening.stage, 'followup');
+      assert.equal(opening.inputMode, 'choice');
+      assert.equal(opening.choices.length, 3);
+      assert.match(opening.debug.selectedTemplate, /^DAY02_SELF_0[1-6]$/);
+      assertPagedResponse(opening);
+      const ending = conversation.choose(opening.choices[0].id);
+      assert.equal(ending.stage, 'complete');
+      assertPagedResponse(ending);
+    }
+    assert.deepEqual(conversation.getSeenConversationIds().filter((id) => id.startsWith('DAY02_')).sort(), [
+      'DAY02_SELF_01', 'DAY02_SELF_02', 'DAY02_SELF_03',
+      'DAY02_SELF_04', 'DAY02_SELF_05', 'DAY02_SELF_06',
+    ]);
+
+    const cases = [
+      ['カレー', 'DAY02_CURIOUS_01_EVERY_MORNING'],
+      ['音楽を聴く', 'DAY02_CURIOUS_02_CALM'],
+      ['空', 'DAY02_CURIOUS_03_CHANGE'],
+      ['片付け', 'DAY02_CURIOUS_04_TEDIOUS'],
+      ['料理', 'DAY02_CURIOUS_05_PRACTICE'],
+      ['映画を見る', 'DAY02_CURIOUS_06_UNCERTAIN'],
+    ];
+    for (const [word, choiceId] of cases) {
+      const curiousOpening = conversation.startSession();
+      assert.equal(curiousOpening.inputMode, 'text');
+      assert.match(curiousOpening.debug.selectedTemplate, /^DAY02_CURIOUS_0[1-6]$/);
+      const followup = conversation.submit(word);
+      assert.equal(followup.inputMode, 'choice');
+      assert.ok(followup.choices.some((choice) => choice.id === choiceId));
+      const ending = conversation.choose(choiceId);
+      assert.equal(ending.stage, 'complete');
+      assertPagedResponse(ending);
+    }
+
+    const relations = conversation.getMemoryRelations();
+    const entry = (surface) => conversation.getWordEntries().find((word) => word.surface === surface);
+    assert.ok(relations.some((relation) => relation.type === 'FREQUENTLY_DOES' && relation.objectId === entry('カレー')?.id));
+    assert.ok(relations.some((relation) => relation.type === 'USED_FOR' && relation.objectId === entry('音楽を聴く')?.id));
+    assert.ok(relations.some((relation) => relation.type === 'STRUGGLES_WITH' && relation.objectId === entry('片付け')?.id));
+    assert.ok(relations.some((relation) => relation.type === 'IS_GOOD_AT' && relation.objectId === entry('料理')?.id));
+    assert.ok(relations.some((relation) => relation.type === 'LOOKS_FORWARD_TO' && relation.objectId === entry('映画を見る')?.id));
+    assert.ok(!relations.some((relation) => relation.type === 'LIKES' && relation.objectId === entry('料理')?.id));
+    assert.ok(!relations.some((relation) => relation.type === 'DISLIKES' && relation.objectId === entry('片付け')?.id));
+    assert.equal(entry('カレー')?.knowledgeLevel, 'KNOWN');
+    assert.equal(conversation.getMemoryEpisodes().filter((episode) => episode.conversationId.startsWith('DAY02_CURIOUS_')).length, 6);
+    assert.equal(conversation.getOpenQuestions().filter((question) => question.status === 'OPEN').length, 6);
+
+    const reloaded = create(storage, undefined, () => 0);
+    assert.equal(reloaded.getMemoryEpisodes().filter((episode) => episode.conversationId.startsWith('DAY02_CURIOUS_')).length, 6);
+    assert.ok(reloaded.getMemoryRelations().some((relation) => relation.type === 'LOOKS_FORWARD_TO' && relation.objectId === entry('映画を見る')?.id));
   });
 
   run('同じ正規化文字列は同じWordEntryを更新する', () => {

@@ -1,6 +1,8 @@
 const loadedImages = new Set<string>();
 const loadingImages = new Map<string, Promise<void>>();
 
+const DEFAULT_IMAGE_TIMEOUT_MS = 20_000;
+
 const DIRECTIONS = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'west', 'south-west'] as const;
 const DIVINER_ROOT = '/assets/strategists/diviners';
 
@@ -25,12 +27,19 @@ const DIVINER_BASIC_ASSETS = [
   `${DIVINER_ROOT}/davinci/davinci_neutral.png`,
 ];
 
-/** Images needed before the room and its immediately reachable menus mount. */
+/** Images required for the first room frame and basic walking only. */
 export const STARTUP_CRITICAL_ASSETS = [
-  '/assets/suuhimochi-type-1.png',
   '/assets/mochi-type-1-new/rotations/south.png',
   ...Array.from({ length: 4 }, (_, frame) => `/assets/mochi-type-1-new/animations/Walking/south/frame_00${frame}.png`),
+] as const;
+
+export const SLEEP_CRITICAL_ASSETS = [
   ...Array.from({ length: 7 }, (_, frame) => `/assets/mochi-type-1-new/animations/Peacefully_sleeping_in_bed_with_subtle_breathing_t/south/frame_00${frame}.png`),
+] as const;
+
+/** Likely first interactions. These warm up after the room is already usable. */
+const EARLY_INTERACTION_ASSETS = [
+  '/assets/suuhimochi-type-1.png',
   '/assets/suuhimochi/characters/suuhimochi-01/zoom/body/body-front.png',
   '/assets/suuhimochi/characters/suuhimochi-01/zoom/eyes/neutral/eye_neutral_open.png',
   '/assets/suuhimochi/characters/suuhimochi-01/zoom/eyes/neutral/eye_neutral_half.png',
@@ -153,14 +162,61 @@ export const BACKGROUND_PRELOAD_ASSETS = [
   '/assets/items/experience-fruits/experience-fruit-white-apple.png',
   '/assets/items/experience-fruits/experience-fruit-white-apple-spoiled.png',
   '/assets/effects/gahoon.png',
-  ...MASK_ASSETS,
 ] as const;
+
+/** 151MB超の仮面群は図鑑等を開く時のオンデマンド用。起動後にも自動取得しない。 */
+export const ON_DEMAND_MASK_ASSETS = MASK_ASSETS;
+
+export type NetworkPreloadProfile = {
+  constrained: boolean;
+  batchSize: number;
+  pauseMs: number;
+  criticalConcurrency: number;
+};
+
+type NetworkInformationLike = {
+  downlink?: number;
+  effectiveType?: string;
+  rtt?: number;
+  saveData?: boolean;
+};
+
+export function getNetworkPreloadProfile(): NetworkPreloadProfile {
+  if (typeof navigator === 'undefined') {
+    return { constrained: false, batchSize: 4, pauseMs: 220, criticalConcurrency: 6 };
+  }
+  const connection = (navigator as Navigator & { connection?: NetworkInformationLike }).connection;
+  const constrained = Boolean(
+    connection?.saveData
+    || connection?.effectiveType === 'slow-2g'
+    || connection?.effectiveType === '2g'
+    || (typeof connection?.downlink === 'number' && connection.downlink <= 5)
+    || (typeof connection?.rtt === 'number' && connection.rtt >= 1_000),
+  );
+  return constrained
+    ? { constrained: true, batchSize: 1, pauseMs: 900, criticalConcurrency: 3 }
+    : { constrained: false, batchSize: 4, pauseMs: 220, criticalConcurrency: 6 };
+}
+
+export function getBackgroundPreloadAssets(constrained = false) {
+  const sources = [...BACKGROUND_PRELOAD_ASSETS, ...EARLY_INTERACTION_ASSETS];
+  if (!constrained) return uniqueImageSources(sources);
+  return uniqueImageSources(sources.filter((src) => (
+    src.startsWith('/assets/backgrounds/')
+    || src.startsWith('/assets/mochi-type-1-new/')
+    || src.startsWith('/assets/suuhimochi/characters/')
+    || src.startsWith('/assets/items/experience-fruits/')
+  )));
+}
 
 export function uniqueImageSources(sources: readonly string[]) {
   return [...new Set(sources.filter(Boolean))];
 }
 
-export async function preloadImage(src: string): Promise<void> {
+export async function preloadImage(
+  src: string,
+  options: { timeoutMs?: number } = {},
+): Promise<void> {
   if (loadedImages.has(src)) return;
   const pending = loadingImages.get(src);
   if (pending) return pending;
@@ -168,8 +224,19 @@ export async function preloadImage(src: string): Promise<void> {
   const task = (async () => {
     const image = new Image();
     await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+      let settled = false;
+      const finish = (result: 'load' | 'error' | 'timeout') => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        image.onload = null;
+        image.onerror = null;
+        if (result === 'load') resolve();
+        else reject(new Error(result === 'timeout' ? `Timed out loading image: ${src}` : `Failed to load image: ${src}`));
+      };
+      const timer = window.setTimeout(() => finish('timeout'), options.timeoutMs ?? DEFAULT_IMAGE_TIMEOUT_MS);
+      image.onload = () => finish('load');
+      image.onerror = () => finish('error');
       image.src = src;
     });
     if (typeof image.decode === 'function') {
@@ -189,18 +256,30 @@ export async function preloadImage(src: string): Promise<void> {
 export async function preloadCriticalImages(
   sources: readonly string[],
   onProgress?: (loaded: number, total: number) => void,
+  options: { concurrency?: number; timeoutMs?: number } = {},
 ) {
   const uniqueSources = uniqueImageSources(sources);
   let loaded = 0;
+  let nextIndex = 0;
+  const results: PromiseSettledResult<void>[] = new Array(uniqueSources.length);
   onProgress?.(0, uniqueSources.length);
-  const results = await Promise.allSettled(uniqueSources.map(async (src) => {
-    try {
-      await preloadImage(src);
-    } finally {
-      loaded += 1;
-      onProgress?.(loaded, uniqueSources.length);
+  const worker = async () => {
+    while (nextIndex < uniqueSources.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      try {
+        await preloadImage(uniqueSources[index], { timeoutMs: options.timeoutMs });
+        results[index] = { status: 'fulfilled', value: undefined };
+      } catch (reason) {
+        results[index] = { status: 'rejected', reason };
+      } finally {
+        loaded += 1;
+        onProgress?.(loaded, uniqueSources.length);
+      }
     }
-  }));
+  };
+  const concurrency = Math.max(1, Math.min(options.concurrency ?? 6, uniqueSources.length || 1));
+  await Promise.all(Array.from({ length: concurrency }, worker));
   return { sources: uniqueSources, results };
 }
 
@@ -231,8 +310,12 @@ export function preloadImagesInIdleBatches(
   };
   const runBatch = () => {
     if (cancelled) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      timeoutId = window.setTimeout(runBatch, pauseMs);
+      return;
+    }
     const batch = queue.splice(0, batchSize);
-    void Promise.allSettled(batch.map(preloadImage)).then((results) => {
+    void Promise.allSettled(batch.map((src) => preloadImage(src))).then((results) => {
       results.forEach((result, index) => {
         if (result.status === 'rejected') console.warn('[image-preload] Background image failed:', batch[index], result.reason);
       });

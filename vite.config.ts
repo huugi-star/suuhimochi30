@@ -22,7 +22,17 @@ export default defineConfig(({ command }) => ({
       // and leaves the RSC environment without Vite's module runner.
       serverHandler: false,
     }),
-    nitro(),
+    nitro({
+      routeRules: {
+        // Public artwork keeps stable URLs. Revalidate in the background so a
+        // returning mobile session can start from the browser cache.
+        '/assets/**': {
+          headers: {
+            'cache-control': 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        },
+      },
+    }),
   ],
   resolve: {
     dedupe: [

@@ -65,7 +65,13 @@ export type MemoryRelationType =
   | 'RELATED_TO'
   | 'USED_FOR'
   | 'THINKS_ABOUT'
-  | 'AVOIDS';
+  | 'AVOIDS'
+  /** 苦手・不得意。嫌い／回避とは別に保存する。 */
+  | 'STRUGGLES_WITH'
+  /** 得意・上手。好きとは別に保存する。 */
+  | 'IS_GOOD_AT'
+  /** まだ起きていない事柄を楽しみにしている。 */
+  | 'LOOKS_FORWARD_TO';
 
 export type OpenQuestionField =
   | 'CATEGORY'
@@ -96,7 +102,7 @@ export type CuriousConversationChoice = DayConversationChoice & {
   memory: CuriousMemoryEffect;
 };
 
-export type CuriousConversation = {
+type CuriousConversationBase = {
   id: string;
   day: number;
   category: 'CURIOUS';
@@ -106,15 +112,29 @@ export type CuriousConversation = {
     category?: WordCategory;
     humanRelations: MemoryRelationType[];
   };
-  known: {
-    response: DialogueBeat[];
-    choices: CuriousConversationChoice[];
-  };
-  unknown: {
-    response: DialogueBeat[];
-    choices: CuriousConversationChoice[];
-  };
 };
+
+export type CuriousConversationBranch = {
+  response: DialogueBeat[];
+  choices: CuriousConversationChoice[];
+};
+
+/**
+ * Day1 は既知語・未知語で別の問いを使う。
+ * Day2 以降は理解度を更新しつつ、同じ問いと選択肢を使える。
+ */
+export type CuriousConversation = CuriousConversationBase & (
+  | {
+    known: CuriousConversationBranch;
+    unknown: CuriousConversationBranch;
+    common?: never;
+  }
+  | {
+    common: CuriousConversationBranch;
+    known?: never;
+    unknown?: never;
+  }
+);
 
 export type ConversationScript = DayConversation | CuriousConversation;
 

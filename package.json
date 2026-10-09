@@ -12,6 +12,7 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "test:conversation": "node scripts/test-conversation.mjs",
+    "test:image-preload": "node scripts/test-image-preload.mjs",
     "test:poteno-link": "node scripts/test-poteno-link.mjs",
     "test:poteno-divination": "node scripts/test-poteno-divination.mjs",
     "test:taikobo-iching": "node scripts/test-taikobo-iching.mjs",

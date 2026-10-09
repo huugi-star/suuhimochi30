@@ -6,6 +6,13 @@ import type { ThirtyDayCycleArchive } from './graduation';
 import type { TwoDayReviewGoalType, TwoDayReviewRecord } from './twoDayReview';
 import { getPersonaStage, sanitizeExperienceFruits, type ExperienceFruitRecord, type PersonaStage } from './food';
 import { sanitizeSuuhimochiDiaries, type SuuhimochiDiaryEntry } from './suuhimochiDiary';
+import {
+  sanitizeFriendshipDailyRecords,
+  sanitizeFriendshipEventIds,
+  sanitizeReachedFriendshipLevels,
+  type FriendshipDailyRecords,
+  type FriendshipLevel,
+} from './friendship';
 
 export type GameSave = {
   birthday: string;
@@ -41,6 +48,14 @@ export type GameSave = {
   foodActivityDate: string;
   experienceMealsEaten: number;
   lastExperienceMealAt: string;
+  /** 表示しない内部の交友度（0〜600）。 */
+  friendship: number;
+  /** 日ごとの獲得量・種別回数・重複防止ID。 */
+  friendshipDailyRecords: FriendshipDailyRecords;
+  /** 過去日を編集し直しても同じ出来事を二重加算しないためのID。 */
+  friendshipEventIds: string[];
+  /** 一度到達した段階。将来の一度きりイベント判定にも使う。 */
+  friendshipReachedLevels: FriendshipLevel[];
 };
 const SAVE_KEY = 'suuhimochi-30days-save-v1';
 export const EMPTY_SAVE: GameSave = {
@@ -69,6 +84,10 @@ export const EMPTY_SAVE: GameSave = {
   foodActivityDate: '',
   experienceMealsEaten: 0,
   lastExperienceMealAt: '',
+  friendship: 0,
+  friendshipDailyRecords: {},
+  friendshipEventIds: [],
+  friendshipReachedLevels: [1],
 };
 
 export function loadSave(): GameSave {
@@ -170,6 +189,7 @@ export function loadSave(): GameSave {
     const suuhimochiDiaries = sanitizeSuuhimochiDiaries(parsed.suuhimochiDiaries);
     const personaExp = Math.max(0, Math.floor(Number(parsed.personaExp) || 0));
     const experienceMealsEaten = Math.min(3, Math.max(0, Math.floor(Number(parsed.experienceMealsEaten) || 0)));
+    const friendship = Math.min(600, Math.max(0, Math.floor(Number(parsed.friendship) || 0)));
     return {
       ...EMPTY_SAVE,
       ...saveWithoutBirthplace,
@@ -189,6 +209,10 @@ export function loadSave(): GameSave {
       foodActivityDate: typeof parsed.foodActivityDate === 'string' ? parsed.foodActivityDate : '',
       experienceMealsEaten,
       lastExperienceMealAt: typeof parsed.lastExperienceMealAt === 'string' ? parsed.lastExperienceMealAt : '',
+      friendship,
+      friendshipDailyRecords: sanitizeFriendshipDailyRecords(parsed.friendshipDailyRecords),
+      friendshipEventIds: sanitizeFriendshipEventIds(parsed.friendshipEventIds),
+      friendshipReachedLevels: sanitizeReachedFriendshipLevels(parsed.friendshipReachedLevels, friendship),
     };
   } catch {
     return EMPTY_SAVE;

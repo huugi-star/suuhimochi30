@@ -26,8 +26,17 @@ import type { SixDivinationRecord } from '@/lib/potenoSixDivination';
 import { createThirtyDayCycleArchive, type GraduationFootprint, type GraduationHandoffAdvice, type NextGoalChoice } from '@/lib/graduation';
 import { TWO_DAY_REVIEW_GOAL_TYPES, type TwoDayReviewGoalType, type TwoDayReviewRecord } from '@/lib/twoDayReview';
 import { createExperienceFruitBatch, getExperienceMealStatus, getFoodActivityDate, getPersonaStage, isFruitSpoiled, type ExperienceFruitRecord } from '@/lib/food';
-import { BACKGROUND_PRELOAD_ASSETS, preloadCriticalImages, preloadImagesInIdleBatches, STARTUP_CRITICAL_ASSETS, uniqueImageSources } from '@/lib/imagePreload';
+import {
+  getBackgroundPreloadAssets,
+  getNetworkPreloadProfile,
+  preloadCriticalImages,
+  preloadImagesInIdleBatches,
+  SLEEP_CRITICAL_ASSETS,
+  STARTUP_CRITICAL_ASSETS,
+  uniqueImageSources,
+} from '@/lib/imagePreload';
 import { createSuuhimochiDiary } from '@/lib/suuhimochiDiary';
+import { addFriendship, getFriendshipTitle, isFriendshipEventLevel, type FriendshipLevel, type FriendshipSource } from '@/lib/friendship';
 import { advanceDialogue, createDialogueRuntime, getDialogueNode, resolveDialogueText, type DialogueRuntime } from '@/lib/miniDialogueRunner';
 import { closetScare } from '@/lib/miniDialogueScripts';
 import { PERSON_DIALOGUE_SCRIPTS } from '@/lib/miniDialogueAdditionalScripts';
@@ -323,6 +332,9 @@ function WallClockFace({ time }: { time: string }) {
         className="room-wall-clock-art"
         src="/assets/items/wall-clock-analog-thin.png"
         alt=""
+        loading="lazy"
+        decoding="async"
+        fetchPriority="low"
         draggable={false}
       />
       <span className="room-wall-clock-analog-face">
@@ -337,7 +349,7 @@ function WallClockFace({ time }: { time: string }) {
 function WallClockDigitalFace({ time }: { time: string }) {
   return (
     <span className="room-wall-clock-digital" aria-hidden="true">
-      <img className="room-wall-clock-digital-art" src="/assets/items/wall-clock-pixel.png" alt="" draggable={false} />
+      <img className="room-wall-clock-digital-art" src="/assets/items/wall-clock-pixel.png" alt="" loading="lazy" decoding="async" fetchPriority="low" draggable={false} />
       <span className="room-wall-clock-digital-display"><PixelClockDigits time={time} /></span>
     </span>
   );
@@ -739,6 +751,9 @@ export function SuuhimochiGame() {
   const roomMonologueBubbleRef = useRef<string | null>(null);
   const sleepBubbleLineRef = useRef<string | null>(null);
   const miniDialogueRef = useRef<DialogueRuntime | null>(null);
+  // A word is only friendship-worthy when this teaching session actually
+  // introduced it. Keeping the snapshot here avoids rewarding repeats.
+  const wordTeachingStartIdsRef = useRef<Set<string> | null>(null);
   const previousMaskGrowthStageRef = useRef<MaskGrowthStage | null>(null);
   const maskGrowthTimerRef = useRef<number | null>(null);
 
@@ -1841,27 +1856,24 @@ export function SuuhimochiGame() {
   const isDarkPeriod = currentTime === 'night' || currentTime === 'midnight';
   const roomBackground = getRoomBackground(currentTime, isDarkPeriod && lightsOut);
   const startupCriticalAssets = useMemo(() => {
-    const visibleRoomItems = ROOM_ITEMS
-      .filter((item) => !storedItemIds.includes(item.id))
-      .map((item) => item.src);
-    const maskArtwork = storedItemIds.includes(MASK_CASE_ITEM_ID)
-      ? []
-      : ['/assets/kamen/kamen-0.png'];
     return uniqueImageSources([
       roomBackground,
       // The title screen uses this softly blurred legacy room image.
       '/assets/room-evening.png',
       ...STARTUP_CRITICAL_ASSETS,
-      ...visibleRoomItems,
-      ...maskArtwork,
+      ...(mochiState === 'sleep' ? SLEEP_CRITICAL_ASSETS : []),
     ]);
-  }, [roomBackground, storedItemIds]);
+  }, [mochiState, roomBackground]);
 
   useEffect(() => {
     if (!hydrated || appReady) return;
     let cancelled = false;
+    const preloadProfile = getNetworkPreloadProfile();
     void preloadCriticalImages(startupCriticalAssets, (loaded, total) => {
       if (!cancelled) setStartupProgress(total > 0 ? loaded / total * 100 : 100);
+    }, {
+      concurrency: preloadProfile.criticalConcurrency,
+      timeoutMs: 20_000,
     }).then(({ results, sources }) => {
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
@@ -1875,10 +1887,11 @@ export function SuuhimochiGame() {
 
   useEffect(() => {
     if (!appReady) return;
+    const preloadProfile = getNetworkPreloadProfile();
     const critical = new Set(startupCriticalAssets);
     return preloadImagesInIdleBatches(
-      BACKGROUND_PRELOAD_ASSETS.filter((src) => !critical.has(src)),
-      { batchSize: 8, pauseMs: 160 },
+      getBackgroundPreloadAssets(preloadProfile.constrained).filter((src) => !critical.has(src)),
+      { batchSize: preloadProfile.batchSize, pauseMs: preloadProfile.pauseMs },
     );
   }, [appReady, startupCriticalAssets]);
   const bedPromptPosition = bedPromptId ? (itemPositions[bedPromptId] ?? INITIAL_ITEM_POSITIONS[bedPromptId]) : null;
@@ -2530,6 +2543,15 @@ export function SuuhimochiGame() {
   function chooseMiniDialogue(nextNodeId: string) {
     const runtime = miniDialogueRef.current;
     if (!runtime || isMochiSpeaking) return;
+    const script = getMiniDialogueScript(runtime.scriptId);
+    const node = script ? getDialogueNode(script, runtime) : null;
+    if (node?.type === 'choice') {
+      persistFriendshipAward(applyFriendshipToSave(
+        save,
+        'reply',
+        `reply:mini:${runtime.scriptId}:${runtime.nodeId}`,
+      ));
+    }
     const nextRuntime = advanceDialogue(runtime, nextNodeId);
     miniDialogueRef.current = nextRuntime;
     setMiniDialogue(nextRuntime);
@@ -2593,7 +2615,71 @@ export function SuuhimochiGame() {
     }
   }
 
+  function applyFriendshipToSave(
+    base: GameSave,
+    source: FriendshipSource,
+    eventId: string,
+    amount = 1,
+    activityDate = getActivityDateKey(),
+  ) {
+    const update = addFriendship({
+      score: base.friendship,
+      dailyRecords: base.friendshipDailyRecords,
+      reachedLevels: base.friendshipReachedLevels,
+      eventIds: base.friendshipEventIds,
+      activityDate,
+      source,
+      eventId,
+      amount,
+    });
+    return {
+      save: update.added > 0
+        ? {
+            ...base,
+            friendship: update.score,
+            friendshipDailyRecords: update.dailyRecords,
+            friendshipEventIds: update.eventIds,
+            friendshipReachedLevels: update.reachedLevels,
+          }
+        : base,
+      newlyReachedLevels: update.newlyReachedLevels,
+    };
+  }
+
+  // The level-up scenes themselves are intentionally not implemented yet.
+  // Keeping this hook at the one shared award boundary makes Lv2–Lv5 events
+  // safe to add later without touching every point source again.
+  function handleFriendshipLevelReached(level: FriendshipLevel) {
+    if (!isFriendshipEventLevel(level)) return;
+  }
+
+  function persistFriendshipAward(result: ReturnType<typeof applyFriendshipToSave>) {
+    if (result.save === save) return;
+    setSave(result.save);
+    if (!isInitialPreview) storeSave(result.save);
+    result.newlyReachedLevels.forEach(handleFriendshipLevelReached);
+  }
+
   function applyTalkResponse(response: ConversationResponse, replace = false) {
+    if (response.stage === 'complete') {
+      const conversationId = response.debug.attributes.dayConversationId;
+      if (response.debug.startType === 'CHAT' && conversationId) {
+        persistFriendshipAward(applyFriendshipToSave(
+          save,
+          'basicConversation',
+          `basic:${response.day}:${conversationId}`,
+        ));
+      } else if (response.debug.startType === 'WORD') {
+        const startIds = wordTeachingStartIdsRef.current;
+        const learned = conversation.current?.getWordEntries().find((word) => word.surface === response.debug.topic);
+        if (startIds && learned && !startIds.has(learned.id)) {
+          persistFriendshipAward(applyFriendshipToSave(save, 'wordTeaching', `word:${learned.id}`));
+        }
+        wordTeachingStartIdsRef.current = null;
+      } else if (response.debug.startType === 'CYBERNETICS') {
+        persistFriendshipAward(applyFriendshipToSave(save, 'reply', `reply:goal-check:${response.day}`));
+      }
+    }
     setTalkCommandOpen(false);
     setTalkStage(response.stage);
     shouldAutoCloseTalk.current = response.stage === 'complete';
@@ -2793,6 +2879,9 @@ export function SuuhimochiGame() {
     setMiniDialogueMotion(undefined);
     setMiniDialogue(null);
     setTalkText('');
+    if (command === 'teach') {
+      wordTeachingStartIdsRef.current = new Set(conversation.current.getWordEntries().map((word) => word.id));
+    }
     const response = command === 'teach'
       ? conversation.current.startWordTeaching()
       : conversation.current.startSession();
@@ -2829,8 +2918,12 @@ export function SuuhimochiGame() {
       experienceFruits: fruitBatch.fruits,
       suuhimochiDiaries: { ...save.suuhimochiDiaries, [record.reviewedDate]: diary },
     };
-    setSave(next);
-    if (!isInitialPreview) storeSave(next);
+    const friendshipResult = normalizedItems.length > 0
+      ? applyFriendshipToSave(next, 'footprint', `footprint:${record.reviewedDate}`, 3)
+      : { save: next, newlyReachedLevels: [] as FriendshipLevel[] };
+    setSave(friendshipResult.save);
+    if (!isInitialPreview) storeSave(friendshipResult.save);
+    friendshipResult.newlyReachedLevels.forEach(handleFriendshipLevelReached);
     setDailyProgressOpen(false);
     setDailyProgressActivityDate('');
     if (normalizedItems.length === 0) setJournalCatchupDate(record.reviewedDate);
@@ -2857,8 +2950,12 @@ export function SuuhimochiGame() {
       journalNotes: { ...save.journalNotes, [date]: normalizedItems },
       experienceFruits: fruitBatch.fruits,
     };
-    setSave(next);
-    if (!isInitialPreview) storeSave(next);
+    const friendshipResult = normalizedItems.length > 0
+      ? applyFriendshipToSave(next, 'footprint', `footprint:${date}`, 3)
+      : { save: next, newlyReachedLevels: [] as FriendshipLevel[] };
+    setSave(friendshipResult.save);
+    if (!isInitialPreview) storeSave(friendshipResult.save);
+    friendshipResult.newlyReachedLevels.forEach(handleFriendshipLevelReached);
   }
 
   function confirmNoExperience(date: string) {
@@ -2905,8 +3002,10 @@ export function SuuhimochiGame() {
       experienceMealsEaten,
       lastExperienceMealAt: eatenAt,
     };
-    setSave(next);
-    if (!isInitialPreview) storeSave(next);
+    const friendshipResult = applyFriendshipToSave(next, 'meal', `meal:${fruitId}`);
+    setSave(friendshipResult.save);
+    if (!isInitialPreview) storeSave(friendshipResult.save);
+    friendshipResult.newlyReachedLevels.forEach(handleFriendshipLevelReached);
 
     if (fruit.kind === 'white') {
       const lines = ['今日は白い実なの。', 'もぐもぐ……まっしろな味なの。', 'こういう日もあるんだね。'];
@@ -3045,6 +3144,10 @@ export function SuuhimochiGame() {
       foodActivityDate: '',
       experienceMealsEaten: 0,
       lastExperienceMealAt: '',
+      friendship: 0,
+      friendshipDailyRecords: {},
+      friendshipEventIds: [],
+      friendshipReachedLevels: [1],
       lastDailyProgressActivityDate: getActivityDateKey(),
       cycleNumber: nextCycleNumber,
       currentMochiId: `suuhimochi-cycle-${nextCycleNumber}-${Date.now()}`,
@@ -4778,6 +4881,9 @@ export function SuuhimochiGame() {
                 className={`room-item room-item-${item.id}${itemOpen ? ' room-item-editable' : ''}${selectedItemId === item.id ? ' room-item-selected' : ''}`}
                 src={item.src}
                 alt={item.alt}
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
                 draggable={false}
                 title={itemOpen ? `${item.alt}：ドラッグで移動、ダブルクリックで収納` : undefined}
                   style={{
@@ -5038,7 +5144,7 @@ export function SuuhimochiGame() {
         />}
 
         {phase === 'home' && <>
-          <header className="game-status"><div><strong>DAY {conversationDay}</strong><span>{conversationPhase}</span></div><div className="game-status-actions"><button className="room-light-toggle" type="button" onClick={() => setLightsOut((value) => !value)} disabled={dailyProgressOpen || !isDarkPeriod} aria-pressed={isDarkPeriod && lightsOut}>{isDarkPeriod && lightsOut ? '点灯' : '消灯'}</button><span className="time-label">{TIME_LABELS[currentTime]}</span></div></header>
+          <header className="game-status"><div><strong>DAY {conversationDay}</strong><span className="friendship-status">{getFriendshipTitle(save.friendship)}</span></div><div className="game-status-actions"><button className="room-light-toggle" type="button" onClick={() => setLightsOut((value) => !value)} disabled={dailyProgressOpen || !isDarkPeriod} aria-pressed={isDarkPeriod && lightsOut}>{isDarkPeriod && lightsOut ? '点灯' : '消灯'}</button><span className="time-label">{TIME_LABELS[currentTime]}</span></div></header>
           {dailyProgressOpen && dailyProgressActivityDate && <DailyProgressCheck activityDate={dailyProgressActivityDate} reviewedDate={getPreviousActivityDateKey(dailyProgressActivityDate)} onComplete={completeDailyProgress} useSuuhimochiKeyboard={mobileRoomMode} />}
           {!dailyProgressOpen && journalCatchupDate && <JournalCatchupPrompt
             onWrite={() => {

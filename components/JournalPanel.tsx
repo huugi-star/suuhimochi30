@@ -162,6 +162,11 @@ export function JournalPanel({
     : selectedDay === safeCurrentDay - 1
       ? '昨日の足あと'
       : 'この日の足あと';
+  const emptyFootprintHint = selectedDay === safeCurrentDay
+    ? '今日の足あと、まだ空いてるみたい。小さなことでも残しておこう。'
+    : selectedDay === safeCurrentDay - 1
+      ? '昨日の足あと、まだ残してないみたい。覚えてるうちに、少し書いておく？'
+      : 'この日の足あと、まだ空いてるみたい。思い出せることがあったら、少し残しておく？';
 
   // The left edge is the stack already turned over: the open page plus its
   // recent past.  The right edge only exists while looking back and leads
@@ -387,7 +392,7 @@ export function JournalPanel({
                   ))}
                 </ul>
               ) : (
-                <p className="journal-empty">まだ書かれていません。</p>
+                <p className="journal-empty">{emptyFootprintHint}</p>
               )}
               {lines.length === 0 && selectedDate < currentActivityDate && !experienceFruitDates.includes(selectedDate) && (
                 !confirmingNoExperience ? (

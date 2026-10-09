@@ -672,11 +672,11 @@ export class SuuhimochiConversation {
           : [];
       case 'DAY_CURIOUS_KNOWN_CHOICE':
         return this.activeDayConversation?.category === 'CURIOUS'
-          ? this.activeDayConversation.known.choices.map(({ id, label }) => ({ id, label }))
+          ? this.curiousBranch(this.activeDayConversation, 'known').choices.map(({ id, label }) => ({ id, label }))
           : [];
       case 'DAY_CURIOUS_UNKNOWN_CHOICE':
         return this.activeDayConversation?.category === 'CURIOUS'
-          ? this.activeDayConversation.unknown.choices.map(({ id, label }) => ({ id, label }))
+          ? this.curiousBranch(this.activeDayConversation, 'unknown').choices.map(({ id, label }) => ({ id, label }))
           : [];
       case 'WORD_FEELING':
         return WORD_FEELING_CHOICES;
@@ -1204,9 +1204,10 @@ export class SuuhimochiConversation {
     this.save();
 
     if (known && conversation.id === 'DAY01_CURIOUS_05' && !this.activeCuriousRelatedWord) {
+      const commonOrUnknown = this.curiousBranch(conversation, 'unknown');
       this.session.expected = 'DAY_CURIOUS_UNKNOWN_CHOICE';
       this.session.inputMode = 'choice';
-      this.session.choices = conversation.unknown.choices.map(({ id, label }) => ({ id, label }));
+      this.session.choices = commonOrUnknown.choices.map(({ id, label }) => ({ id, label }));
       return this.respond(
         this.fillCuriousLines(sayForRuntime(
           '{word}。', 'そこは知ってるの。', '人間さん、そこによくいるんだ。',
@@ -1218,7 +1219,7 @@ export class SuuhimochiConversation {
       );
     }
 
-    const path = known ? conversation.known : conversation.unknown;
+    const path = this.curiousBranch(conversation, known ? 'known' : 'unknown');
     this.session.expected = known ? 'DAY_CURIOUS_KNOWN_CHOICE' : 'DAY_CURIOUS_UNKNOWN_CHOICE';
     this.session.inputMode = 'choice';
     this.session.choices = path.choices.map(({ id, label }) => ({ id, label }));
@@ -1237,17 +1238,18 @@ export class SuuhimochiConversation {
       ? this.activeDayConversation
       : null;
     const word = this.activeCuriousWord;
-    const branch = conversation?.[path].choices.find((item) => item.id === choice.id);
-    if (!conversation || !word || !branch) return this.finishConversation();
+    const branch = conversation ? this.curiousBranch(conversation, path) : undefined;
+    const selectedChoice = branch?.choices.find((item) => item.id === choice.id);
+    if (!conversation || !word || !selectedChoice) return this.finishConversation();
 
     this.state.conversationChoiceRecords.push({
       conversationId: conversation.id,
-      choiceId: branch.id,
-      choiceLabel: branch.label,
+      choiceId: selectedChoice.id,
+      choiceLabel: selectedChoice.label,
       day: this.getCurrentDay(),
       timestamp: this.now().toISOString(),
     });
-    this.applyCuriousMemoryEffect(conversation, word, branch);
+    this.applyCuriousMemoryEffect(conversation, word, selectedChoice);
     this.state.memoryEpisodes.push({
       id: `episode_${this.session.id}_${this.state.memoryEpisodes.length + 1}`,
       day: this.getCurrentDay(),
@@ -1259,7 +1261,7 @@ export class SuuhimochiConversation {
     });
     this.save();
 
-    const responseBeats = this.fillCuriousBeats(branch.response);
+    const responseBeats = this.fillCuriousBeats(selectedChoice.response);
     const response = dialogueLines(responseBeats);
     this.session.topic = null;
     this.clearActiveDayConversation();
@@ -1329,6 +1331,11 @@ export class SuuhimochiConversation {
         question.questionHint,
       ));
     }
+  }
+
+  private curiousBranch(conversation: CuriousConversation, path: 'known' | 'unknown') {
+    if (conversation.common) return conversation.common;
+    return path === 'known' ? conversation.known : conversation.unknown;
   }
 
   private findWordBySurface(surface: string) {
