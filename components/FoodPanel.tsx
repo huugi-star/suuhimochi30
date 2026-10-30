@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Cherry, Clock3, Sparkles, X } from 'lucide-react';
 import { getExperienceMealStatus, getFruitImage, isFruitSpoiled, type ExperienceFruitRecord, type ExperienceMealState, type PersonaStage } from '@/lib/food';
+import { GACHA_SNACKS } from '@/lib/gacha';
 
 type FoodPanelProps = {
   fruits: ExperienceFruitRecord[];
   personaStage: PersonaStage;
   mealState: ExperienceMealState;
   onEat: (fruitId: string) => string | null;
+  snacks: Record<string, number>;
+  onEatSnack: (snackId: string) => string | null;
   onClose: () => void;
 };
 
@@ -27,9 +30,10 @@ function formatRemainingTime(remainingMs: number) {
   return hours > 0 ? `あと${hours}時間${minutes}分` : `あと${minutes}分`;
 }
 
-export function FoodPanel({ fruits, personaStage, mealState, onEat, onClose }: FoodPanelProps) {
+export function FoodPanel({ fruits, personaStage, mealState, onEat, snacks, onEatSnack, onClose }: FoodPanelProps) {
   const [now, setNow] = useState(() => new Date());
   const [eating, setEating] = useState<EatingState | null>(null);
+  const [snackReaction, setSnackReaction] = useState('');
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -126,7 +130,21 @@ export function FoodPanel({ fruits, personaStage, mealState, onEat, onClose }: F
       </section>
 
       <section className="food-shelf food-shelf-snack" aria-label="おやつ">
-        <div className="food-shelf-title"><div><b>おやつ</b><strong>ことばの実</strong></div><span className="food-coming-soon">準備中</span></div>
+        <div className="food-shelf-title"><div><b>おやつ</b><strong>お菓子</strong></div><span>ガチャでもらえるの</span></div>
+        {GACHA_SNACKS.some((snack) => (snacks[snack.id] ?? 0) > 0) ? (
+          <div className="gacha-snack-list">
+            {GACHA_SNACKS.filter((snack) => (snacks[snack.id] ?? 0) > 0).map((snack) => (
+              <button key={snack.id} type="button" onClick={() => {
+                const reaction = onEatSnack(snack.id);
+                if (!reaction) return;
+                setSnackReaction(reaction);
+                timers.current.push(window.setTimeout(() => setSnackReaction(''), 1800));
+              }}><span>{snack.icon}</span><strong>{snack.name}</strong><small>×{snacks[snack.id]}　食べる</small></button>
+            ))}
+          </div>
+        ) : <p className="food-empty">いま持っているお菓子はないの。</p>}
+        {snackReaction && <p className="gacha-snack-reaction" aria-live="polite">{snackReaction}</p>}
+        <div className="food-shelf-title food-coming-soon-title"><div><b>ことばの実</b></div><span className="food-coming-soon">準備中</span></div>
         <div className="word-fruit-placeholder"><Cherry size={26} /><p>覚えたことばからできる、サクランボのおやつ。<br /><small>もう少し待っててなの。</small></p></div>
       </section>
 

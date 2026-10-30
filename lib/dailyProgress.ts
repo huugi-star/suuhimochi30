@@ -1,3 +1,4 @@
+/** Legacy progress schema remains readable; new journal entries use per-item TaskResult. */
 export type DailyProgressLevel = 'HOP' | 'STEP' | 'JUMP';
 export type YesterdayProgressLevel = DailyProgressLevel | 'BREATH';
 

@@ -3,6 +3,8 @@ import { STRATEGIST_PROFILES, type StrategistId, type StrategyRecord } from './p
 import type { SixDivinationRecord } from './potenoSixDivination';
 import type { TwoDayReviewGoalType, TwoDayReviewRecord } from './twoDayReview';
 import type { SuuhimochiDiaryEntry } from './suuhimochiDiary';
+import { sanitizeExternalHistory, type ExternalTopicUse } from './externalTopics';
+import { sanitizeSharedHistory, type SharedUse } from './sharedKnowledge';
 
 export type GraduationFootprint = {
   previousGoal: string;
@@ -86,6 +88,8 @@ export type ThirtyDayCycleArchive = {
   divinationRecords: SixDivinationRecord[];
   learnedWords: string[];
   farewellLetter: string | null;
+  externalTopicHistory?: ExternalTopicUse[];
+  sharedKnowledgeHistory?: SharedUse[];
 };
 
 export type NextGoalChoice = 'continue' | 'revise' | 'new';
@@ -455,6 +459,8 @@ export function createThirtyDayCycleArchive(options: {
   divinationRecords: SixDivinationRecord[];
   learnedWords: string[];
   farewellLetter: string | null;
+  externalTopicHistory?: ExternalTopicUse[];
+  sharedKnowledgeHistory?: SharedUse[];
 }): ThirtyDayCycleArchive {
   const dates = [
     ...Object.keys(options.journalNotes),
@@ -487,5 +493,7 @@ export function createThirtyDayCycleArchive(options: {
     divinationRecords: [...options.divinationRecords],
     learnedWords: [...options.learnedWords],
     farewellLetter: options.farewellLetter,
+    externalTopicHistory: sanitizeExternalHistory(options.externalTopicHistory),
+    sharedKnowledgeHistory: sanitizeSharedHistory(options.sharedKnowledgeHistory),
   };
 }

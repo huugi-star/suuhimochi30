@@ -238,83 +238,6 @@ const DAY01_CURIOUS_02: CuriousConversation = {
   },
 };
 
-const DAY01_CURIOUS_03: CuriousConversation = {
-  id: 'DAY01_CURIOUS_03', day: 1, category: 'CURIOUS', title: '見るとちょっと嬉しくなるもの',
-  opening: say(
-    '人間さん。', 'ぼく、さっき気付いたの。', '人間さんが来ると。',
-    '一人だった時より、ちょっと嬉しいの。', '……ちょっとだけね。',
-    'それで思ったんだけど。', '人間さんにも。',
-    '見つけるだけで、ちょっと嬉しくなるものってある？', '何かしてくれなくてもいいの。',
-    'そこにいるとか。', '見えたとか。', 'それだけで、ちょっといい感じになるもの。',
-  ),
-  context: { humanRelations: ['MAKES_HAPPY'] },
-  known: {
-    response: say(
-      '{word}。', 'それは知ってるの。', '人間さんは{word}を見ると嬉しくなるんだね。',
-      'じゃあ。', '向こうは人間さんのこと知らなくても？',
-    ),
-    choices: [
-      choice('DAY01_CURIOUS_03_KNOWN_UNAWARE', '知らなくても嬉しい', say(
-        'へえ。', 'じゃあ。', '好きって、相手から何か返ってこなくてもできるんだ。',
-        '人間さんが{word}を見て嬉しくても。', '{word}の方は何も知らないかもしれない。',
-        'それでも人間さんの中には。', 'ちゃんと嬉しいがある。', '気持ちって。',
-        '相手と半分ずつ持つものじゃないんだね。', '一人の中だけにある好きもあるのか。',
-      ), { relationQualifier: '相手に知られなくても嬉しい' }),
-      choice('DAY01_CURIOUS_03_KNOWN_CLOSER', '自分に近づいてきたらもっと嬉しい', say(
-        'もっと嬉しい。', '見るだけで嬉しい。', '近づいてきたら、もっと嬉しい。',
-        'じゃあ。', '好きにも大きさがあるのかな。', 'ぼくも。',
-        '人間さんがいるとちょっと嬉しい。', '話してくれたら、もうちょっと嬉しい。',
-        '……。', 'これ。', 'ちょっと同じなのかもしれない。', '今日は、似てるってことにしておくの。',
-      ), { relationQualifier: '近づくともっと嬉しい' }),
-      choice('DAY01_CURIOUS_03_KNOWN_DEPENDS', 'その時による', say(
-        'ここでも、その時によるのか。', '人間さんの好きって。', 'ボタンみたいに。',
-        '押したら毎回同じ嬉しいが出るわけじゃないのね。', '今日は嬉しい。',
-        '今日は普通。', '今日はちょっと疲れてる。', '……好きなものまで変わるんじゃなくて。',
-        '好きなものを見た時の人間さんが変わるのかな。', 'これはまだ少し難しいの。',
-      ), { relationQualifier: '嬉しさは状況による' }),
-    ],
-  },
-  unknown: {
-    response: say(
-      '{word}。', '知らない言葉なの。', 'でも。', '人間さんは、それを見るとちょっと嬉しくなる。',
-      'そこはもう分かったの。', '{word}って。', 'どんなもの？',
-    ),
-    choices: [
-      choice('DAY01_CURIOUS_03_UNKNOWN_PERSON', '人・キャラクター', say(
-        '人か、キャラクターなんだ。', '人間さんが見ると嬉しくなる。',
-        '実際に会える人なのか。', '画面や本の中の人なのか。', 'そこはまだ分からない。',
-        'でも。', '人間さんの中には。', '見ると少し嬉しくなる誰かがいる。', '今日はそれで覚えとくの。',
-      ), { category: 'PERSON', subcategory: 'PERSON_OR_CHARACTER', knowledgeLevel: 'PARTIAL', openQuestions: [{ field: 'DETAIL', questionHint: '実際の人なのか、作品の中のキャラクターなのか' }] }),
-      choice('DAY01_CURIOUS_03_UNKNOWN_ANIMAL', '動物・生きもの', say(
-        '生きものなんだ。', 'じゃあ動いたりするのかな。', '……動かない生きものもいる？',
-        'また分からなくなってきた。', 'まあいいの。', '{word}は生きもの。',
-        '人間さんは見ると嬉しい。', '今はこの二つ。', '今度会ったら、どんな子なのか聞いてみたいの。',
-      ), { category: 'ANIMAL', knowledgeLevel: 'PARTIAL', openQuestions: [{ field: 'DETAIL', questionHint: 'どんな生きものなのか' }] }),
-      choice('DAY01_CURIOUS_03_UNKNOWN_OBJECT', '物', say(
-        '物なんだ。', '物を見ただけで嬉しくなることもあるんだね。', 'じゃあ。',
-        'ぼくにもそのうち。', '見るとちょっと嬉しくなる物ができたりするのかな。',
-        '{word}。', 'まだ何をする物か知らないけど。', '人間さんが嬉しくなる物。',
-        'そういう覚え方でもいいのね。',
-      ), { category: 'OBJECT', knowledgeLevel: 'PARTIAL', openQuestions: [{ field: 'PURPOSE', questionHint: '何をする物なのか' }] }),
-      choice('DAY01_CURIOUS_03_UNKNOWN_PLACE', '場所', say(
-        '場所なんだ。', '行かなくても。', '見ただけでちょっと嬉しい場所？', '写真とかでも？',
-        '……そこまではまだ分からないか。', '{word}。', '人間さんが嬉しくなる場所。',
-        '今度は、なんで嬉しいのか聞いてみたいの。',
-      ), { category: 'PLACE', knowledgeLevel: 'PARTIAL', openQuestions: [{ field: 'REASON', questionHint: 'なぜ見ると嬉しくなるのか' }] }),
-      choice('DAY01_CURIOUS_03_UNKNOWN_MEDIA', '作品・ゲーム・本など', say(
-        '作品の仲間なんだ。', '見ると嬉しいってことは。', '人間さん、かなり好きなのかな。',
-        '……いや。', 'またぼく、勝手に大きくしようとした。', '嬉しくなる。',
-        '作品。', '今日はそこまで。', '好きの大きさは、また別に聞けばいいの。',
-      ), { category: 'GAME_MEDIA', knowledgeLevel: 'PARTIAL', openQuestions: [{ field: 'DETAIL', questionHint: 'どんな作品・ゲーム・本なのか' }] }),
-      choice('DAY01_CURIOUS_03_UNKNOWN_OTHER', 'どれとも違う', say(
-        'また知らない種類なの。', 'でも。', '名前だけよりは。',
-        '人間さんが嬉しくなるもの、っていう場所がある。', '今はそこに置いておくの。',
-        '分からない言葉って。', '空っぽじゃなくて。',
-        '人間さんとのつながりから先に覚えることもできるんだね。',
-      ), { knowledgeLevel: 'PARTIAL', openQuestions: [{ field: 'CATEGORY', questionHint: 'どんな種類のものなのか' }, { field: 'REASON', questionHint: 'なぜ見ると嬉しくなるのか' }] }),
-    ],
-  },
-};
 
 const DAY01_CURIOUS_04: CuriousConversation = {
   id: 'DAY01_CURIOUS_04', day: 1, category: 'CURIOUS', title: '逆に、嫌なものも知りたい',
@@ -530,6 +453,29 @@ const DAY01_CURIOUS_06: CuriousConversation = {
       ), { knowledgeLevel: 'PARTIAL', openQuestions: [{ field: 'CATEGORY', questionHint: 'どんな種類のものなのか' }, { field: 'REASON', questionHint: 'なぜ何度も考えていたのか' }] }),
     ],
   },
+};
+
+// Keep the established ID so already-seen conversations remain seen after upgrading.
+const DAY01_CURIOUS_03: CuriousConversation = {
+  id: 'DAY01_CURIOUS_03', day: 1, category: 'CURIOUS', title: '人間さんが気になっているもの',
+  opening: say(
+    '人間さんと話せたら、聞いてみたいことがあったの。',
+    'いま、気になっているものって何？',
+    '遊びでも、音楽でも、不思議な言葉でもいいの。名前をひとつ教えて。',
+  ),
+  context: { humanRelations: ['THINKS_ABOUT'] },
+  classification: {
+    afterInput: say(
+      '{word}。人間さんが気になっている言葉として覚えるの。',
+      'まだ名前しか分からないから、どんな仲間かも教えてほしいの。',
+    ),
+    afterSubcategory: say(
+      '名前と、どんな仲間かがつながったの。',
+      '人間さんに教わると、ぼくの知らないところに道ができるんだね。',
+    ),
+    openQuestions: [{ field: 'DETAIL', questionHint: 'どんなところに興味があるのか' }],
+  },
+  common: { response: [], choices: [] },
 };
 
 export const DAY01_CURIOUS_CONVERSATIONS: readonly CuriousConversation[] = [

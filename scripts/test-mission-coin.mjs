@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import { createServer } from 'vite';
+const vite = await createServer({ configFile:false, root:process.cwd(), server:{middlewareMode:true,hmr:false,ws:false}, appType:'custom' });
+try {
+  const m = await vite.ssrLoadModule('/lib/dailyMissions.ts');
+  const {missionDestination}=await vite.ssrLoadModule('/lib/missionNavigation.ts');
+  const { EMPTY_SAVE, loadSave, storeSave } = await vite.ssrLoadModule('/lib/storage.ts');
+  const { saveJournalChecklistItem } = await vite.ssrLoadModule('/lib/journalProgress.ts');
+  const now = new Date('2026-10-30T12:00:00+09:00'), date = m.dailyMissionDateKey(now);
+  let save = structuredClone(EMPTY_SAVE);
+  const summary = () => m.getDailyMissionSummary(save,date);
+  assert.equal(summary().completed,0); assert.equal(summary().total,6);
+  save = m.reconcileDailyMissions(save,[],now); assert.equal(summary().completed,1);
+  save = m.addTaskPlans(save,date,['本を読む'],now); assert.equal(summary().completed,2);
+  save = m.reportTaskResult(save,date,save.taskPlans[date][0].id,'in_progress',now); assert.equal(summary().completed,3,'DAY1 uses today result without yesterday tasks');
+  save = m.reconcileDailyMissions(save,[{learnedAt:now.toISOString()}],now); assert.equal(summary().completed,4);
+  save = m.addTaskPlans(save,m.shiftMissionDate(date,1),['散歩'],now); assert.equal(summary().completed,5);
+  save = saveJournalChecklistItem(save,date,{text:'机を片付けた',result:'done'},{currentDay:1,memories:[],words:[],now});
+  assert.equal(summary().completed,6); assert.equal(summary().coinCompletedAt,now.toISOString());
+  const earned = JSON.stringify(save.dailyMissions);
+  save = m.reconcileDailyMissions(save,[],new Date('2026-10-30T20:00:00+09:00'));
+  assert.equal(JSON.stringify(save.dailyMissions),earned,'one coin per day even after repeated observations');
+  const before = save;
+  save = m.markMissionCoinPresented(save,date,now);
+  assert.equal(m.markMissionCoinPresented(save,date,now),save,'presentation is idempotent');
+  for(const key of Object.keys(before).filter(key=>key!=='dailyMissions')) assert.deepEqual(save[key],before[key],key);
+  const values=new Map(),oldWindow=globalThis.window;
+  globalThis.window={localStorage:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)}};
+  try { storeSave(save); const restored=loadSave(); assert.deepEqual(restored.dailyMissions,save.dailyMissions); assert.deepEqual(restored.taskPlans,save.taskPlans); } finally { globalThis.window=oldWindow; }
+  const before7=m.reconcileDailyMissions(save,[],new Date('2026-10-31T04:59:59+09:00'));
+  assert.equal(m.getDailyMissionSummary(before7,date).coinCompletedAt,now.toISOString());
+  const after7=m.reconcileDailyMissions(before7,[],new Date('2026-10-31T05:00:00+09:00'));
+  assert.equal(m.dailyMissionDateKey(new Date('2026-10-31T04:59:59+09:00')),date);
+  assert.equal(m.dailyMissionDateKey(new Date('2026-10-31T05:00:00+09:00')),'2026-10-31');
+  const next=m.getDailyMissionSummary(after7,'2026-10-31');
+  assert.equal(next.coinCompletedAt,null); assert.equal(next.missions.find(item=>item.id==='plan').status,'completed','tomorrow plan is carried over');
+  assert.equal(next.missions.find(item=>item.id==='teach').status,'pending');
+  const legacy={ [date]:{completedAt:{login:now.toISOString(),plan:now.toISOString(),report:now.toISOString(),teach:now.toISOString()}}};
+  assert.deepEqual(m.sanitizeDailyMissions(legacy),legacy,'legacy four achievements remain');
+  assert.equal(m.getDailyMissionSummary({dailyMissions:legacy,taskPlans:{}},date).completed,4);
+  const corrupt={ [date]:{...legacy[date],coinCompletedAt:now.toISOString(),coinPresentedAt:now.toISOString()} };
+  assert.equal(m.sanitizeDailyMissions(corrupt)[date].coinCompletedAt,undefined,'incomplete data cannot mint a coin');
+  // First use before 05:00 still supports all six while journal stays on its civil date.
+  const early=new Date('2026-10-31T01:00:00+09:00');
+  let first=m.addTaskPlans(structuredClone(EMPTY_SAVE),'2026-10-31',['朝の準備'],early);
+  first=m.reportTaskResult(first,'2026-10-31',first.taskPlans['2026-10-31'][0].id,'done',early);
+  first=m.addTaskPlans(first,'2026-11-01',['明日の準備'],early);
+  first=saveJournalChecklistItem(first,'2026-10-31',{text:'片付け',result:'done'},{currentDay:1,memories:[],words:[{learnedAt:early.toISOString()}],now:early});
+  assert.equal(m.getDailyMissionSummary(first,'2026-10-30').completed,6);
+  const unfinished=saveJournalChecklistItem(structuredClone(EMPTY_SAVE),date,{text:'まだしていない実績',result:'not_done'},{currentDay:1,memories:[],words:[],now});
+  assert.equal(m.getDailyMissionSummary(unfinished,date).missions.find(item=>item.id==='actual').status,'pending');
+  const beforeAck=structuredClone(save);
+  const acknowledged=m.markMissionsCelebrated(save,date,['login','plan']);
+  assert.equal(m.markMissionsCelebrated(acknowledged,date,['login','plan']),acknowledged);
+  assert.deepEqual(acknowledged.dailyMissions[date].completedAt,beforeAck.dailyMissions[date].completedAt);
+  assert.equal(acknowledged.dailyMissions[date].coinCompletedAt,beforeAck.dailyMissions[date].coinCompletedAt);
+  assert.deepEqual(m.sanitizeDailyMissions(acknowledged.dailyMissions),acknowledged.dailyMissions);
+  for(const key of Object.keys(save).filter(key=>key!=='dailyMissions'))assert.deepEqual(acknowledged[key],save[key]);
+  assert.deepEqual(missionDestination('login',{},now),{kind:'room'});
+  assert.deepEqual(missionDestination('teach',{},now),{kind:'teach'});
+  for(const action of ['plan','tomorrow','actual','report'])assert.deepEqual(missionDestination(action,{},now),{kind:'journal',entry:{date,action}});
+  assert.equal(missionDestination('report',{'2026-10-29':[{kind:undefined}]},now).entry.date,'2026-10-29');
+  assert.equal(missionDestination('report',{'2026-10-29':[{kind:'actual'}]},now).entry.date,date);
+  assert.equal(missionDestination('plan',{},early).entry.date,'2026-10-31','journal destination uses civil date even before 05:00');
+  console.log('PASS: 0/6–6/6, DAY1, once-only coin, restore, legacy saves, 05:00 reset, plan carryover, early-morning use, reward isolation');
+} finally { await vite.close(); }
+

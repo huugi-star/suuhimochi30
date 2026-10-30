@@ -327,14 +327,14 @@ const CATEGORY_LEARNED_WORD_LINES: Readonly<Record<string, readonly WordLineBuil
     (word) => `${word}って試験に出ると急に大事になるの。出ない日も同じ${word}なのに。`,
   ],
   GAME_MEDIA: [
-    (word) => `${word}の中にぼくが入ったら、操作される側かな。勝手に歩いたら怒られる？`,
-    (word) => `${word}って、人間さんが遊ぶと時間が早くなるやつ？ 時計は同じ速さなのに。`,
-    (word) => `${word}には終わりがあるのかな。終わってもまた最初からできるなら、終わりは休憩？`,
+    (word) => `${word}の世界にぼくが入ったら、どうなるのかな。勝手に歩いたら怒られる？`,
+    (word) => `${word}にふれてると、時間が早くなるやつ？ 時計は同じ速さなのに。`,
+    (word) => `${word}には終わりがあるのかな。終わってもまた最初から会えるなら、終わりは休憩？`,
     (word) => `${word}の登場人物は、人間さんが見てない時も続きやってるのかな。`,
-    (word) => `${word}で負けてもやり直せるの。現実にも「もう一回」ボタンあったら人気出そうなの。`,
-    (word) => `${word}を何回も遊ぶと、向こうも人間さんの操作を覚えそうなの。`,
+    (word) => `${word}でつらいことが起きても、次を知りたくなることあるの。人間さん、強いの。`,
+    (word) => `${word}に何回もふれると、向こうも人間さんのことを覚えそうなの。`,
     (word) => `${word}の主人公、ずっと走らされてる時あるの。体力すごいの。`,
-    (word) => `${word}の世界って、人間さんが電源切ったら夜になるのかな。`,
+    (word) => `${word}の世界って、人間さんがページや画面を閉じたら夜になるのかな。`,
   ],
   AV_MEDIA: [
     (word) => `${word}を見てる時、画面も人間さんを見てるのかな。お互い様なの。`,
@@ -532,4 +532,19 @@ export function pickRoomMonologue(
   }
 
   return '……さっきと違うこと考えようとしたら、さっきのこと考えてたの。';
+}
+
+/** A question/observation for the existing zoom UI; never starts a DAY script. */
+export function pickRoomInterest(
+  mochiType: number, learnedWords: readonly MonologueLearnedWord[] = [],
+  random: () => number = Math.random, recent: readonly string[] = [], day?: number,
+): string | null {
+  const curious = (line: string) => /[?？]|かな|だろ|気にな|不思議|考え/.test(line) && !recent.includes(line);
+  for (let attempt = 0; attempt < 6 && learnedWords.length; attempt++) {
+    const line = buildLearnedWordMonologue(learnedWords, random);
+    if (line && curious(line)) return line;
+  }
+  const dayLines = day === 1 ? DAY_ONE_MONOLOGUES : DAY_SPECIFIC_MONOLOGUES[day ?? 0];
+  const pool = [...(dayLines ?? []), ...(MONOLOGUES[mochiType] ?? MONOLOGUES[1] ?? []), ...COMMON_LINES].filter(curious);
+  return pickOne(pool, random) ?? null;
 }

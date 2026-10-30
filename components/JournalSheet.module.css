@@ -1,0 +1,9 @@
+.sheet { width:min(620px,calc(100vw - 24px)); max-height:calc(100dvh - 24px); margin:auto; padding:20px; color:#584334; border:1px solid #b79973; border-radius:22px 22px 15px 15px; background:linear-gradient(100deg,#f3e4c8 0 9px,#fffbef 9px); box-shadow:0 18px 60px #27170a55; overflow:auto; overscroll-behavior:contain; }
+.sheet::backdrop { background:#34251966; backdrop-filter:blur(2px); }
+.sheet > header { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px dashed #cdb999; padding-bottom:12px; margin-bottom:12px; }
+.sheet h2 { font-size:1.15rem; margin:0; }
+.sheet button { min-height:44px; padding:8px 12px; border:1px solid #bda07e; border-radius:12px; color:inherit; background:#fff8e8; font:inherit; cursor:pointer; }
+.sheet > header button { min-width:44px; display:grid; place-items:center; }
+.body { line-height:1.7; overflow-wrap:anywhere; }
+.sheet :focus-visible { outline:3px solid #5b8475; outline-offset:2px; }
+@media(max-width:620px) { .sheet { margin:auto auto 8px; padding:16px 18px; } }

@@ -16,6 +16,7 @@
 /.vinext/
 /out/
 /.output/
+/.output-build-check/
 
 # misc
 .DS_Store

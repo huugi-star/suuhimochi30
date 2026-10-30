@@ -1,0 +1,243 @@
+.notebook { position:absolute; inset:48px 0 68px; z-index:105; display:grid; place-items:center; padding:12px 46px; color:#584334; background:#33241844; backdrop-filter:blur(2px); }
+.notebook :global(.journal-book) { position:relative; width:min(780px,100%); max-height:100%; }
+.notebook :global(.journal-page) { position:relative; max-height:calc(100dvh - 145px); overflow-y:auto; overscroll-behavior:contain; padding:18px 28px 14px 38px; border:1px solid #a88c69; border-radius:12px 24px 24px 12px; background:linear-gradient(90deg,#e8d2aa 0 14px,#fffaf0 14px); box-shadow:inset 5px 0 8px #96704218,0 12px 35px #28180e44; scrollbar-width:thin; scrollbar-color:#c9b18c transparent; }
+.notebook :global(.journal-page)::before { content:''; position:absolute; left:21px; top:0; bottom:0; border-left:1px solid #d8bfa26b; pointer-events:none; }
+.notebook :global(.journal-page-header) { position:relative; display:flex; align-items:center; justify-content:center; min-height:56px; padding:0 65px 12px; margin-bottom:12px; border-bottom:1px solid #d0b996; text-align:center; }
+.notebook :global(.journal-page-header) > div { display:flex; gap:12px; align-items:baseline; justify-content:center; flex-wrap:wrap; }
+.notebook :global(.journal-page-header) strong { color:#775438; font-size:1.4rem; letter-spacing:.06em; font-weight:900; white-space:nowrap; }
+.notebook :global(.journal-date) { font-size:.85rem; color:#8d745c; white-space:nowrap; }
+.notebook :global(.journal-goal-entry) { position:absolute; left:38px; top:18px; display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid #c3ab88; border-radius:50%; background:#f9edda; color:#8c6c49; }
+.notebook :global(.journal-close) { position:absolute; z-index:8; top:17px; right:16px; width:44px; height:44px; display:grid; place-items:center; border:1px solid #c3ab88; border-radius:50%; color:#76583e; background:#fffbf2; cursor:pointer; }
+.notebook :global(.journal-archive-open) { position:absolute; z-index:8; right:70px; bottom:-1px; min-height:44px; padding:5px 8px; display:flex; align-items:center; gap:4px; border:0; background:transparent; color:#8b7256; font-size:.75rem; cursor:pointer; }
+.notebook :global(.journal-tabs) { position:absolute; z-index:1; top:88px; display:grid; gap:6px; }
+.notebook :global(.journal-tabs-left) { right:calc(100% - 5px); }
+.notebook :global(.journal-tabs-right) { left:calc(100% - 5px); }
+.notebook :global(.journal-tab) { min-height:44px; width:40px; border:1px solid #bc9971; border-radius:8px 0 0 8px; background:#e7d4ad; color:#8b6b4a; font-size:.65rem; display:grid; place-content:center; line-height:1.2; }
+.notebook :global(.journal-tab) b { font-size:.9rem; }
+.notebook :global(.journal-tab) i { position:absolute; font-size:.5rem; color:#bd754d; }
+.notebook :global(.journal-tab.is-current) { background:#fff3d4; color:#624529; }
+.notebook :global(.journal-tabs-right .journal-tab) { border-radius:0 8px 8px 0; }
+.notebook :global(.journal-index) { display:flex; align-items:center; justify-content:space-around; gap:6px; margin-top:16px; padding:6px 0; border-bottom:1px dashed #c7b08b; }
+.notebook :global(.journal-index button) { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:4px; min-height:44px; flex:1; border:0; border-bottom:2px solid #b6c1a2; border-radius:8px 8px 2px 2px; background:#eef0e252; color:#77694c; font:inherit; font-size:.83rem; cursor:pointer; }
+.notebook :global(.journal-index button:nth-child(2)) { border-color:#c8b5cb; background:#eee4f052; }
+.notebook :global(.journal-index button:nth-child(3)) { border-color:#dfbd8a; background:#f8ebcf52; }
+.notebook :global(.journal-index button:nth-child(4)) { border-color:#a2b8c5; background:#e1ecf052; }
+.notebook :global(.journal-index small) { color:#a28e72; font-size:.65rem; }
+.notebook :global(.journal-page-navigation) { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
+.notebook :global(.journal-page-navigation button) { min-height:44px; padding:6px 8px; display:flex; gap:3px; align-items:center; border:0; background:transparent; font-size:.8rem; color:#806044; cursor:pointer; }
+.notebook :global(.journal-page-navigation button:disabled) { opacity:.35; }
+.notebook :global(.journal-page-navigation > span) { display:none; }
+.notebook :global(.journal-page-today) { min-height:560px; }
+.notebook :global(.journal-today-content) { margin:0; border:0; }
+.notebook :global(.journal-today-content > summary) { display:none; }
+.notebook :global(.journal-past-records:not(.journal-today-content)) { margin-top:14px; border-top:1px dashed #cbb390; border-bottom:1px dashed #cbb390; }
+.notebook :global(.journal-past-records > summary) { min-height:48px; padding:12px 4px; font-weight:800; cursor:pointer; font-size:.9rem; }
+.notebook :global(.journal-past-records > summary span) { display:inline-block; margin-left:8px; color:#a28b70; font-size:.72rem; font-weight:400; }
+.notebook :global(.journal-return-today) { position:sticky; top:-18px; z-index:3; display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0 9px; background:#fffaf0f5; font-size:.85rem; color:#977b5b; }
+.notebook :global(.journal-return-today button) { display:flex; gap:4px; align-items:center; justify-content:center; min-height:44px; border:1px solid #b6926a; border-radius:16px 13px 15px 12px; padding:7px 12px; background:#f4dfba; color:#6e5032; font-size:.9rem; font-weight:900; box-shadow:0 2px 0 #ccb08a; }
+.notebook :global(.journal-progress-row) { margin:12px 0; font-size:.85rem; line-height:1.7; }
+.notebook :global(.journal-progress-row button),.notebook :global(.journal-edit),.notebook :global(.journal-no-experience),.notebook :global(.journal-no-experience-confirm button) { min-height:44px; padding:8px 12px; border:1px solid #c5ab8b; border-radius:12px; background:#fff6e5; color:#745238; font:inherit; cursor:pointer; }
+.notebook :global(.journal-progress-choices) { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+.notebook :global(.journal-progress-choices span) { padding:4px 8px; border:1px dashed #cbb899; border-radius:10px; color:#ab977d; }
+.notebook :global(.journal-progress-choices .is-selected) { border:2px solid #8c9b72; color:#5e754a; }
+.notebook :global(.journal-primary) { margin:16px 0; }
+.notebook :global(.journal-primary header) { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.notebook :global(.journal-primary h2) { font-size:1rem; margin:4px 0; }
+.notebook :global(.journal-primary header small),.notebook :global(.journal-heading-line > span),.notebook :global(.journal-pending) { display:none; }
+.notebook :global(.journal-edit) { display:flex; align-items:center; gap:5px; font-size:.8rem; }
+.notebook :global(.journal-note-lines) { margin:10px 0; padding:0 0 0 20px; line-height:1.8; font-size:.9rem; overflow-wrap:anywhere; }
+.notebook :global(.journal-empty) { font-size:.85rem; line-height:1.7; color:#9d866c; }
+.notebook :global(.journal-mochi-entry) { margin:14px 0; font-size:.85rem; }
+.notebook :global(.journal-mochi-entry > summary) { min-height:44px; padding:10px 0; cursor:pointer; }
+.notebook :global(.journal-mochi-entry summary em) { display:none; }
+.notebook :global(.journal-mochi-diary) { line-height:1.8; white-space:pre-line; }
+.notebook :global(.journal-support-grid) { display:block; }
+.notebook :global(.journal-section) { border:0; }
+.notebook :global(.journal-section > summary) { display:flex; gap:8px; align-items:center; font-weight:800; font-size:1rem; pointer-events:none; }
+.notebook :global(.journal-section > summary b) { margin-left:auto; }
+.notebook :global(.journal-section-body) { margin-top:14px; font-size:.9rem; line-height:1.8; }
+.notebook :global(.journal-section-body article) { border-bottom:1px dashed #cab497; padding-bottom:10px; margin-bottom:14px; }
+.notebook :global(.journal-section-body small) { display:block; color:#9c7d58; }
+.notebook :global(.journal-section-body p) { white-space:pre-line; }
+.notebook :global(.journal-support[data-index=talk] .journal-section:not([data-section=talk])),.notebook :global(.journal-support[data-index=words] .journal-section:not([data-section=words])),.notebook :global(.journal-support[data-index=strategy] .journal-section:not([data-section=strategy])),.notebook :global(.journal-support[data-index=divination] .journal-section:not([data-section=divination])) { display:none; }
+.notebook :global(.journal-word-list) { display:flex; gap:8px; flex-wrap:wrap; }
+.notebook :global(.journal-word-list span) { border-bottom:2px solid #d2c09b; padding:4px 7px; }
+.notebook :global(.journal-memory-list > div) { margin-bottom:12px; }
+.notebook :global(.journal-memory-list span) { display:block; }
+.notebook :global(.journal-main-goal) { display:grid; gap:14px; text-align:left; }
+.notebook :global(.journal-main-goal > small) { display:none; }
+.notebook :global(.journal-main-goal > strong) { font-size:1.2rem; }
+.notebook :global(.journal-goal-type-row) { display:flex; align-items:center; gap:12px; font-size:.9rem; }
+.notebook :global(.journal-goal-type-picker) { display:flex; gap:8px; flex-wrap:wrap; }
+.notebook :global(.journal-archive-sheet) { position:absolute; z-index:12; inset:0; overflow:auto; padding:18px 24px; border:1px solid #aa8b65; border-radius:16px; background:#fff9ed; box-shadow:0 10px 30px #412d2255; }
+.notebook :global(.journal-archive-sheet > header) { display:flex; justify-content:space-between; align-items:center; }
+.notebook :global(.journal-archive-sheet button) { min-height:44px; min-width:44px; border:1px solid #bba17d; border-radius:12px; background:#fff7e6; }
+.notebook :global(.journal-archive-sheet h2) { margin:4px 0; font-size:1.2rem; }
+.notebook :global(.journal-archive-sheet summary) { min-height:44px; padding:10px 0; cursor:pointer; }
+.notebook :global(.journal-archive-sheet article) { margin-bottom:20px; border-bottom:1px dashed #cbb495; padding-bottom:12px; font-size:.9rem; }
+.notebook :global(.journal-archive-sheet article header strong),.notebook :global(.journal-archive-sheet time) { display:block; }
+.notebook :global(.journal-archive-summary) { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.notebook :global(.journal-archive-notes section) { margin-bottom:12px; }
+.notebook :global(.journal-letter) { white-space:pre-line; line-height:1.8; }
+.notebook button:focus-visible,.notebook summary:focus-visible { outline:3px solid #638974; outline-offset:3px; }
+.notebook button { touch-action:manipulation; }
+.notebook :global(.journal-page-next),.notebook :global(.journal-page-previous) { animation:paper-open 160ms ease-out; }
+@keyframes paper-open { from { opacity:.75; translate:0 4px; } to { opacity:1; translate:0; } }
+@media(max-width:620px) {
+  .notebook { position:fixed; inset:0; z-index:150; padding:8px 18px; align-items:start; }
+  .notebook :global(.journal-book) { width:100%; height:calc(100dvh - 16px); }
+  .notebook :global(.journal-page) { max-height:100%; padding:12px 14px 8px 26px; border-radius:10px 18px 18px 10px; }
+  .notebook :global(.journal-page-today) { min-height:0; }
+  .notebook :global(.journal-page-header) { min-height:50px; padding:0 43px 10px; margin-bottom:10px; }
+  .notebook :global(.journal-page-header) > div { gap:0; flex-direction:column; align-items:center; }
+  .notebook :global(.journal-page-header) strong { font-size:1.15rem; }
+  .notebook :global(.journal-date) { font-size:.8rem; }
+  .notebook :global(.journal-close) { top:12px; right:12px; }
+  .notebook :global(.journal-tabs) { display:none; }
+  .notebook :global(.journal-archive-open) { right:66px; bottom:1px; font-size:.7rem; }
+  .notebook :global(.journal-index) { flex-wrap:wrap; gap:4px; margin-top:12px; padding-block:4px; }
+  .notebook :global(.journal-index button) { flex:1 1 4.5em; flex-direction:column; font-size:.8rem; gap:1px; }
+  .notebook :global(.journal-index small) { display:none; }
+  .notebook :global(.journal-page-navigation) { margin-top:4px; }
+  .notebook :global(.journal-return-today) { top:-12px; }
+}
+@media(max-width:1024px) and (orientation:landscape) {
+  .notebook { inset:0; padding:6px 44px; }
+  .notebook :global(.journal-page) { max-height:calc(100dvh - 12px); }
+  .notebook :global(.journal-page-today) { min-height:0; }
+}
+@media(prefers-reduced-motion:reduce) { .notebook * { animation:none !important; transition:none !important; } }
+
+.notebook :global(section[aria-label="ことばの絵日記"]) { padding:0; margin:2px 0 12px; border:0; border-radius:0; background:transparent; }
+.notebook :global(section[aria-label="ことばの絵日記"] > h3) { margin:0 0 8px; font-size:.8rem; text-align:center; font-weight:500; color:#a08768; }
+.notebook :global(section[aria-label="ことばの絵日記"] img) { width:100%; max-height:min(46dvh,370px); object-fit:contain; margin:0 auto; padding:7px; background:#fffdf8; border:1px solid #d2bd9c; border-radius:3px 5px 6px 3px; box-shadow:1px 4px 7px #63471a22; transform:rotate(-.7deg); }
+.notebook :global(section[aria-label="ことばの絵日記"] article > p:last-child) { margin:9px 4px 0; font-size:.9rem; line-height:1.6; text-align:center; }
+.notebook :global(.journal-page-past:has(.journal-past-records:not([open])) .journal-index) { display:none; }
+@media(max-width:620px) {
+ .notebook :global(section[aria-label="ことばの絵日記"] > h3) { display:none; }
+ .notebook :global(section[aria-label="ことばの絵日記"] img) { max-height:clamp(160px,calc(100dvh - 300px),410px); }
+ .notebook :global(.journal-page-past .journal-archive-open) { position:static; }
+}
+
+.notebook :global(.journal-diary-title) { margin:0 0 10px; padding-right:40px; font-size:1.4rem; font-weight:900; color:#795738; }
+.notebook :global(.journal-page-past .journal-page-header) { min-height:36px; padding:0 0 9px; margin-bottom:8px; }
+.notebook :global(.journal-page-past .journal-goal-entry) { position:absolute; left:auto; right:70px; top:17px; margin:0; }
+.notebook :global(.journal-page-past .journal-mochi-diary) { margin:14px 0 20px; padding:0 4px; font-size:.92rem; line-height:1.8; white-space:pre-line; }
+.notebook :global(.journal-page-past .journal-mochi-diary p) { margin:0; }
+.notebook :global(.journal-page-past .journal-progress-row) { font-size:.8rem; color:#8e785e; }
+@media(max-width:620px) { .notebook :global(.journal-diary-title) { font-size:1.2rem; } }
+
+/* Past diary content flows in order; comments and history navigation never share an overlay layer. */
+.notebook :global(.journal-page-past) { display:flex; flex-direction:column; min-height:0; overflow-y:auto; }
+.notebook :global(.journal-page-past .journal-picture-pane) { position:static; display:block; flex:none; min-height:0; }
+.notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"]) { display:block; flex:none; min-height:0; }
+.notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"] article) { display:block; flex:none; min-height:0; }
+.notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"] img) { display:block; width:100%; height:auto; max-height:min(46dvh,370px); object-fit:contain; }
+.notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"] article > p:last-child) { position:static; display:block; flex:none; margin:9px 4px 0; overflow:visible; white-space:normal; }
+.notebook :global(.journal-page-past .journal-index) { position:static; flex:none; margin:16px 0 8px; }
+
+.notebook :global(.journal-past-switch),.notebook :global(.journal-diary-read) { display:none; }
+@media(max-width:1024px) {
+  .notebook { position:fixed; inset:0; padding:max(8px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); align-items:stretch; }
+  .notebook :global(.journal-book) { width:100%; height:100%; max-height:100%; min-height:0; }
+  .notebook :global(.journal-page) { display:flex; flex-direction:column; height:100%; max-height:100%; min-height:0; padding:10px 14px 8px 25px; overflow-y:auto; }
+  .notebook :global(.journal-page-header) { flex:none; min-height:44px; padding:0 46px 6px; margin-bottom:7px; }
+  .notebook :global(.journal-page-header)>div { flex-direction:row; gap:7px; flex-wrap:nowrap; align-items:center; }
+  .notebook :global(.journal-page-header strong) { font-size:1rem; }.notebook :global(.journal-date) { font-size:.75rem; }
+  .notebook :global(.journal-close) { top:8px; right:8px; }
+  .notebook :global(.journal-page-today .journal-goal-entry) { left:25px; top:10px; }
+  .notebook :global(.journal-tabs) { display:none; }
+  .notebook :global(.journal-today-pane),.notebook :global(.journal-record-pane) { display:flex; flex:1; min-height:0; }
+  .notebook :global(.journal-today-pane)>section,.notebook :global(.journal-record-pane)>section { width:100%; min-height:0; }
+  .notebook :global(.journal-index) { flex:none; gap:4px; margin:6px 0 0; padding:0; min-height:44px; flex-wrap:nowrap; }
+  .notebook :global(.journal-index button) { min-height:44px; flex-direction:row; flex-wrap:nowrap; gap:3px; padding:3px; font-size:.75rem; }
+  .notebook :global(.journal-index small) { display:none; }
+  .notebook :global(.journal-page-navigation) { flex:none; min-height:44px; margin:0; }.notebook :global(.journal-page-navigation button) { min-height:44px; padding:4px; }
+  .notebook :global(.journal-page-past .journal-page-header) { min-height:32px; padding:0 0 5px; margin:0 0 4px; }
+  .notebook :global(.journal-page-past .journal-goal-entry) { position:absolute; left:auto; right:58px; top:10px; margin:0; }
+  .notebook :global(.journal-diary-title) { flex:none; margin:0 44px 4px 0; padding:0; font-size:1.1rem; }
+  .notebook :global(.journal-return-today) { position:static; flex:none; min-height:44px; padding:0 0 4px; }.notebook :global(.journal-return-today button) { min-height:40px; padding:5px 9px; font-size:.8rem; }
+  .notebook :global(.journal-past-switch) { flex:none; display:flex; gap:6px; margin:2px 0 6px; }
+  .notebook :global(.journal-past-switch button) { flex:1; min-height:40px; border:1px solid #c9b493; border-radius:8px 8px 3px 3px; background:#f2e8d4; color:#8a7254; font-size:.83rem; }
+  .notebook :global(.journal-past-switch button[aria-pressed=true]) { color:#6a4b31; border-bottom:3px solid #af7953; background:#fff6df; font-weight:800; }
+  .notebook :global(.journal-page-past .journal-picture-pane) { display:block; flex:none; min-height:0; }
+  .notebook :global(.journal-page[data-past-view=picture] .journal-record-pane),.notebook :global(.journal-page[data-past-view=records] .journal-picture-pane) { display:none; }
+  .notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"]) { display:block; flex:none; min-height:0; margin:0; }
+  .notebook :global(.journal-picture-pane section[aria-label="ことばの絵日記"]>h3) { display:none; }
+  .notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"] article) { display:block; min-height:0; flex:none; }
+  .notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"] img) { display:block; width:100%; height:auto; max-height:min(46dvh,370px); object-fit:contain; margin:0; transform:none; padding:4px; }
+  .notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"] p) { display:block; position:static; flex:none; margin:6px 4px 0; font-size:.8rem; line-height:1.5; overflow:visible; white-space:normal; }
+  .notebook :global(.journal-picture-pane .journal-mochi-diary) { flex:none; margin:4px 0 0; font-size:.8rem; line-height:1.45; }
+  .notebook :global(.journal-picture-pane .journal-mochi-diary p) { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+  .notebook :global(.journal-diary-read) { display:block; min-height:40px; margin-left:auto; padding:3px 6px; border:0; background:transparent; color:#967655; font-size:.75rem; }
+}
+@media(max-width:1024px) and (orientation:landscape) {
+  .notebook { padding:max(6px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left)); }
+  .notebook :global(.journal-page) { padding:8px 16px 5px 28px; }
+  .notebook :global(.journal-page-past .journal-picture-pane) { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }.notebook :global(.journal-page-past .journal-mochi-diary) { flex:none; align-self:start; }
+}
+
+@media(max-width:1024px) { .notebook :global(.journal-picture-pane section[aria-label="ことばの絵日記"]:not(:has(img))) { flex:0 0 auto; }.notebook :global(.journal-picture-pane section[aria-label="ことばの絵日記"]:not(:has(img)) article) { flex:none; } }
+
+@media(max-width:1024px) and (orientation:landscape) {
+ .notebook :global(.journal-page-past) { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-rows:36px 44px auto auto 44px; align-content:start; gap:4px 12px; }
+ .notebook :global(.journal-page-past .journal-diary-title) { grid-column:1; grid-row:1; align-self:center; margin:0; }
+ .notebook :global(.journal-page-past .journal-page-header) { grid-column:2; grid-row:1; min-height:0; margin:0; padding:0 92px 0 0; border:0; }
+ .notebook :global(.journal-page-past .journal-return-today) { grid-column:1; grid-row:2; margin:0; padding:0; min-height:0; }
+ .notebook :global(.journal-page-past .journal-past-switch) { grid-column:2; grid-row:2; margin:0; }
+ .notebook :global(.journal-page-past .journal-picture-pane),.notebook :global(.journal-page-past .journal-record-pane) { grid-column:1/-1; grid-row:3; }
+ .notebook :global(.journal-page-past .journal-index) { grid-column:1/-1; grid-row:4; margin:0; }.notebook :global(.journal-page-past .journal-page-navigation) { grid-column:1/-1; grid-row:5; }
+}
+
+/* Final past-page rules intentionally override the compact landscape grid: long comments must push history down in normal flow. */
+.notebook :global(.journal-page-past .journal-picture-pane .journal-diary-comment) { position:static; display:block; width:100%; height:auto; max-height:none; margin:9px 4px 0; overflow:visible; white-space:normal; overflow-wrap:anywhere; line-height:1.55; }
+.notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"] .source) { display:none; }
+@media(max-width:1024px) {
+  .notebook :global(.journal-page-past) { display:flex; flex-direction:column; align-items:stretch; overflow-y:auto; }
+  .notebook :global(.journal-page-past .journal-picture-pane) { display:block; position:static; flex:none; min-height:0; }
+  .notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"]) { display:block; flex:none; min-height:0; }
+  .notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"] article) { display:block; flex:none; min-height:0; }
+  .notebook :global(.journal-page-past .journal-picture-pane section[aria-label="ことばの絵日記"] img) { width:100%; height:auto; max-height:min(46dvh,370px); object-fit:contain; }
+  .notebook :global(.journal-page-past .journal-index) { position:static; display:flex; flex:none; margin:16px 0 8px; }
+}
+@media(max-width:620px) and (orientation:portrait) {
+  .notebook :global(.journal-page-past[data-past-view="picture"]) { overflow-y:auto; }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-picture-pane section[aria-label="ことばの絵日記"] img) { max-height:min(34dvh,300px); }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-picture-pane .journal-diary-comment) { margin-top:6px; line-height:1.4; }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-picture-pane .journal-mochi-diary) { margin:6px 0 8px; line-height:1.4; }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-index) { margin-top:8px; }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-page-navigation) { margin-top:2px; }
+}
+
+/* Landscape phones use the width for picture + text, keeping all navigation on screen. */
+@media(max-width:1024px) and (orientation:landscape) {
+  .notebook :global(.journal-page-past[data-past-view="records"]) {
+    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-rows:36px 44px minmax(0,1fr) 44px;
+    gap:4px 12px; align-content:stretch;
+  }
+  .notebook :global(.journal-page-past[data-past-view="records"] .journal-record-pane) { grid-column:1/-1; grid-row:3; min-height:0; overflow-y:auto; }
+  .notebook :global(.journal-page-past[data-past-view="records"] .journal-index) { grid-column:2; grid-row:4; margin:0; }
+  .notebook :global(.journal-page-past[data-past-view="records"] .journal-page-navigation) { grid-column:1; grid-row:4; margin:0; }
+  .notebook :global(.journal-page-past[data-past-view="picture"]) {
+    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-rows:36px 44px minmax(0,1fr) 44px;
+    gap:4px 12px; align-content:stretch;
+  }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-picture-pane) {
+    display:grid; grid-column:1/-1; grid-row:3;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-rows:auto minmax(0,1fr);
+    gap:6px 16px; min-height:0; overflow-y:auto;
+  }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-picture-pane section[aria-label="ことばの絵日記"]),
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-picture-pane section[aria-label="ことばの絵日記"] article) { display:contents; }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-picture-pane section[aria-label="ことばの絵日記"] img) {
+    grid-column:1; grid-row:1/3; width:100%; height:100%; min-height:0; max-height:100%; object-fit:contain;
+  }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-picture-pane .journal-diary-comment) {
+    grid-column:2; grid-row:1; width:auto; margin:0; line-height:1.5;
+  }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-mochi-diary) { grid-column:2; grid-row:2; min-height:0; margin:0; overflow-y:auto; }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-index) { grid-column:2; grid-row:4; margin:0; }
+  .notebook :global(.journal-page-past[data-past-view="picture"] .journal-page-navigation) { grid-column:1; grid-row:4; margin:0; }
+}

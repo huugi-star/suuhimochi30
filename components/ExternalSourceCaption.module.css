@@ -1,0 +1,25 @@
+.caption { position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:2; display:flex; align-items:center; min-width:0; padding:3px 7px; box-sizing:border-box; border-radius:7px; background:rgba(255,253,246,.96); color:#766656; font:inherit; font-size:clamp(10px,1.1vw,12px); font-weight:400; line-height:1.5; text-align:left; pointer-events:auto; cursor:default; }
+.prefix, .source { flex-shrink:0; }
+.caption a { display:flex; align-items:center; min-width:0; max-width:100%; color:#665443; text-decoration:underline; text-underline-offset:2px; }
+.title { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.caption a:focus-visible { outline:2px solid #638fb1; outline-offset:2px; border-radius:3px; }
+.googleCaption { flex-wrap:wrap; gap:2px 10px; }
+.googleCaption a:first-child { flex:1 1 100%; }
+.shell { overflow:visible !important; }
+.action { appearance:none; display:block; box-sizing:border-box; width:100%; height:100%; margin:0; padding:0; border:0; border-radius:inherit; background:transparent; color:inherit; font:inherit; line-height:inherit; letter-spacing:inherit; text-align:inherit; cursor:pointer; }
+.shell:global(.thought-bubble) .action { height:auto; }
+.action:focus-visible { outline:3px solid rgba(99,145,183,.62); outline-offset:4px; }
+/* Retain the ordinary face-talk/thought-bubble surface; only placement is external-specific. */
+.following.following { position:fixed !important; left:var(--external-left, 12px) !important; top:var(--external-top, 90px) !important; right:auto !important; bottom:auto !important; width:var(--external-width, 320px) !important; height:var(--external-height, 200px) !important; min-height:0 !important; max-height:none !important; margin:0 !important; transform:none !important; translate:none !important; animation:none !important; z-index:190; visibility:hidden; text-shadow:none; }
+.following[data-positioned=true] { visibility:visible; }
+.following::before, .following::after { display:none !important; }
+.following :global(.thought-bubble-tail) { display:none; }
+.following :global(.face-talk-tail) { display:none; }
+.tail { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+.tail polygon { fill:var(--bubble-fill, #fdf8e8); stroke:var(--bubble-border, rgba(91,66,47,.42)); stroke-width:3; stroke-linejoin:round; }
+.following .action { position:absolute; inset:0; height:100%; padding:inherit; text-shadow:inherit; }
+.following :global(.face-talk-line) { overflow:auto; }
+.following :global(.thought-bubble-text) { max-height:calc(var(--external-height) - 80px); overflow:auto; }
+.following :global(.thought-bubble-page) { left:18px; right:auto; }
+.following :global(.thought-bubble-next) { font-size:11px; animation:none; letter-spacing:0; }
+.following :global(.face-talk-continue) { font-size:11px; }

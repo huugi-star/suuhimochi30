@@ -40,7 +40,8 @@ export type Sentiment =
   | 'NEGATIVE'
   | 'TIRED';
 
-export type OshiStatus = 'YES' | 'NO' | 'UNKNOWN';
+/** ペット個体だけに付く、一緒に暮らしている時期の記録。 */
+export type PetStatus = 'CURRENT' | 'FORMER';
 
 export type RelationType = 'LEARN' | 'RECALL' | 'TALK' | 'GOAL_CHECK';
 
@@ -50,13 +51,19 @@ export type ExpectedAnswer =
   | 'CATEGORY'
   | 'SUBCATEGORY'
   | 'WORD_FEELING'
-  | 'OSHI_CONFIRM'
+  | 'PET_STATUS'
+  | 'PET_CHECKIN'
   | 'GOAL_STATUS'
   | 'GOAL_ACTION'
   | 'DAY_CONVERSATION_CHOICE'
   | 'DAY_CURIOUS_WORD'
+  | 'PERSON_DERIVED_WORD'
+  | 'PERSON_DEEP_DIVE_TEXT'
   | 'DAY_CURIOUS_KNOWN_CHOICE'
   | 'DAY_CURIOUS_UNKNOWN_CHOICE'
+  | 'EARLY_COMBO_INVITE'
+  | 'EXTERNAL_TOPIC_FEEDBACK'
+  | 'EXTERNAL_TOPIC_CORRECTION'
   | 'NONE';
 
 export type ConversationStage =
@@ -90,23 +97,17 @@ export type WordEntry = {
   id: string;
   surface: string;
   category: WordCategory;
-  /** 意味記憶上の、分かりかけを含む理解段階。 */
-  knowledgeLevel: import('./conversation/conversationTypes').KnowledgeLevel;
   subcategory?: string;
   firstSeenDay: number;
-  lastSeenDay: number;
-  lastUsedInConversationDay?: number;
-  firstSeen: string;
-  lastSeen: string;
+  /** Actual first registration timestamp; absent in legacy words (never guess from the activity day). */
+  learnedAt?: string;
+  learnedOrder: number;
+  firstDerivedFromWordId?: string;
+  rootWordId: string;
+  userSentiment?: Sentiment;
+  description?: string;
+  lastUsedDay?: number;
   mentionCount: number;
-  attributes: Record<string, string>;
-  userSentiment: Sentiment;
-  /** 推しかどうか。旧保存データでは未設定の場合があるため読み込み時に UNKNOWN へ補完する。 */
-  oshiStatus: OshiStatus;
-  oshiConfirmedAt?: number;
-  lastReferencedAt?: number;
-  importance: number;
-  lastRecalled?: string;
 };
 
 export type MemoryRelation = {
@@ -232,7 +233,7 @@ export type LearnedWord = {
   word: string;
   category: WordCategory;
   source: 'user_explained' | 'known_or_skip';
-  learnedAt: string;
+  learnedDay: number;
   note?: string;
 };
 

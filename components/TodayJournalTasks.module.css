@@ -1,0 +1,65 @@
+/* All page overrides require the TODAY-only root. Past notebook styles are untouched. */
+.todayNotebook { min-height:0; grid-template-rows:minmax(0,1fr); }
+.todayNotebook :global(.journal-book) { height:100%; min-height:0; min-width:0; }
+.todayNotebook :global(.journal-page-today) { display:block; height:100%; min-height:0; max-height:100%; padding:22px 26px 20px 40px; overflow-y:auto; }
+.todayNotebook.todayNotebook :global(.journal-page-today) { scroll-padding-top:110px; }
+.todayNotebook.todayNotebook :global(.journal-page-header) { position:sticky; top:0; z-index:5; background:#fffaf0; }
+.todayNotebook :global(.journal-page-header) { display:block; padding:0 100px 14px 0; margin-bottom:18px; min-height:0; text-align:left; }
+.todayNotebook :global(.journal-page-header)>div { justify-content:flex-start; flex-direction:row; flex-wrap:wrap; gap:5px 12px; }
+.todayNotebook :global(.journal-page-header strong) { font-size:14px; }.todayNotebook :global(.journal-date) { font-size:14px; }
+.title { margin:6px 0 0; font-size:26px; font-weight:900; line-height:1.4; color:#684b31; letter-spacing:.04em; }
+.todayNotebook.todayNotebook :global(.journal-page-today .journal-goal-entry) { z-index:6; left:auto; right:64px; top:18px; }
+.todayNotebook :global(.journal-close) { top:18px; right:14px; }
+.todayNotebook :global(.journal-tabs),.todayNotebook :global(.journal-page-navigation) { display:none; }
+.todayNotebook :global(.journal-today-pane) { display:block; min-height:0; flex:none; }
+.todayNotebook :global(.journal-index) { margin-top:16px; padding:8px 0 0; min-height:44px; gap:6px; }
+.todayNotebook :global(.journal-index button) { min-height:44px; flex-direction:row; font-size:13px; }
+.panel { display:flex; flex-direction:column; gap:22px; color:#584334; }
+.panel button { font:inherit; cursor:pointer; touch-action:manipulation; }
+.sectionHeading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.sectionHeading h2,.tomorrow h2 { margin:0; color:#624b36; font-size:19px; line-height:1.4; }
+.sectionHeading p { margin:5px 0 0; font-size:13px; color:#927b62; }
+.tools { display:flex; gap:8px; }.tools button { display:inline-flex; align-items:center; justify-content:center; gap:4px; min-height:44px; padding:8px 12px; border:1px solid #bca17b; border-radius:10px; background:#fffcf4; color:#70583f; font-size:14px; font-weight:700; }
+.tools .primary { background:#e9efdf; border-color:#9cae8e; color:#4a6344; }
+.list,.goals { list-style:none; margin:0; padding:0; }
+.list { display:flex; flex-direction:column; gap:12px; }
+.list>li { padding:12px 14px 14px; border:1px solid #d6c5ab; border-radius:12px; background:#fffdf8; box-shadow:0 2px 0 #d9c5a329; }
+.taskHeading { display:flex; align-items:flex-start; gap:8px; min-height:44px; margin-bottom:8px; }.taskHeading p { flex:1; margin:5px 0 0; color:#554334; font-size:16px; line-height:1.6; overflow-wrap:anywhere; }
+.edit { flex:none; display:grid; place-items:center; width:44px; min-height:44px; padding:6px; border:1px solid #dccab0; border-radius:10px; background:#faf4e9; color:#80664a; }
+.results { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; min-width:0; padding:0; margin:0; border:0; }
+.results button { min-height:48px; border:1px solid #cfc0aa; border-radius:9px; background:#fffdf8; color:#887964; font-size:15px; font-weight:700; }
+.results button[aria-pressed=true] { border-width:2px; }
+.results button[data-result=done][aria-pressed=true] { color:#3e6546; background:#e5efdf; border-color:#678869; }
+.results button[data-result=in_progress][aria-pressed=true] { color:#8c601d; background:#fff0ca; border-color:#b48c44; }
+.results button[data-result=not_done][aria-pressed=true] { color:#67584c; background:#eee8df; border-color:#9b8877; }
+.panel button:hover:not(:disabled) { filter:brightness(.97); }.panel button:active:not(:disabled) { background-color:#efe4d1; }.panel :focus-visible,.editor :focus-visible { outline:3px solid #648a7a; outline-offset:3px; }
+.panel button:disabled { opacity:.55; cursor:default; }
+.empty { padding:20px 14px; border:1px dashed #c8b591; border-radius:12px; color:#9c876d; font-size:14px; line-height:1.8; background:#fffaf1; }
+.tomorrow { padding:16px; border:1px solid #d7c38d; border-radius:12px; background:linear-gradient(120deg,#faf1d4,#fff8e8); }
+.tomorrow>header { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }.dayMark { padding:4px 8px; border-radius:6px; background:#e5d59e; color:#7a612b; font-size:12px; font-weight:800; }
+.goals li { display:flex; gap:8px; align-items:center; padding:7px 0; border-bottom:1px solid #d8c58f80; }.goals li>span { flex:1; font-size:15px; line-height:1.6; overflow-wrap:anywhere; }.goals .edit { background:#fff8e8; }
+.goalForm { margin-top:12px; }.goalForm>label { display:block; margin-bottom:6px; font-size:13px; color:#8a724b; }.goalForm>div { display:flex; gap:8px; }
+.goalForm input { width:100%; min-width:0; min-height:46px; padding:10px; border:1px solid #c7b388; border-radius:8px; background:#fffdf7; color:#5e4b36; font:inherit; font-size:16px; }.goalForm button { min-width:58px; min-height:46px; padding:8px; border:1px solid #bda16c; border-radius:8px; background:#efe0b6; color:#674e28; font-size:14px; font-weight:800; }
+.yesterday { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; min-height:56px; padding:10px 14px; border:1px solid #bdc6ad; border-left:4px solid #9eac88; border-radius:6px 12px 12px 6px; background:#eef0e5; color:#59694b; text-align:left; }
+.yesterday>span { font-size:15px; font-weight:800; }.yesterday small { display:block; margin-top:3px; font-size:12px; font-weight:400; color:#8a927c; }
+.editor { display:flex; flex-direction:column; gap:12px; }.editor>label { font-size:14px; color:#8a7052; }.editor textarea { width:100%; resize:vertical; min-height:104px; padding:12px; border:1px solid #bca17d; border-radius:10px; background:#fffdf6; color:#554333; font:inherit; font-size:16px; line-height:1.6; }.editor>button { min-height:48px; background:#e6eddb; border:1px solid #a3b48f; font-weight:800; }.error { margin:8px 0 0; color:#a14b36; font-size:13px; }
+@media(max-width:620px) { .todayNotebook :global(.journal-page-today) { padding:16px 14px 16px 25px; }.todayNotebook :global(.journal-page-header) { padding-right:93px; margin-bottom:14px; }.todayNotebook :global(.journal-page-header strong),.todayNotebook :global(.journal-date) { font-size:12px; }.todayNotebook :global(.journal-page-header)>div { gap:2px 8px; }.title { font-size:23px; }.todayNotebook.todayNotebook :global(.journal-page-today .journal-goal-entry) { top:12px; right:58px; }.todayNotebook :global(.journal-close) { top:12px; right:9px; }.panel { gap:18px; }.sectionHeading { gap:10px; }.sectionHeading>div:first-child { flex:1 1 140px; }.tools { margin-left:auto; }.list>li { padding:10px 10px 12px; }.tomorrow { padding:12px; }.todayNotebook :global(.journal-index button) { gap:3px; font-size:12px; } }
+@media(max-height:500px) and (orientation:landscape) { .todayNotebook :global(.journal-page-today) { padding-top:12px; padding-bottom:12px; }.todayNotebook :global(.journal-page-header) { padding-bottom:10px; margin-bottom:12px; }.title { font-size:22px; }.todayNotebook :global(.journal-page-header)>div { gap:8px; }.sectionHeading>div:first-child { flex:1; } }
+
+/* One selected plan and a bounded goal summary keep the main page compact. */
+.todayNotebook.todayNotebook :global(.journal-page-header) { position:relative; padding-bottom:9px; margin-bottom:10px; }
+.todayNotebook :global(.journal-page-today) { padding-top:14px; padding-bottom:12px; }
+.todayNotebook .title { margin-top:3px; font-size:23px; }
+.panel { gap:10px; }.sectionHeading { flex-wrap:nowrap; gap:8px; margin-bottom:8px; }.sectionHeading>div:first-child { flex:1 1 auto; min-width:0; }.sectionHeading h2 { font-size:18px; white-space:nowrap; }
+.tools { gap:5px; flex:none; }.tools button { padding:6px 8px; font-size:13px; min-height:44px; }
+.list { gap:0; }.list>li { padding:9px 10px 10px; }.taskHeading { min-height:44px; margin-bottom:7px; }.taskHeading p { margin-top:4px; line-height:1.5; }
+.pager { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:5px; }.pager button { min-height:44px; width:44px; display:grid; place-items:center; border:1px solid #c9b695; border-radius:9px; background:#fff9ed; color:#735a3e; }.pager output { text-align:center; font-size:14px; color:#705a43; font-variant-numeric:tabular-nums; }.pager small { margin-left:10px; font-size:12px; color:#937e63; }
+.tomorrow { padding:10px 12px; }.tomorrow>header { margin-bottom:6px; }.tomorrow h2 { font-size:17px; }.dayMark { display:none; }
+.goalSummary { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-height:44px; padding:5px 0; border:0; border-bottom:1px solid #d8c58f80; background:none; color:#80653d; font-size:14px!important; text-align:left; }.goalSummary>span { display:flex; align-items:center; gap:2px; font-size:12px; }
+.goalForm { margin-top:7px; }.goalForm>label { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }.goalForm input,.goalForm button { min-height:44px; }
+.yesterday { min-height:44px; padding:6px 10px; }.yesterday small { display:none; }.yesterday>span { font-size:14px; }
+.empty { min-height:100px; padding:14px 12px; }
+.deleteConfirm { display:flex; flex-wrap:wrap; gap:8px; }.deleteConfirm>p { flex-basis:100%; margin:0; }.deleteConfirm button { flex:1; min-height:44px; }
+.editor .danger { display:flex; align-items:center; justify-content:center; gap:5px; color:#974936; background:#fff4ed; border-color:#cda28e; }
+@media(max-width:620px) { .todayNotebook :global(.journal-page-today) { padding-top:12px; }.todayNotebook :global(.journal-page-header)>div { flex-wrap:wrap; }.todayNotebook .title { font-size:22px; }.panel { gap:10px; }.sectionHeading>div:first-child { flex:1 1 auto; }.tools { margin-left:0; }.tools button { padding:5px 7px; font-size:12px; }.sectionHeading h2 { font-size:17px; } }
+@media(max-height:500px) and (orientation:landscape) { .panel { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); grid-template-rows:auto auto; gap:8px 14px; align-items:start; }.actions { grid-column:1; grid-row:1/3; }.tomorrow { grid-column:2; grid-row:1; }.yesterday { grid-column:2; grid-row:2; align-self:end; }.sectionHeading h2 { font-size:16px; }.tools button { font-size:12px; padding:4px 6px; }.sectionHeading { gap:4px; }.todayNotebook.todayNotebook :global(.journal-page-header) { margin-bottom:8px; padding-bottom:6px; }.title { font-size:21px; } }

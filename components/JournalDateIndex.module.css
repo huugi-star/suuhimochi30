@@ -1,0 +1,11 @@
+/* Reuses the notebook's DAY-tab shape; navigation occupies the binding gutter only. */
+.index { position:absolute; z-index:7; top:84px; bottom:16px; width:40px; display:flex; flex-direction:column; gap:5px; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#b59b70 transparent; padding:2px 0; }
+.older { left:-40px; align-items:flex-start; }
+.newer { right:-40px; align-items:flex-end; }
+.index .tab.tab { position:relative; display:flex; flex:none; flex-direction:column; align-items:center; justify-content:center; width:38px; min-height:44px; padding:3px 0; border:1px solid #a98761; border-right:2px solid #bba17a; border-radius:8px 0 0 8px; background:#ead2a0; color:#795c3d; box-shadow:0 2px 3px #66431f20; cursor:pointer; touch-action:manipulation; }
+.index .tab:nth-child(even) { background:#e6c99b; }
+.index .tab[aria-current=date] { background:#fff6df; border-color:#8e6847; border-right:4px solid #8e6847; color:#55391f; font-weight:900; }
+.index .tab>span { font-size:9px; letter-spacing:.04em; }.index .tab>b { font-size:13px; line-height:1.2; }
+.index .tab:focus-visible { outline:2px solid #6b8e7b; outline-offset:-3px; }.index .tab:active { background:#f7e7c1; }
+@media(max-width:1024px) { .index { top:76px; width:30px; bottom:12px; gap:4px; }.older { left:-12px; }.newer { right:-12px; }.index .tab.tab { width:28px; min-height:44px; border-radius:6px 0 0 6px; }.newer .tab.tab { border-radius:0 6px 6px 0; }.index .tab>b { font-size:11px; }.index .tab>span { font-size:8px; } }
+@media(max-width:1024px) and (orientation:landscape) { .older { left:-22px; }.newer { right:-22px; }.index { top:70px; } }

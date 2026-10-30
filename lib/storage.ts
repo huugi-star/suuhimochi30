@@ -1,10 +1,14 @@
 import type { MochiState } from './characterData';
+import { sanitizeDailyMissions, sanitizeTaskPlans, type DailyMissionRecords, type JournalTaskPlans } from './dailyMissions';
 import { splitDoneItems, type DailyProgressRecord } from './dailyProgress';
 import type { StrategistId, StrategyRecord } from './potenoLink';
 import type { SixDivinationRecord } from './potenoSixDivination';
 import type { ThirtyDayCycleArchive } from './graduation';
+import { sanitizeExternalHistory } from './externalTopics';
+import { sanitizeSharedHistory } from './sharedKnowledge';
 import type { TwoDayReviewGoalType, TwoDayReviewRecord } from './twoDayReview';
 import { getPersonaStage, sanitizeExperienceFruits, type ExperienceFruitRecord, type PersonaStage } from './food';
+import { sanitizeGachaHistory, sanitizeGachaInventory, type GachaDraw } from './gacha';
 import { sanitizeSuuhimochiDiaries, type SuuhimochiDiaryEntry } from './suuhimochiDiary';
 import {
   sanitizeFriendshipDailyRecords,
@@ -26,6 +30,9 @@ export type GameSave = {
   callName: string;
   dailyProgressRecords: DailyProgressRecord[];
   journalNotes: Record<string, string[]>;
+  /** Calendar-date plans/results; missions and coin completion ledger reset at 05:00 JST. */
+  taskPlans: JournalTaskPlans;
+  dailyMissions: DailyMissionRecords;
   /** 翌日以降に読める、すうひもち視点の日記。 */
   suuhimochiDiaries: Record<string, SuuhimochiDiaryEntry>;
   goalType: TwoDayReviewGoalType | null;
@@ -56,6 +63,19 @@ export type GameSave = {
   friendshipEventIds: string[];
   /** 一度到達した段階。将来の一度きりイベント判定にも使う。 */
   friendshipReachedLevels: FriendshipLevel[];
+  /** 言葉コンボで集めた、6個未満の「ことばの欠片」。 */
+  wordFragments: number;
+  /** 言葉コンボなどで獲得したガチャコイン。 */
+  gachaCoins: number;
+  /** 抽選と付与を一度だけ確定させる履歴。演出中に閉じても結果は残る。 */
+  gachaHistory: GachaDraw[];
+  /** ガチャ家具は既存の部屋配置・収納に渡す所有数として保存する。 */
+  gachaFurnitureInventory: Record<string, number>;
+  gachaSnackInventory: Record<string, number>;
+  /** 同じ回答枠・PERFECTから報酬を重複取得しないためのID。 */
+  wordComboRewardIds: string[];
+  /** 通常会話からの「ことばコンボ」誘いを、同じ活動日に繰り返さない。 */
+  lastWordComboOfferDate: string;
 };
 const SAVE_KEY = 'suuhimochi-30days-save-v1';
 export const EMPTY_SAVE: GameSave = {
@@ -69,6 +89,8 @@ export const EMPTY_SAVE: GameSave = {
   callName: '',
   dailyProgressRecords: [],
   journalNotes: {},
+  taskPlans: {},
+  dailyMissions: {},
   suuhimochiDiaries: {},
   goalType: null,
   twoDayReviews: [],
@@ -88,6 +110,13 @@ export const EMPTY_SAVE: GameSave = {
   friendshipDailyRecords: {},
   friendshipEventIds: [],
   friendshipReachedLevels: [1],
+  wordFragments: 0,
+  gachaCoins: 0,
+  gachaHistory: [],
+  gachaFurnitureInventory: {},
+  gachaSnackInventory: {},
+  wordComboRewardIds: [],
+  lastWordComboOfferDate: '',
 };
 
 export function loadSave(): GameSave {
@@ -183,6 +212,8 @@ export function loadSave(): GameSave {
         )).map((archive) => ({
           ...archive,
           suuhimochiDiaries: sanitizeSuuhimochiDiaries(archive.suuhimochiDiaries),
+          externalTopicHistory: sanitizeExternalHistory(archive.externalTopicHistory),
+          sharedKnowledgeHistory: sanitizeSharedHistory(archive.sharedKnowledgeHistory),
         }))
       : [];
     const experienceFruits = sanitizeExperienceFruits(parsed.experienceFruits);
@@ -190,6 +221,11 @@ export function loadSave(): GameSave {
     const personaExp = Math.max(0, Math.floor(Number(parsed.personaExp) || 0));
     const experienceMealsEaten = Math.min(3, Math.max(0, Math.floor(Number(parsed.experienceMealsEaten) || 0)));
     const friendship = Math.min(600, Math.max(0, Math.floor(Number(parsed.friendship) || 0)));
+    const wordFragments = Math.min(5, Math.max(0, Math.floor(Number(parsed.wordFragments) || 0)));
+    const gachaCoins = Math.max(0, Math.floor(Number(parsed.gachaCoins) || 0));
+    const wordComboRewardIds = Array.isArray(parsed.wordComboRewardIds)
+      ? [...new Set(parsed.wordComboRewardIds.filter((id): id is string => typeof id === 'string' && Boolean(id)))]
+      : [];
     return {
       ...EMPTY_SAVE,
       ...saveWithoutBirthplace,
@@ -199,6 +235,8 @@ export function loadSave(): GameSave {
         : 'suuhimochi-cycle-1',
       cycleArchives,
       journalNotes,
+      taskPlans: sanitizeTaskPlans(parsed.taskPlans),
+      dailyMissions: sanitizeDailyMissions(parsed.dailyMissions),
       suuhimochiDiaries,
       dailyProgressRecords,
       strategyRecords,
@@ -213,6 +251,15 @@ export function loadSave(): GameSave {
       friendshipDailyRecords: sanitizeFriendshipDailyRecords(parsed.friendshipDailyRecords),
       friendshipEventIds: sanitizeFriendshipEventIds(parsed.friendshipEventIds),
       friendshipReachedLevels: sanitizeReachedFriendshipLevels(parsed.friendshipReachedLevels, friendship),
+      wordFragments,
+      gachaCoins,
+      gachaHistory: sanitizeGachaHistory(parsed.gachaHistory),
+      gachaFurnitureInventory: sanitizeGachaInventory(parsed.gachaFurnitureInventory),
+      gachaSnackInventory: sanitizeGachaInventory(parsed.gachaSnackInventory),
+      wordComboRewardIds,
+      lastWordComboOfferDate: typeof parsed.lastWordComboOfferDate === 'string'
+        ? parsed.lastWordComboOfferDate
+        : '',
     };
   } catch {
     return EMPTY_SAVE;

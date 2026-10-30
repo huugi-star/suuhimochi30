@@ -7,7 +7,11 @@ type JournalEntryEditorProps = {
   day: number;
   date: string;
   heading: string;
+  error?: string;
+  showDay?: boolean;
+  listLabel?: string;
   initialItems: readonly string[];
+  contextItems?: readonly string[];
   useSuuhimochiKeyboard?: boolean;
   onSave: (items: string[]) => void;
   onCancel: () => void;
@@ -22,7 +26,11 @@ export function JournalEntryEditor({
   day,
   date,
   heading,
+  error,
+  showDay = true,
+  listLabel = '追加したやったこと',
   initialItems,
+  contextItems = [],
   useSuuhimochiKeyboard = false,
   onSave,
   onCancel,
@@ -52,12 +60,13 @@ export function JournalEntryEditor({
     <section className={`journal-entry-overlay${useSuuhimochiKeyboard ? ' has-suuhimochi-keyboard' : ''}`} aria-label={`${heading}を記入する`}>
       <article className="journal-entry-card">
         <header>
-          <p><strong>DAY {day}</strong><span>{formatEntryDate(date)}</span></p>
+          <p>{showDay && <strong>DAY {day}</strong>}<span>{formatEntryDate(date)}</span></p>
           <h1>{heading}</h1>
           <small>一つ書いたら「追加する」で、箇条書きにして残せます。</small>
         </header>
 
-        <div className="journal-entry-list" aria-label="追加したやったこと">
+        <div className="journal-entry-list" aria-label={listLabel}>
+          {contextItems.length > 0 && <div className="journal-existing-plans"><small>記入済みの予定</small><ul>{contextItems.map((item, index) => <li key={index}><span>{item}</span></li>)}</ul></div>}
           {items.length > 0 ? <ul>{items.map((item, index) => (
             <li key={`${item}-${index}`}>
               <span>{item}</span>
@@ -87,6 +96,8 @@ export function JournalEntryEditor({
           )}
           <button type="button" onClick={addEntry} disabled={!entryFromDraft()}>追加する</button>
         </div>
+
+        {error && <p role="alert" className="journal-entry-limit">{error}</p>}
 
         {remainingCharacters === 0 && (
           <p className="journal-entry-limit">これ以上は追加できません。不要な行を削除してから書いてください。</p>

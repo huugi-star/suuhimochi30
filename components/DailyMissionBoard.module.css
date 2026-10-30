@@ -1,0 +1,60 @@
+/* A small wall fixture; only the open letter contains the mission list. */
+.board { position:absolute; z-index:7; top:clamp(56px,24%,calc(100% - 84px)); left:clamp(8px,76%,calc(100% - 72px)); width:64px; height:76px; }
+.board[hidden] { display:none; }
+.postButton { position:relative; display:block; width:64px; height:76px; padding:0; border:0; background:transparent; color:#4e3421; cursor:pointer; touch-action:manipulation; }
+.postButton:focus-visible,.dialog button:focus-visible { outline:3px solid #e6bd75; outline-offset:4px; }
+.post { position:absolute; top:5px; left:5px; width:54px; height:49px; border:2px solid #57351f; background:#6c462c; box-shadow:2px 3px 0 #35241755; perspective:160px; }
+.door { position:absolute; inset:0; border:2px solid #9a6a3d; background:repeating-linear-gradient(0deg,transparent 0 9px,#754b2b45 10px 11px),linear-gradient(90deg,#ad7d49,#bc915c 55%,#a77943); box-shadow:inset 1px 1px #d7ac6f,inset -1px -1px #80532f; transform-origin:0 50%; transition:transform .16s steps(4,end); }
+.roof { position:absolute; top:-6px; left:-5px; width:60px; height:7px; background:#794c2b; box-shadow:inset 0 2px #c99b60,0 2px #58361e; clip-path:polygon(4px 0,calc(100% - 4px) 0,calc(100% - 4px) 2px,100% 2px,100% 100%,0 100%,0 2px,4px 2px); }
+.slot { position:absolute; top:6px; left:8px; width:32px; height:4px; border-bottom:1px solid #d0a56b; background:#54351f; }
+.slot::after { content:''; position:absolute; z-index:2; top:0; left:0; right:0; height:3px; background:#54351f; box-shadow:0 1px #805a34; pointer-events:none; }
+.slotLetter { position:absolute; z-index:1; top:-11px; left:4px; width:24px; height:14px; overflow:hidden; pointer-events:none; }
+.slotLetter svg { display:block; width:24px; height:20px; image-rendering:pixelated; transform:translateY(12px); opacity:0; transition:transform .18s steps(4,end),opacity .18s; }
+.board[data-pending=true][data-open=false] .slot { top:19px; }
+.board[data-pending=true][data-open=false] .slotLetter svg { transform:translateY(0); opacity:1; }
+.envelope { position:absolute; top:17px; left:12px; width:25px; height:18px; stroke:#f9e6bd; stroke-width:1.8; stroke-linejoin:miter; }
+.knob { position:absolute; right:2px; top:22px; width:4px; height:5px; background:#e2bb72; box-shadow:1px 1px #624024; }
+.sign { position:absolute; top:60px; left:3px; width:58px; min-height:13px; padding:1px 0; border:1px solid #795332; background:#ddbf8a; box-shadow:1px 1px #51341f66; color:#654424; font-size:9px; font-weight:800; line-height:1.2; letter-spacing:.02em; text-align:center; }
+.sign::before,.sign::after { content:''; position:absolute; top:-7px; width:1px; height:6px; background:#684a32; }.sign::before { left:8px; }.sign::after { right:8px; }
+.letter { position:absolute; top:8px; left:10px; width:30px; height:30px; background:#fff3d3; border:1px solid #b29a72; transform:translateY(0); transition:transform .18s ease-out; }
+.board[data-open=true] .door { transform:rotateY(-72deg); }.board[data-open=true] .letter { transform:translateY(-15px); }
+.board[data-pending=true][data-open=false] .envelope { top:28px; height:12px; }
+.board[data-pending=true][data-open=false][data-editing=false] .post { transform-origin:50% 85%; animation:mission-post-nudge 10s ease-in-out infinite; }
+@keyframes mission-post-nudge { 0%,92%,99%,100% { transform:rotate(0); } 93%,95% { transform:rotate(-2deg); } 94%,96% { transform:rotate(2deg); } 97% { transform:rotate(-1deg); } 98% { transform:rotate(1deg); } }
+.portrait { position:relative; top:auto; left:auto; flex:none; }
+.flower { display:block; flex:none; width:40px; height:40px; color:#c4433c; transform:rotate(9deg); }
+.dialog { position:fixed; width:min(92vw,420px); max-height:calc(100dvh - 32px); border:2px solid #b79863; border-radius:3px 10px 5px 3px; padding:0; overflow:auto; background:#fff6db; color:#654a32; box-shadow:0 10px 48px #23180e66; }
+.dialog::backdrop { background:#231b1266; }
+.detailPaper { position:relative; padding:22px 20px 14px; background:#fff6db; border-radius:2px; box-shadow:0 2px 4px #4c311d40; }
+.detailPaper h2 { margin:5px 28px 8px; text-align:center; font-size:19px; }.date { margin:6px 0 0; color:#967f60; font-size:11px; text-align:center; }
+.close { position:absolute; top:10px; right:7px; display:grid; place-items:center; width:44px; height:44px; border:0; background:transparent; color:#785839; font-size:28px; }
+.detailCount { display:flex; align-items:center; justify-content:center; gap:9px; margin:9px 0; font-size:29px; font-weight:900; color:#b34435; }.detailCount span { font-size:12px; }
+.detailPaper ul { list-style:none; padding:0; margin:0 0 14px; }.detailPaper li { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:11px 0; border-bottom:1px dashed #c6b48d; }.detailPaper li h3 { margin:0 0 4px; font-size:14px; }.detailPaper li p { margin:0; font-size:12px; line-height:1.6; color:#8c7459; }.detailPaper li .flower { width:40px; height:40px; }.status { flex:none; color:#9b8469; font-size:11px; }
+.journal,.back { display:flex; align-items:center; justify-content:center; min-height:44px; width:100%; border:1px solid #a68b60; border-radius:8px; padding:9px 10px; color:#654a32; font-weight:800; font-size:13px; background:#f2dfb4; box-shadow:0 2px 0 #b69b6e; }.journal span { margin-left:8px; }.back { margin-top:8px; border:0; background:transparent; box-shadow:none; color:#907655; }
+.srOnly { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+
+.dialog[open] { animation:mission-letter-out .3s ease-out both; }
+@keyframes mission-letter-out { 0%,35% { opacity:0; transform:translateY(20px) scale(.96) rotate(-1deg); } 100% { opacity:1; transform:translateY(0) scale(1) rotate(0); } }
+@media (max-height:500px) and (orientation:landscape) {
+  .dialog { width:min(86vw,600px); }
+  .detailPaper { padding:12px 20px; }.detailPaper h2 { font-size:17px; margin:4px 28px; }.date { margin:0; font-size:10px; }.detailCount { font-size:24px; margin:5px 0; }
+  .detailPaper ul { display:grid; grid-template-columns:1fr 1fr; gap:0 18px; margin-bottom:10px; }.detailPaper li { padding:9px 0; }.detailPaper li h3 { font-size:13px; }.detailPaper li p { font-size:11px; }.detailPaper li .flower { width:32px; height:32px; }
+  .journal,.back { display:inline-flex; width:calc(50% - 5px); min-height:40px; font-size:12px; padding:7px; }.back { margin:0 0 0 10px; }
+}
+@media (prefers-reduced-motion:reduce) { .door,.letter,.slotLetter svg { transition:none; }.dialog[open],.board[data-pending=true][data-open=false][data-editing=false] .post { animation:none; } }
+
+.board[data-editing=true] { touch-action:none; }.board[data-editing=true] .postButton { cursor:grab; touch-action:none; }.board[data-editing=true] .postButton:active { cursor:grabbing; }
+.board[data-selected=true] .post { outline:2px solid #ffe3a3; outline-offset:3px; }
+.preview { position:relative; display:block; width:64px; height:76px; transform:scale(.68); transform-origin:center; pointer-events:none; }
+
+/* The wall post opens the coin forge; the six missions stay inside its ring. */
+.dialog { width:min(calc(100vw - 16px),560px); max-height:calc(100dvh - 16px); border:4px solid #805c3e; border-radius:20px; background:repeating-linear-gradient(5deg,#856344 0 3px,#977251 5px 6px,#725136 9px 11px); color:#fff0cc; box-shadow:0 0 0 1px #e1c28b,0 15px 50px #25190f88,inset 0 0 0 1px #efce91; }
+.detailPaper { position:relative; padding:0 18px; border:1px solid #d9bd80; background:radial-gradient(ellipse at 18% 15%,#92a5a14d,transparent 55%),radial-gradient(ellipse at 80% 85%,#8b82674d,transparent 60%),linear-gradient(150deg,#465e65,#35484f 55%,#4f6060); border-radius:15px; }
+.detailPaper::before { content:''; position:absolute; inset:7px; border:1px solid #ebd6a824; border-radius:10px; pointer-events:none; }
+.detailPaper::after { content:''; position:absolute; z-index:0; bottom:0; left:0; right:0; height:14px; border-top:1px solid #dfc38c; border-radius:0 0 13px 13px; background:repeating-linear-gradient(2deg,#73543b 0 3px,#8e6a46 4px 5px,#63482f 8px 9px); box-shadow:0 -5px 12px #141e2033; pointer-events:none; }
+.detailPaper h2 { position:absolute; z-index:2; top:29px; left:0; right:0; width:max-content; max-width:calc(100% - 80px); padding:4px 17px; border:1px solid #c6a56e; border-radius:8px; background:linear-gradient(#72583e,#59422e); box-shadow:0 3px 0 #23323566,inset 0 1px #f1d5a43d; color:#fff0c3; margin:0 auto; font-size:21px; letter-spacing:.04em; }
+.date { position:absolute; z-index:2; top:11px; left:0; right:0; margin:0; color:#e0d0ad; }.close { z-index:3; color:#f1dfb6; top:5px; right:4px; background:#20313755; border-radius:50%; }
+.headingCount { display:none; }
+.journal { background:linear-gradient(#ffe7ac,#d7ae62); color:#4f371b; border-color:#ffedbc; box-shadow:0 2px #7d5b2c; }.back { color:#e0d0ad; }
+@media (max-width:380px) { .detailPaper { padding:0 10px; }.detailPaper h2 { font-size:19px; } }
+@media (max-height:500px) and (orientation:landscape) { .dialog { width:min(calc(100vw - 20px),660px); }.detailPaper { padding:0 14px; }.detailPaper h2 { top:22px; padding:2px 14px; font-size:17px; }.date { top:7px; }.headingCount { display:inline; margin-left:9px; font-size:14px; color:#ffe19a; } }

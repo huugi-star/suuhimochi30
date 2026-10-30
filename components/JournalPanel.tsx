@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { initialJournalDate, journalBrowserStorage, markJournalOpened, pictureDiaryComment } from '@/lib/journalPresentation';
+import { missionDateKey } from '@/lib/dailyMissions';
+import type { JournalMissionEntry } from '@/lib/missionNavigation';
 import {
   ChevronLeft,
   ChevronRight,
   Compass,
   MessageCircle,
-  PenLine,
   ScrollText,
   Tags,
   Sparkles,
@@ -14,7 +16,6 @@ import {
 } from 'lucide-react';
 import type {
   DailyProgressRecord,
-  YesterdayProgressLevel,
 } from '@/lib/dailyProgress';
 import { getDoneItems, normalizeDoneItems } from '@/lib/dailyProgress';
 import { STRATEGIST_PROFILES, type StrategyRecord } from '@/lib/potenoLink';
@@ -22,7 +23,14 @@ import { DIVINATION_MASTER_PROFILES, type IChingResult, type LegacyTamamoResult,
 import type { ConversationMemory, WordEntry } from '@/lib/wordMemory';
 import type { ThirtyDayCycleArchive } from '@/lib/graduation';
 import type { SuuhimochiDiaryEntry } from '@/lib/suuhimochiDiary';
-import { JournalEntryEditor } from '@/components/JournalEntryEditor';
+import { JournalSheet } from '@/components/JournalSheet';
+import notebook from './JournalPanel.module.css';
+import { JournalTasks } from '@/components/JournalTasks';
+import { TodayJournalTasks } from '@/components/TodayJournalTasks';
+import todayUi from './TodayJournalTasks.module.css';
+import indexUi from './JournalDateIndex.module.css';
+import type { JournalChecklistChange } from '@/lib/journalChecklist';
+import type { DailyMissionSummary, JournalTaskPlans } from '@/lib/dailyMissions';
 import {
   TWO_DAY_REVIEW_GOAL_TYPES,
   TWO_DAY_REVIEW_GOAL_TYPE_LABELS,
@@ -30,9 +38,18 @@ import {
 } from '@/lib/twoDayReview';
 
 type JournalPanelProps = {
+  missionEntry?: JournalMissionEntry;
+  pictureDiary?: (date: string, comment: string) => ReactNode;
+  pictureDiaryDates?: string[];
   currentDay: number;
   currentPhase: string;
   currentActivityDate: string;
+  dailyMissionSummary: DailyMissionSummary;
+  taskPlans: JournalTaskPlans;
+  onAddTaskPlans: (date: string, items: string[]) => boolean;
+  onEditTaskPlan?: (date: string, id: string, text: string) => boolean;
+  onDeleteJournalItem?: (date: string, item: {taskId?:string;text:string}) => boolean;
+  onChecklistChange: (date: string, change: JournalChecklistChange) => void;
   userName: string;
   goalText: string;
   goalType: TwoDayReviewGoalType | null;
@@ -47,9 +64,8 @@ type JournalPanelProps = {
   cycleArchives: ThirtyDayCycleArchive[];
   experienceFruitDates: string[];
   onClose: () => void;
-  onSaveDoneItems: (date: string, doneItems: string[]) => void;
-  onConfirmNoExperience: (date: string) => void;
   onChangeGoalType: (goalType: TwoDayReviewGoalType) => void;
+  onReviewGoal: () => void;
   useSuuhimochiKeyboard?: boolean;
 };
 
@@ -63,13 +79,6 @@ function tamamoJournalSummary(result: TamamoResult) {
   if ('calculationVersion' in result && result.calculationVersion === 'tamamo-crossroads-v1') return `「${result.kotodama.word}」／${result.kotodama.themeLabel}`;
   return (result as LegacyTamamoResult).phrase;
 }
-
-const PROGRESS_LABELS: Record<YesterdayProgressLevel, string> = {
-  HOP: 'ホップ',
-  STEP: 'ステップ',
-  JUMP: 'ジャンプ',
-  BREATH: 'ひと呼吸',
-};
 
 function moveDate(dateKey: string, days: number) {
   const date = new Date(`${dateKey}T12:00:00`);
@@ -86,16 +95,18 @@ function formatDate(dateKey: string) {
   }).format(date);
 }
 
-function wordDateKey(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
 export function JournalPanel({
+  missionEntry,
+  pictureDiary,
+  pictureDiaryDates = [],
   currentDay,
-  currentPhase,
   currentActivityDate,
+  dailyMissionSummary,
+  taskPlans,
+  onAddTaskPlans,
+  onEditTaskPlan,
+  onDeleteJournalItem,
+  onChecklistChange,
   userName,
   goalText,
   goalType,
@@ -108,132 +119,91 @@ export function JournalPanel({
   words,
   farewellLetter,
   cycleArchives,
-  experienceFruitDates,
   onClose,
-  onSaveDoneItems,
-  onConfirmNoExperience,
   onChangeGoalType,
-  useSuuhimochiKeyboard = false,
+  onReviewGoal,
 }: JournalPanelProps) {
   const safeCurrentDay = Math.min(30, Math.max(1, currentDay));
   const trimmedUserName = userName.trim();
   const journalOwnerLabel = trimmedUserName
     ? `${trimmedUserName}${/(さん|くん|ちゃん|様)$/.test(trimmedUserName) ? '' : 'さん'}`
     : 'あなた';
-  const [selectedDay, setSelectedDay] = useState(safeCurrentDay);
+  const today = missionDateKey();
+  const yesterday = moveDate(today, -1);
+  const cycleFirstDate = moveDate(currentActivityDate, 1 - safeCurrentDay);
+  const dateForDay = (day: number) => moveDate(currentActivityDate,day-safeCurrentDay);
+  const dates = new Set([today,...Object.keys(journalNotes),...Object.keys(suuhimochiDiaries),...Object.keys(taskPlans),...pictureDiaryDates,...records.map(r=>r.reviewedDate)]);
+  for(const archive of cycleArchives)for(const date of [...Object.keys(archive.journalNotes),...Object.keys(archive.suuhimochiDiaries??{}),...archive.dailyProgressRecords.map(r=>r.reviewedDate)])dates.add(date);
+  for(const record of [...memories.map(m=>m.day),...strategyRecords.map(r=>r.consultedDay),...divinationRecords.map(r=>r.consultedDay)])if(record>=1&&record<=safeCurrentDay)dates.add(dateForDay(record));
+  for(const word of words){if(word.learnedAt&&Number.isFinite(Date.parse(word.learnedAt)))dates.add(missionDateKey(new Date(word.learnedAt)));else if(word.firstSeenDay>=1&&word.firstSeenDay<=safeCurrentDay)dates.add(dateForDay(word.firstSeenDay));}
+  const availableDates=[...dates].filter(date=>/^\d{4}-\d{2}-\d{2}$/.test(date)&&date<=today&&Number.isFinite(Date.parse(date+'T12:00:00Z'))&&new Date(date+'T12:00:00Z').toISOString().slice(0,10)===date)
+    .filter(date=>{const day=safeCurrentDay+Math.round((Date.parse(date+'T12:00:00Z')-Date.parse(currentActivityDate+'T12:00:00Z'))/86400000);return day>=1&&day<=30}).sort();
+  const hasYesterday=availableDates.includes(yesterday);
+  const [selectedDate, setSelectedDate] = useState(() => missionEntry?.date ?? initialJournalDate(today, hasYesterday, journalBrowserStorage()));
+  useEffect(() => { markJournalOpened(today, journalBrowserStorage()); }, [today]);
+  const selectedDay = safeCurrentDay + Math.round((Date.parse(`${selectedDate}T12:00:00Z`) - Date.parse(`${currentActivityDate}T12:00:00Z`)) / 86400000);
+  const isToday = selectedDate === today;
+  const indexRef=useRef<HTMLElement>(null);
+  const archived = selectedDate < cycleFirstDate ? cycleArchives.find((archive) => archive.journalNotes[selectedDate] || archive.suuhimochiDiaries?.[selectedDate]
+    || archive.dailyProgressRecords.some((record) => record.reviewedDate === selectedDate)) : undefined;
   const [turnDirection, setTurnDirection] = useState<'previous' | 'next'>(
     'next',
   );
-  const [editing, setEditing] = useState(false);
   const [editingGoalType, setEditingGoalType] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [confirmingNoExperience, setConfirmingNoExperience] = useState(false);
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState<string | null>(null);
+  const [pastView, setPastView] = useState<'picture' | 'records'>(missionEntry?.action === 'report' ? 'records' : 'picture');
+  const [textDiaryOpen, setTextDiaryOpen] = useState(false);
 
-  const selectedDate = moveDate(
-    currentActivityDate,
-    selectedDay - safeCurrentDay,
-  );
-  const reviewRecord = records.find(
+  const reviewRecord = (archived?.dailyProgressRecords ?? records).find(
     (record) => record.reviewedDate === selectedDate,
   );
   const savedItems = Object.prototype.hasOwnProperty.call(
-    journalNotes,
+    archived?.journalNotes ?? journalNotes,
     selectedDate,
   )
-    ? journalNotes[selectedDate]
+    ? (archived?.journalNotes ?? journalNotes)[selectedDate]
     : getDoneItems(reviewRecord);
   const lines = normalizeDoneItems(savedItems);
-  const dayMemories = memories.filter((memory) => memory.day === selectedDay);
+  const dayMemories = selectedDate < cycleFirstDate ? [] : memories.filter((memory) => memory.day === selectedDay);
   const dayWords = useMemo(
-    () => words.filter((word) => wordDateKey(word.firstSeen) === selectedDate),
-    [selectedDate, words],
+    () => selectedDate < cycleFirstDate ? [] : words.filter((word) => word.learnedAt && Number.isFinite(Date.parse(word.learnedAt)) ? missionDateKey(new Date(word.learnedAt)) === selectedDate : word.firstSeenDay === selectedDay),
+    [selectedDay, selectedDate, cycleFirstDate, words],
   );
-  const dayStrategies = strategyRecords.filter((record) => record.consultedDay === selectedDay);
-  const dayDivinations = divinationRecords.filter((record) => record.consultedDay === selectedDay);
-  const suuhimochiDiary = suuhimochiDiaries[selectedDate];
-  const diaryIsReady = selectedDate < currentActivityDate;
-  const diaryPreview = !diaryIsReady
-    ? '明日になったら書かれるみたい'
-    : suuhimochiDiary
-      ? `「${suuhimochiDiary.text.split('\n')[0].replace(/[。！!?]$/, '')}……」`
-      : 'この日のことは、まだ言葉になっていないみたい';
-  const entryHeading = selectedDay === safeCurrentDay
-    ? '今日の足あと'
-    : selectedDay === safeCurrentDay - 1
-      ? '昨日の足あと'
-      : 'この日の足あと';
-  const emptyFootprintHint = selectedDay === safeCurrentDay
-    ? '今日の足あと、まだ空いてるみたい。小さなことでも残しておこう。'
-    : selectedDay === safeCurrentDay - 1
-      ? '昨日の足あと、まだ残してないみたい。覚えてるうちに、少し書いておく？'
-      : 'この日の足あと、まだ空いてるみたい。思い出せることがあったら、少し残しておく？';
-
-  // The left edge is the stack already turned over: the open page plus its
-  // recent past.  The right edge only exists while looking back and leads
-  // toward the latest reached day.  Days beyond safeCurrentDay never appear.
-  const leftTabs = Array.from(
-    { length: Math.min(7, selectedDay) },
-    (_, index) => selectedDay - Math.min(7, selectedDay) + index + 1,
-  );
-  const rightTabs =
-    selectedDay < safeCurrentDay
-      ? Array.from(
-          { length: Math.min(7, safeCurrentDay - selectedDay) },
-          (_, index) => selectedDay + index + 1,
-        )
-      : [];
-
-  const dateForDay = (day: number) =>
-    moveDate(currentActivityDate, day - safeCurrentDay);
-  const isPending = (day: number) =>
-    records.some(
-      (record) =>
-        record.reviewedDate === dateForDay(day) && record.noteDeferred,
-    );
-
-  const openDay = (day: number) => {
-    const nextDay = Math.min(30, Math.max(1, day));
-    if (nextDay === selectedDay) return;
-    setTurnDirection(nextDay < selectedDay ? 'previous' : 'next');
-    setSelectedDay(nextDay);
-    setEditing(false);
-    setConfirmingNoExperience(false);
+  const dayStrategies = selectedDate < cycleFirstDate ? [] : strategyRecords.filter((record) => record.consultedDay === selectedDay);
+  const dayDivinations = selectedDate < cycleFirstDate ? [] : divinationRecords.filter((record) => record.consultedDay === selectedDay);
+  const suuhimochiDiary = (archived?.suuhimochiDiaries ?? suuhimochiDiaries)[selectedDate];
+  const previousDate=availableDates.filter(date=>date<selectedDate).at(-1),nextDate=availableDates.find(date=>date>selectedDate);
+  const olderDates=availableDates.filter(date=>date<selectedDate).slice(-5);
+  const newerDates=isToday?[]:availableDates.filter(date=>date>selectedDate).slice(0,5);
+  const openDate = (date: string) => {
+    if (!availableDates.includes(date) || date === selectedDate) return;
+    setTurnDirection(date < selectedDate ? 'previous' : 'next');
+    setSelectedDate(date);
   };
 
-  const beginEditing = () => {
-    setConfirmingNoExperience(false);
-    setEditing(true);
-  };
-
-  const renderTab = (day: number, side: 'left' | 'right') => (
+  const renderTab = (date: string) => {
+    const day=safeCurrentDay+Math.round((Date.parse(date+'T12:00:00Z')-Date.parse(currentActivityDate+'T12:00:00Z'))/86400000);
+    const dayLabel=day>=1&&day<=safeCurrentDay?`DAY ${day}`:date.slice(5).replace('-','/');
+    return (
     <button
       type="button"
-      key={day}
-      className={`journal-tab journal-tab-${side}${day === selectedDay ? ' is-current' : ''}`}
-      onClick={() => openDay(day)}
-      aria-label={`DAY ${day}を開く${isPending(day) ? '・未記帳' : ''}`}
+      key={date}
+      className={`journal-tab journal-tab-left ${indexUi.tab}${date===selectedDate?' is-current':''}`}
+      onClick={() => openDate(date)}
+      aria-current={date===selectedDate?'date':undefined}
+      aria-label={`${dayLabel}を開く`}
+      data-index-date={date}
+      title={formatDate(date)}
     >
-      <span>DAY</span>
-      <b>{day}</b>
-      {isPending(day) && <i aria-label="未記帳">●</i>}
+      <span>{day>=1&&day<=safeCurrentDay?'DAY':`${Number(date.slice(5,7))}月`}</span>
+      <b>{day>=1&&day<=safeCurrentDay?day:`${Number(date.slice(8))}日`}</b>
     </button>
-  );
-
-  if (editing) return <JournalEntryEditor
-    day={selectedDay}
-    date={selectedDate}
-    heading={entryHeading}
-    initialItems={lines}
-    useSuuhimochiKeyboard={useSuuhimochiKeyboard}
-    onSave={(items) => {
-      onSaveDoneItems(selectedDate, items);
-      setEditing(false);
-    }}
-    onCancel={() => setEditing(false)}
-  />;
+  );};
 
   return (
-    <section className="journal-overlay" aria-label="30日間の日誌">
+    <section className={`journal-overlay ${notebook.notebook}${isToday ? ` ${todayUi.todayNotebook}` : ''}`} aria-label="30日間の日誌">
       <div className="journal-book">
         <button
           className="journal-close"
@@ -243,7 +213,6 @@ export function JournalPanel({
         >
           <X size={21} />
         </button>
-        {cycleArchives.length > 0 && <button className="journal-archive-open" type="button" onClick={() => setArchiveOpen(true)}><ScrollText size={13} />過去の30日</button>}
 
         {archiveOpen && <section className="journal-archive-sheet" aria-label="過去の30日記録">
           <header><div><small>SUUHIMOCHI HISTORY</small><h2>過去の30日</h2></div><button type="button" onClick={() => setArchiveOpen(false)} aria-label="過去の30日を閉じる"><X size={19} /></button></header>
@@ -285,28 +254,32 @@ export function JournalPanel({
           </div>
         </section>}
 
-        <aside
-          className="journal-tabs journal-tabs-left"
-          aria-label="前の日の付箋"
-        >
-          {leftTabs.map((day) => renderTab(day, 'left'))}
-        </aside>
-        <aside
-          className="journal-tabs journal-tabs-right"
-          aria-label="次の日の付箋"
-        >
-          {rightTabs.map((day) => renderTab(day, 'right'))}
-        </aside>
+        {olderDates.length>0&&<nav ref={indexRef} className={`${indexUi.index} ${indexUi.older}`} aria-label="前の日誌">{olderDates.map(renderTab)}</nav>}
+        {newerDates.length>0&&<nav className={`${indexUi.index} ${indexUi.newer}`} aria-label="後の日誌">{newerDates.map(renderTab)}</nav>}
 
         <article
-          key={selectedDay}
-          className={`journal-page journal-page-${turnDirection}`}
+          key={selectedDate}
+          data-past-view={pastView} className={`journal-page journal-page-${turnDirection}${isToday ? ' journal-page-today' : ' journal-page-past'}`}
+          data-date={selectedDate}
         >
+          {!isToday && <h1 className="journal-diary-title">すうひもちの日誌</h1>}
           <header className="journal-page-header">
-            <div>
-              <small>SUUHIMOCHI 30 DAYS</small>
-              <strong>DAY {selectedDay}</strong>
-            </div>
+            <div><strong>{isToday?`DAY ${safeCurrentDay}`:selectedDay >= 1 && selectedDay <= 30 ? `DAY ${selectedDay}` : '手帳'}</strong>
+              <time className="journal-date" dateTime={selectedDate}>{formatDate(selectedDate)}</time></div>
+            {isToday && <h1 className={todayUi.title}>きょうの日誌</h1>}
+          </header>
+            <button className="journal-goal-entry" type="button" onClick={() => setGoalOpen(true)} aria-label="30日の目標を開く"><Compass size={17} /></button>
+          {!isToday && <div className="journal-return-today"><span>{selectedDate === yesterday ? 'きのうの手帳' : 'この日の手帳'}</span><button type="button" onClick={() => openDate(today)}>きょうの手帳へ <ChevronRight size={16} /></button></div>}
+          {!isToday && <nav className="journal-past-switch" aria-label="この日の日誌の表示">
+            <button type="button" aria-pressed={pastView === 'picture'} onClick={() => setPastView('picture')}>絵日記</button>
+            <button type="button" aria-pressed={pastView === 'records'} onClick={() => setPastView('records')}>この日やったこと</button>
+          </nav>}
+          {!isToday && <div className="journal-picture-pane">
+            {pictureDiary?.(selectedDate, pictureDiaryComment(dayWords.map((word) => word.surface), suuhimochiDiary?.text))}
+            {suuhimochiDiary && <section className="journal-mochi-diary" aria-label="すうひもちの文章日記"><p>{suuhimochiDiary.text}</p><button className="journal-diary-read" type="button" onClick={() => setTextDiaryOpen(true)}>文章日記を読む ›</button></section>}
+          </div>}
+          {textDiaryOpen && <JournalSheet title="すうひもちの文章日記" onClose={() => setTextDiaryOpen(false)}><p>{suuhimochiDiary?.text}</p></JournalSheet>}
+          {goalOpen && <JournalSheet title="30日の目標" onClose={() => setGoalOpen(false)}>
             <div className="journal-main-goal">
               <small>30日の目標</small>
               <strong>「{goalText || 'まだ決めていません'}」</strong>
@@ -345,96 +318,26 @@ export function JournalPanel({
                 </div>
               )}
             </div>
-            <div className="journal-date">
-              <span>{formatDate(selectedDate)}</span>
-              {selectedDay === safeCurrentDay && <em>{currentPhase}</em>}
-            </div>
-          </header>
+            <button type="button" onClick={() => { setGoalOpen(false); onReviewGoal(); }}>目標・行動方法を振り返る</button>
+            {cycleArchives.length > 0 && <button type="button" onClick={() => { setGoalOpen(false); setArchiveOpen(true); }}><ScrollText size={15} /> 過去の30日</button>}
+          </JournalSheet>}
+          <div className={isToday ? "journal-today-pane" : "journal-record-pane"}>{isToday ? <TodayJournalTasks key={selectedDate} date={selectedDate} plans={taskPlans} notes={lines}
+            entryAction={missionEntry?.date === selectedDate ? missionEntry.action : undefined}
+            onYesterday={hasYesterday ? () => openDate(yesterday) : undefined} onAddPlan={onAddTaskPlans} onEditPlan={onEditTaskPlan}
+            onDeleteItem={onDeleteJournalItem}
+            onChangeItem={onChecklistChange} /> : <JournalTasks key={selectedDate} summary={{ ...dailyMissionSummary, date: today }} plans={taskPlans} notes={lines} selectedDate={selectedDate}
+            entryAction={missionEntry?.date === selectedDate ? missionEntry.action : undefined}
+            onYesterday={hasYesterday ? () => openDate(yesterday) : undefined} onAddPlan={onAddTaskPlans}
+            onChangeItem={(date, change) => onChecklistChange(date, { ...change, ...(archived ? { archiveId: archived.id } : {}) })} />}</div>
 
-          <section className="journal-progress-row" aria-label="今日の進み具合">
-            <strong>今日の進み具合</strong>
-            <div className="journal-progress-choices">
-              {(['HOP', 'STEP', 'JUMP', 'BREATH'] as YesterdayProgressLevel[]).map((level) => (
-                <span
-                  key={level}
-                  data-level={level}
-                  className={reviewRecord?.yesterdayEvaluation === level ? 'is-selected' : ''}
-                >
-                  {PROGRESS_LABELS[level]}
-                </span>
-              ))}
-            </div>
-            {!reviewRecord && <small>{selectedDay >= safeCurrentDay ? '振り返りは、これから' : 'まだ記録がありません'}</small>}
-          </section>
-
-          <section className="journal-primary journal-human-entry" aria-labelledby="human-journal-heading">
-            <header>
-              <div>
-                <small>{journalOwnerLabel}の日誌</small>
-                <div className="journal-heading-line">
-                  <h2 id="human-journal-heading">{entryHeading}</h2>
-                  <span>できたこと、進んだこと、試したこと。小さなことでも残しておこう。</span>
-                </div>
-              </div>
-              <div className="journal-primary-actions">
-                {lines.length === 0 && <em className="journal-pending">未記帳</em>}
-                <button className="journal-edit" type="button" onClick={beginEditing}>
-                  <PenLine size={14} />
-                  {lines.length > 0 ? '追記・修正' : '記帳する'}
-                </button>
-              </div>
-            </header>
-            <div className="journal-primary-body">
-              {lines.length > 0 ? (
-                <ul className="journal-note-lines">
-                  {lines.map((line, index) => (
-                    <li key={`${line}-${index}`}>{line}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="journal-empty">{emptyFootprintHint}</p>
-              )}
-              {lines.length === 0 && selectedDate < currentActivityDate && !experienceFruitDates.includes(selectedDate) && (
-                !confirmingNoExperience ? (
-                  <button className="journal-no-experience" type="button" onClick={() => setConfirmingNoExperience(true)}>
-                    特に残すことはない
-                  </button>
-                ) : (
-                  <fieldset className="journal-no-experience-confirm" aria-label="経験がなかった日として確定">
-                    <p>この日は記帳せず、ほとんど味のない白い実を3つ作りますか？</p>
-                    <button type="button" onClick={() => { onConfirmNoExperience(selectedDate); setConfirmingNoExperience(false); }}>白い実にする</button>
-                    <button type="button" onClick={() => setConfirmingNoExperience(false)}>やめる</button>
-                  </fieldset>
-                )
-              )}
-            </div>
-          </section>
-
-          <details className="journal-mochi-entry">
-            <summary>
-              <strong>すうひもちの日記</strong>
-              <span aria-hidden="true">✦</span>
-              <em>{diaryPreview}</em>
-              <b aria-hidden="true" />
-            </summary>
-            <div className="journal-mochi-diary">
-              {!diaryIsReady ? (
-                <p className="is-waiting">明日になったら書かれるみたい。</p>
-              ) : suuhimochiDiary ? (
-                <p>{suuhimochiDiary.text}</p>
-              ) : (
-                <p className="is-waiting">この日のことは、まだ言葉になっていないみたい。</p>
-              )}
-            </div>
-          </details>
-
-          <details className="journal-support">
-            <summary>
-              <span>補助情報</span>
-              <small>相談・占い・会話・ことば</small>
-            </summary>
+          {!isToday && <nav className="journal-index" aria-label="手帳の索引">
+            {([['talk', '会話', MessageCircle, dayMemories.length], ['words', 'ことば', Tags, dayWords.length], ['strategy', '軍師', Compass, dayStrategies.length], ['divination', '六占', Sparkles, dayDivinations.length]] as const).map(([id, label, Icon, count]) =>
+              <button type="button" key={id} onClick={() => setSupportOpen(id)} aria-label={`${label}の記録を開く`}><Icon size={17} /><span>{label}</span><small>{count}</small></button>)}
+          </nav>}
+          {supportOpen && <JournalSheet title="手帳の索引" onClose={() => setSupportOpen(null)}>
+            <section className="journal-support" data-index={supportOpen}>
             <div className="journal-support-grid">
-              <details className="journal-section">
+              <details className="journal-section" data-section="strategy" open>
                 <summary><Compass size={17} /><span>ポテノ軍師との作戦</span><b>{dayStrategies.length}</b></summary>
                 <div className="journal-section-body">
                   {dayStrategies.length > 0 ? <div className="journal-strategy-list">{dayStrategies.map((strategy) => (
@@ -449,7 +352,7 @@ export function JournalPanel({
                 </div>
               </details>
 
-              <details className="journal-section">
+              <details className="journal-section" data-section="divination" open>
                 <summary><Sparkles size={17} /><span>ポテノ六占</span><b>{dayDivinations.length}</b></summary>
                 <div className="journal-section-body">
                   {dayDivinations.length > 0 ? <div className="journal-divination-list">{dayDivinations.map((divination) => (
@@ -472,7 +375,7 @@ export function JournalPanel({
                 </div>
               </details>
 
-              <details className="journal-section">
+              <details className="journal-section" data-section="talk" open>
                 <summary><MessageCircle size={17} /><span>この日の会話</span><b>{dayMemories.length}</b></summary>
                 <div className="journal-section-body">
                   {dayMemories.length > 0 ? <div className="journal-memory-list">{dayMemories.map((memory, index) => (
@@ -482,29 +385,30 @@ export function JournalPanel({
                 </div>
               </details>
 
-              <details className="journal-section">
+              <details className="journal-section" data-section="words" open>
                 <summary><Tags size={17} /><span>覚えたことば</span><b>{dayWords.length}</b></summary>
                 <div className="journal-section-body">
                   {dayWords.length > 0 ? <div className="journal-word-list">{dayWords.map((word) => <span key={word.id}>{word.surface}</span>)}</div> : <p className="journal-empty">この日に覚えたことばはまだありません。</p>}
                 </div>
               </details>
             </div>
-          </details>
+            </section>
+          </JournalSheet>}
 
           <footer className="journal-page-navigation">
             <button
               type="button"
-              onClick={() => openDay(selectedDay - 1)}
-              disabled={selectedDay <= 1}
+              onClick={() => previousDate && openDate(previousDate)}
+              disabled={!previousDate}
             >
               <ChevronLeft size={18} />
               前の日
             </button>
-            <span>{selectedDay} / 30</span>
+            <span>{formatDate(selectedDate)}</span>
             <button
               type="button"
-              onClick={() => openDay(selectedDay + 1)}
-              disabled={selectedDay >= 30}
+              onClick={() => nextDate && openDate(nextDate)}
+              disabled={!nextDate}
             >
               次の日
               <ChevronRight size={18} />
@@ -513,320 +417,7 @@ export function JournalPanel({
         </article>
       </div>
 
-      <style>{`
-        .journal-overlay { position: absolute; z-index: 105; inset: 48px 0 68px; display: grid; place-items: center; padding: 16px 52px; background: rgba(44,31,22,.28); backdrop-filter: blur(2px); }
-        .journal-book { position: relative; width: min(820px, 100%); max-height: 100%; }
-        .journal-page { position: relative; max-height: calc(100vh - 158px); overflow-y: auto; padding: 28px 38px 22px; border: 1px solid #a88968; border-radius: 12px 22px 22px 12px; color: #47372c; background: linear-gradient(90deg, #f0dab1 0 17px, #fffaf1 17px 100%); box-shadow: inset 5px 0 10px rgba(116,80,47,.1), 0 16px 42px rgba(31,19,11,.34); transform-style: preserve-3d; }
-        .journal-page-next { animation: journal-turn-next .32s ease-out; transform-origin: left center; }
-        .journal-page-previous { animation: journal-turn-previous .32s ease-out; transform-origin: right center; }
-        @keyframes journal-turn-next { from { opacity: .65; transform: perspective(900px) rotateY(-8deg) translateX(10px); } to { opacity: 1; transform: none; } }
-        @keyframes journal-turn-previous { from { opacity: .65; transform: perspective(900px) rotateY(8deg) translateX(-10px); } to { opacity: 1; transform: none; } }
-        .journal-close { position: absolute; z-index: 8; top: 10px; right: 11px; display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid #b79a78; border-radius: 50%; color: #644d3b; background: #fffaf0; box-shadow: 0 3px 8px rgba(57,37,23,.18); }
-        .journal-archive-open { position: absolute; z-index: 7; top: 18px; right: 60px; display: inline-flex; min-height: 22px; align-items: center; gap: 3px; padding: 2px 4px; border: 0; border-bottom: 1px solid rgba(130,94,65,.38); border-radius: 0; color: #8f6a50; background: transparent; font-size: .61rem; font-weight: 800; }
-        .journal-archive-sheet { position: absolute; z-index: 12; inset: 0; max-height: calc(100vh - 158px); overflow-y: auto; padding: 24px 28px; border: 2px solid #917050; border-radius: 12px 18px 18px 12px; color: #49372c; background: linear-gradient(90deg,#ead3aa 0 16px,#fffaf0 16px 100%); box-shadow: 0 18px 50px rgba(31,19,11,.42); }
-        .journal-archive-sheet > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .journal-archive-sheet > header small { color: #a06e4d; font-size: .62rem; font-weight: 900; letter-spacing: .14em; }
-        .journal-archive-sheet > header h2 { margin: 2px 0 0; font: 900 1.5rem 'Yu Mincho',serif; }
-        .journal-archive-sheet > header button { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid #b79a78; border-radius: 50%; color: #644d3b; background: #fffaf0; }
-        .journal-archive-intro { margin: 10px 0 15px; color: #806b59; font-size: .78rem; font-weight: 700; }
-        .journal-archive-list { display: grid; gap: 13px; }
-        .journal-archive-list > article { padding: 15px; border: 2px solid #c2a27b; border-radius: 14px; background: rgba(255,250,235,.88); box-shadow: 0 4px 0 rgba(102,68,45,.1); }
-        .journal-archive-list > article > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; padding-bottom: 9px; border-bottom: 1px dashed rgba(125,88,59,.32); }
-        .journal-archive-list > article > header div { display: grid; gap: 3px; }
-        .journal-archive-list > article > header small { color: #a06649; font-weight: 900; }
-        .journal-archive-list > article > header strong { font: 900 1rem/1.45 'Yu Mincho',serif; }
-        .journal-archive-list time { color: #927763; font-size: .67rem; font-weight: 750; white-space: nowrap; }
-        .journal-archive-summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-        .journal-archive-summary span { padding: 4px 8px; border-radius: 999px; color: #755744; background: #efe0c6; font-size: .65rem; font-weight: 850; }
-        .journal-archive-list details { padding-top: 7px; border-top: 1px solid rgba(127,91,63,.18); }
-        .journal-archive-list details + details { margin-top: 7px; }
-        .journal-archive-list summary { cursor: pointer; color: #79523d; font-weight: 900; }
-        .journal-archive-list h3 { margin: 9px 0 4px; color: #936048; font-size: .72rem; }
-        .journal-archive-list ul { display: grid; gap: 3px; margin: 0; padding-left: 20px; color: #5b4639; font-size: .75rem; line-height: 1.55; }
-        .journal-archive-list details p { margin: 7px 0 0; color: #5e493d; font-size: .75rem; line-height: 1.6; }
-        .journal-archive-notes,.journal-archive-consults { display: grid; gap: 7px; margin-top: 8px; }
-        .journal-archive-notes section,.journal-archive-consults section { padding: 8px 10px; border-left: 3px solid #c49a72; background: rgba(255,255,255,.46); }
-        .journal-archive-notes time { color: #99694e; font-size: .67rem; font-weight: 900; }
-        .journal-archive-notes ul { margin-top: 4px; }
-        .journal-archive-consults section b { color: #80543f; font-size: .72rem; }
-        .journal-page-header { display: grid; grid-template-columns: auto minmax(150px, 1fr) auto; align-items: end; gap: 18px; padding-right: 45px; }
-        .journal-page-header > div:first-child { display: grid; gap: 2px; }
-        .journal-page-header small { color: #a06e4d; font-size: .61rem; font-weight: 900; letter-spacing: .14em; }
-        .journal-page-header > div:first-child > strong { font: 900 clamp(1.55rem, 5vw, 2.2rem)/1 'Yu Mincho', serif; letter-spacing: .08em; }
-        .journal-main-goal { display: grid; min-width: 0; gap: 4px; padding: 8px 13px; border-inline: 1px solid rgba(143,105,70,.25); text-align: center; }
-        .journal-main-goal strong { overflow-wrap: anywhere; color: #604338; font: 900 clamp(.92rem, 2.6vw, 1.15rem)/1.5 'Klee One', 'Hiragino Maru Gothic ProN', 'Yu Gothic', sans-serif; letter-spacing: .045em; }
-        .journal-goal-type-row { display: flex; align-items: center; justify-content: center; gap: 7px; color: #8b6d58; font-size: .67rem; font-weight: 800; }
-        .journal-goal-type-row button { min-height: 25px; border: 1px solid #b89a78; border-radius: 8px; padding: 2px 8px; color: #6a513e; background: #fff8e8; font-size: .66rem; font-weight: 900; }
-        .journal-goal-type-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 3px; text-align: left; }
-        .journal-goal-type-picker button { min-height: 33px; border: 1px solid #c5a37d; border-radius: 8px; padding: 5px 7px; color: #6b513e; background: #fffdf5; font-size: .64rem; font-weight: 800; }
-        .journal-goal-type-picker button.is-selected { color: #fff; border-color: #ae6549; background: #c87755; }
-        .journal-date { display: flex; align-items: center; gap: 8px; font-weight: 800; }
-        .journal-date em { padding: 3px 7px; border-radius: 9px; color: #756049; background: #eee0bd; font-size: .68rem; font-style: normal; }
-        .journal-progress-row { display: flex; align-items: center; gap: 12px; margin: 17px 0 14px; padding: 10px 13px; border-radius: 15px; background: rgba(245,226,193,.58); }
-        .journal-progress-row > strong { flex: 0 0 auto; color: #694b39; font-size: .83rem; }
-        .journal-progress-row > small { margin-left: auto; color: #998575; font-size: .7rem; }
-        .journal-progress-choices { display: flex; flex-wrap: wrap; gap: 6px; }
-        .journal-progress-choices span { padding: 4px 10px; border-radius: 999px; color: #9b8777; background: rgba(255,255,255,.58); font-size: .7rem; font-weight: 850; }
-        .journal-progress-choices span.is-selected { color: #fffaf0; background: #c27956; box-shadow: 0 2px 5px rgba(111,70,46,.18); }
-        .journal-progress-choices span[data-level='BREATH'].is-selected { background: #668f84; }
-        .journal-primary { margin-top: 13px; padding: 17px 18px; border: 1px solid rgba(169,129,91,.28); border-radius: 19px; background: rgba(255,253,246,.82); box-shadow: 0 5px 14px rgba(93,61,38,.07); }
-        .journal-primary > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
-        .journal-primary > header > div { display: grid; gap: 2px; }
-        .journal-primary > header small { color: #a1684b; font-size: .65rem; font-weight: 900; letter-spacing: .08em; }
-        .journal-primary > header h2 { margin: 0; color: #563f31; font: 900 1.06rem/1.4 'Klee One','Hiragino Maru Gothic ProN','Yu Gothic',sans-serif; }
-        .journal-primary > header > div:first-child { min-width: 0; }
-        .journal-heading-line { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: baseline; gap: 9px; }
-        .journal-heading-line > span { min-width: 0; color: #8a7b6d; font-size: .66rem; font-weight: 700; line-height: 1.35; }
-        .journal-primary-actions { display: flex !important; flex: 0 0 auto; align-items: center; gap: 7px !important; }
-        .journal-primary-body { min-height: 116px; padding: 3px 1px 1px; }
-        .journal-human-entry { border-color: rgba(190,132,86,.36); background: linear-gradient(145deg,rgba(255,253,246,.96),rgba(255,244,221,.84)); }
-        .journal-human-entry .journal-note-lines { min-height: 66px; padding: 11px 13px; border-radius: 13px; background: rgba(255,255,255,.62); font-size: .91rem; line-height: 1.75; }
-        .journal-human-entry .journal-empty { min-height: 66px; padding: 15px 13px; border-radius: 13px; background: rgba(255,255,255,.52); }
-        .journal-mochi-entry { margin-top: 13px; border: 1px solid rgba(169,129,91,.22); border-radius: 15px; background: linear-gradient(145deg,rgba(255,250,234,.9),rgba(249,237,213,.68)); }
-        .journal-mochi-entry > summary { display: grid; grid-template-columns: auto auto minmax(0,1fr) auto; min-height: 48px; align-items: center; gap: 8px; padding: 8px 13px; cursor: pointer; color: #654c3c; list-style: none; }
-        .journal-mochi-entry > summary::-webkit-details-marker { display: none; }
-        .journal-mochi-entry > summary strong { font-size: .83rem; white-space: nowrap; }
-        .journal-mochi-entry > summary > span { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; color: #b66c4f; background: #ffe2b8; }
-        .journal-mochi-entry > summary em { min-width: 0; overflow: hidden; color: #8d7766; font-size: .72rem; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
-        .journal-mochi-entry > summary b { color: #9a7459; font-size: .69rem; }
-        .journal-mochi-entry > summary b::before { content: '開く'; }
-        .journal-mochi-entry[open] > summary b::before { content: '閉じる'; }
-        .journal-mochi-diary { margin: 0 12px 12px; padding: 13px 15px; border-radius: 14px 14px 14px 5px; color: #5e493d; background: rgba(255,255,255,.58); font-family: 'Klee One','Hiragino Maru Gothic ProN','Yu Gothic',sans-serif; line-height: 1.82; }
-        .journal-mochi-diary p { margin: 0; white-space: pre-line; }
-        .journal-mochi-diary .is-waiting { color: #9c8876; }
-        .journal-support { margin-top: 15px; border-radius: 15px; background: rgba(238,225,203,.38); }
-        .journal-support > summary { display: flex; min-height: 45px; align-items: center; gap: 10px; padding: 8px 13px; cursor: pointer; color: #715b49; font-size: .82rem; font-weight: 900; list-style: none; }
-        .journal-support > summary::-webkit-details-marker { display: none; }
-        .journal-support > summary small { color: #9b8877; font-size: .65rem; font-weight: 700; }
-        .journal-support > summary::after { content: '＋'; margin-left: auto; color: #9f8065; }
-        .journal-support[open] > summary::after { content: '−'; }
-        .journal-support-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; padding: 0 13px 11px; }
-        .journal-section { position: relative; border-bottom: 1px solid rgba(130,96,67,.2); }
-        .journal-section summary { display: flex; min-height: 44px; align-items: center; gap: 8px; cursor: pointer; font-size: .87rem; font-weight: 900; list-style: none; }
-        .journal-section summary::-webkit-details-marker { display: none; }
-        .journal-section summary::after { content: '＋'; margin-left: auto; color: #a38667; font-size: 1rem; }
-        .journal-section[open] summary::after { content: '−'; }
-        .journal-section summary > b { display: grid; min-width: 24px; height: 22px; margin-left: 3px; place-items: center; border-radius: 11px; color: #fff; background: #b99a72; font-size: .66rem; }
-        .journal-summary-mark { display: grid; width: 17px; height: 17px; place-items: center; border: 1px solid #9e7d5f; border-radius: 4px; color: #a36c4f; font-size: .72rem; }
-        .journal-section-body { padding: 1px 4px 15px 25px; line-height: 1.65; }
-        .journal-pending { margin-left: 5px; padding: 3px 7px; border-radius: 9px; color: #9b5e3f; background: #ffe0ae; font-size: .66rem; font-style: normal; }
-        .journal-note-lines { display: grid; gap: 4px; margin: 0 0 11px; padding: 0; list-style: none; }
-        .journal-note-lines li::before { content: '・'; color: #bd7250; font-weight: 900; }
-        .journal-empty { margin: 0 0 10px; color: #9b8b7c; font-size: .8rem; }
-        .journal-no-experience { margin-left: 8px; border: 1px solid rgba(137,119,101,.38); border-radius: 9px; padding: 7px 10px; color: #817263; background: rgba(250,247,238,.7); font-size: .74rem; font-weight: 750; }
-        .journal-no-experience-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 10px; padding: 10px; border: 1px dashed rgba(137,119,101,.48); border-radius: 10px; background: rgba(250,247,238,.76); }
-        .journal-no-experience-confirm p { flex: 1 0 100%; margin: 0; color: #746656; font-size: .77rem; line-height: 1.55; }
-        .journal-no-experience-confirm button { border: 1px solid #aa9278; border-radius: 8px; padding: 7px 10px; color: #604f3d; background: #fffaf0; font-size: .75rem; font-weight: 800; }
-        .journal-edit { display: inline-flex; min-height: 34px; align-items: center; gap: 5px; padding: 6px 12px; border: 1px solid #ac8a69; border-radius: 10px; color: #654a39; background: #fff7e4; font-size: .77rem; font-weight: 850; box-shadow: 0 2px 0 #d9c2a4; white-space: nowrap; }
-        .journal-memory-list { display: grid; gap: 7px; }
-        .journal-memory-list > div { display: grid; gap: 2px; padding-left: 10px; border-left: 3px solid #dfbd90; }
-        .journal-memory-list span { color: #806c5c; font-size: .77rem; }
-        .journal-strategy-list { display: grid; gap: 9px; }
-        .journal-strategy-list article { display: grid; gap: 5px; padding: 11px 12px; border: 1px solid #d0ad7d; border-radius: 10px; background: rgba(255,247,224,.68); }
-        .journal-strategy-list small { color: #a4684b; font-size: .66rem; font-weight: 900; letter-spacing: .05em; }
-        .journal-strategy-list p, .journal-strategy-list strong { margin: 0 0 3px; color: #574136; line-height: 1.55; white-space: pre-wrap; }
-        .journal-strategy-list ul { margin: 0 0 3px; padding-left: 20px; color: #654d40; line-height: 1.5; }
-        .journal-divination-list { display: grid; gap: 10px; }
-        .journal-divination-list > article { display: grid; gap: 6px; padding: 12px; border: 2px solid #ac86ad; border-radius: 12px; background: linear-gradient(135deg,rgba(248,237,251,.86),rgba(255,246,223,.82)); }
-        .journal-divination-list header { display: flex; align-items: center; justify-content: space-between; gap: 9px; padding-bottom: 5px; border-bottom: 1px dashed rgba(122,86,120,.3); }
-        .journal-divination-list header span, .journal-divination-list small { color: #8d6489; font-size: .65rem; font-weight: 900; letter-spacing: .06em; }
-        .journal-divination-list p, .journal-divination-list ul { margin: 0 0 4px; color: #59434f; line-height: 1.6; white-space: pre-wrap; }
-        .journal-divination-list ul { padding-left: 20px; }
-        .journal-divination-list details { border-top: 1px solid rgba(122,86,120,.22); padding-top: 5px; }
-        .journal-divination-list details summary { min-height: 30px; color: #72566f; font-size: .72rem; }
-        .journal-divination-list dl { display: grid; gap: 4px; margin: 5px 0 0; }
-        .journal-divination-list dl div { display: grid; grid-template-columns: 72px 1fr; gap: 7px; }
-        .journal-divination-list dt { color: #936b88; font-weight: 900; }
-        .journal-divination-list dd { margin: 0; overflow-wrap: anywhere; }
-        .journal-letter { margin-top: 10px; padding: 13px; border: 1px solid #d0b28b; background: rgba(255,255,255,.48); white-space: pre-wrap; }
-        .journal-word-list { display: flex; flex-wrap: wrap; gap: 6px; }
-        .journal-word-list span { padding: 4px 9px; border: 1px solid #b7a07d; border-radius: 12px; background: #fff9e9; font-size: .75rem; }
-        .journal-page-navigation { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-top: 16px; }
-        .journal-page-navigation button { display: inline-flex; min-height: 39px; align-items: center; justify-content: center; gap: 4px; border: 1px solid #ad8b67; border-radius: 10px; color: #644c3a; background: #fff7e3; font-weight: 850; }
-        .journal-page-navigation button:last-child { justify-self: stretch; }
-        .journal-page-navigation button:disabled { opacity: .35; }
-        .journal-page-navigation > span { color: #8e735b; font-size: .72rem; font-weight: 900; }
-        .journal-tabs { position: absolute; z-index: 4; top: 64px; display: grid; gap: 5px; }
-        .journal-tabs-left { right: calc(100% - 8px); }
-        .journal-tabs-right { left: calc(100% - 8px); }
-        .journal-tab { position: relative; display: grid; width: 49px; min-height: 43px; place-items: center; gap: 0; border: 1px solid #9e7659; color: #604839; background: #f3bd78; box-shadow: 0 2px 5px rgba(49,31,18,.2); }
-        .journal-tab-left { border-radius: 8px 0 0 8px; }
-        .journal-tab-right { border-radius: 0 8px 8px 0; }
-        .journal-tab:nth-child(2n) { background: #e9cf81; }
-        .journal-tab span { font-size: .48rem; font-weight: 900; letter-spacing: .08em; }
-        .journal-tab b { font-size: .78rem; line-height: 1; }
-        .journal-tab i { position: absolute; top: 3px; right: 4px; color: #c14f42; font-size: .53rem; font-style: normal; }
-        .journal-tab.is-current { color: #fff; background: #b86c50; transform: translateX(2px); }
-        @media (max-width: 620px) {
-          .journal-overlay { inset: 46px 0 82px; padding: 9px 30px; align-items: start; }
-          .journal-book { width: 100%; }
-          .journal-page { max-height: calc(100vh - 145px); padding: 22px 17px 18px 27px; border-radius: 7px 13px 13px 7px; }
-          .journal-page-header { grid-template-columns: 1fr auto; gap: 8px 10px; padding-right: 34px; }
-          .journal-main-goal { grid-column: 1 / -1; grid-row: 2; padding: 8px 5px 4px; border-inline: 0; border-top: 1px solid rgba(143,105,70,.22); text-align: left; }
-          .journal-goal-type-row { justify-content: flex-start; }
-          .journal-date { grid-column: 2; grid-row: 1; font-size: .79rem; }
-          .journal-close { top: 7px; right: 7px; width: 34px; height: 34px; }
-          .journal-archive-open { top: 8px; right: 48px; min-height: 32px; padding-inline: 9px; }
-          .journal-archive-sheet { max-height: calc(100vh - 145px); padding: 18px 15px 20px 23px; }
-          .journal-archive-list > article > header { align-items: start; flex-direction: column; }
-          .journal-section-body { padding-left: 8px; }
-          .journal-tabs { top: 80px; gap: 4px; }
-          .journal-tab { width: 36px; min-height: 39px; }
-          .journal-tabs-left { right: calc(100% - 5px); }
-          .journal-tabs-right { left: calc(100% - 5px); }
-          .journal-page-navigation { gap: 6px; }
-          .journal-page-navigation button { min-height: 42px; font-size: .76rem; }
-          .journal-progress-row { align-items: flex-start; flex-direction: column; gap: 7px; }
-          .journal-support-grid { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 1024px) and (orientation: landscape) {
-          .mobile-landscape .journal-overlay {
-            inset: max(4px, env(safe-area-inset-top)) max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left)) !important;
-            align-items: stretch !important;
-            overflow: hidden !important;
-            padding: 3px 42px !important;
-          }
-          .mobile-landscape .journal-book {
-            width: 100% !important;
-            height: 100%;
-            min-height: 0;
-            max-height: none !important;
-          }
-          .mobile-landscape .journal-page {
-            display: grid;
-            grid-template-rows: auto auto minmax(0,1fr) auto auto auto;
-            align-content: stretch;
-            gap: 5px;
-            width: 100%;
-            height: 100%;
-            min-height: 0;
-            max-height: none !important;
-            overflow: hidden;
-            padding: 10px 18px 8px 24px;
-          }
-          .mobile-landscape .journal-page-header {
-            grid-column: 1 / -1;
-            grid-row: 1;
-            grid-template-columns: 104px minmax(0, 1fr) auto !important;
-            align-items: center;
-            gap: 7px 10px !important;
-            min-height: 40px;
-            padding-right: 40px !important;
-          }
-          .mobile-landscape .journal-page-header > div:first-child > strong { font-size: 1.25rem; }
-          .mobile-landscape .journal-main-goal {
-            grid-column: 2 !important;
-            grid-row: 1 !important;
-            gap: 1px;
-            padding: 3px 9px !important;
-            border-top: 0 !important;
-            border-inline: 1px solid rgba(143,105,70,.25) !important;
-            text-align: center !important;
-          }
-          .mobile-landscape .journal-main-goal > strong {
-            display: -webkit-box;
-            overflow: hidden;
-            font-size: .83rem;
-            line-height: 1.3;
-            -webkit-box-orient: vertical;
-            -webkit-line-clamp: 1;
-          }
-          .mobile-landscape .journal-goal-type-row { justify-content: center !important; font-size: .59rem; }
-          .mobile-landscape .journal-goal-type-row button { min-height: 22px; padding-block: 1px; }
-          .mobile-landscape .journal-date {
-            grid-column: 3 !important;
-            grid-row: 1 !important;
-            font-size: .7rem;
-          }
-          .mobile-landscape .journal-progress-row {
-            grid-column: 1 / -1;
-            grid-row: 2;
-            min-width: 0;
-            min-height: 34px;
-            margin: 0;
-            padding: 5px 9px;
-            flex-direction: row;
-            align-items: center;
-            gap: 8px;
-          }
-          .mobile-landscape .journal-progress-row > strong { font-size: .7rem; }
-          .mobile-landscape .journal-progress-row > small { font-size: .61rem; }
-          .mobile-landscape .journal-progress-choices { flex-wrap: nowrap; gap: 4px; }
-          .mobile-landscape .journal-progress-choices span { padding: 3px 7px; font-size: .6rem; }
-          .mobile-landscape .journal-primary {
-            min-width: 0;
-            min-height: 0;
-            margin-top: 0;
-            padding: 9px 11px;
-            overflow: hidden;
-          }
-          .mobile-landscape .journal-human-entry { grid-row: 3; width: 100%; height: 100%; margin-top: 0; }
-          .mobile-landscape .journal-mochi-entry { grid-row: 4; width: 100%; margin-top: 0; }
-          .mobile-landscape .journal-primary > header { margin-bottom: 5px; }
-          .mobile-landscape .journal-primary > header small { font-size: .56rem; }
-          .mobile-landscape .journal-primary > header h2 { font-size: .81rem; }
-          .mobile-landscape .journal-heading-line { gap: 6px; }
-          .mobile-landscape .journal-heading-line > span { font-size: .56rem; line-height: 1.25; }
-          .mobile-landscape .journal-primary-actions { gap: 4px !important; }
-          .mobile-landscape .journal-pending { margin-left: 0; padding: 2px 5px; font-size: .56rem; }
-          .mobile-landscape .journal-primary { display: flex; flex-direction: column; }
-          .mobile-landscape .journal-primary-body { display: flex; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; }
-          .mobile-landscape .journal-human-entry .journal-note-lines,
-          .mobile-landscape .journal-human-entry .journal-empty { min-height: 0; padding: 7px 9px; font-size: .74rem; line-height: 1.45; }
-          .mobile-landscape .journal-human-entry .journal-note-lines { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
-          .mobile-landscape .journal-human-entry .journal-empty { flex: 1; }
-          .mobile-landscape .journal-mochi-entry > summary { min-height: 35px; padding: 4px 9px; }
-          .mobile-landscape .journal-mochi-entry > summary strong { font-size: .72rem; }
-          .mobile-landscape .journal-mochi-entry > summary > span { width: 22px; height: 22px; font-size: .7rem; }
-          .mobile-landscape .journal-mochi-entry > summary em { font-size: .63rem; }
-          .mobile-landscape .journal-mochi-entry[open] { max-height: 23dvh; overflow-y: auto; overscroll-behavior: contain; }
-          .mobile-landscape .journal-mochi-diary { max-height: none; overflow: visible; margin: 0 8px 8px; padding: 8px 10px; font-size: .72rem; line-height: 1.52; }
-          .mobile-landscape .journal-support { grid-row: 5; width: 100%; margin-top: 0; }
-          .mobile-landscape .journal-support > summary { min-height: 31px; padding: 4px 9px; font-size: .7rem; }
-          .mobile-landscape .journal-support-grid { grid-template-columns: repeat(2,minmax(0,1fr)); max-height: 31dvh; overflow-y: auto; }
-          .mobile-landscape .journal-section[open] { display: flex; flex-direction: column; }
-          .mobile-landscape .journal-section summary {
-            min-height: 32px;
-            flex: 0 0 auto;
-            gap: 6px;
-            font-size: .77rem;
-          }
-          .mobile-landscape .journal-section-body {
-            min-height: 0;
-            max-height: clamp(58px, 25dvh, 112px);
-            overflow-y: auto;
-            overscroll-behavior: contain;
-            padding: 1px 5px 7px 7px;
-            font-size: .75rem;
-            line-height: 1.45;
-          }
-          .mobile-landscape .journal-edit { min-height: 28px; padding: 3px 8px; font-size: .66rem; }
-          .mobile-landscape .journal-page-navigation {
-            grid-row: 6;
-            gap: 8px;
-            margin-top: 0;
-          }
-          .mobile-landscape .journal-page-navigation button { min-height: 32px; padding-block: 4px; }
-          .mobile-landscape .journal-close { top: 5px; right: 6px; width: 32px; height: 32px; }
-          .mobile-landscape .journal-archive-open { top: 11px; right: 43px; min-height: 18px; padding: 1px 2px; font-size: .54rem; }
-          .mobile-landscape .journal-tabs { top: 45px; gap: 3px; }
-          .mobile-landscape .journal-tab { width: 40px; min-height: 29px; }
-          .mobile-landscape .journal-tabs-left { right: calc(100% - 5px); }
-          .mobile-landscape .journal-tabs-right { left: calc(100% - 5px); }
-          .mobile-landscape .journal-archive-sheet {
-            height: 100%;
-            max-height: none !important;
-            padding: 12px 18px 14px 23px;
-          }
-          .mobile-landscape .journal-archive-list {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 9px;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .journal-page-next, .journal-page-previous { animation: none; }
-        }
-      `}</style>
+
     </section>
   );
 }

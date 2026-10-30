@@ -1,0 +1,176 @@
+.stage {
+  --top: #fff5e6;
+  --bottom: #f3a995;
+  --glow: #efb696;
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+.stage[data-phase='hidden'] { visibility: hidden; }
+.stage[data-rarity='R'] { --top: #f1d7ff; --bottom: #9457d1; --glow: #ce85ff; }
+.stage[data-rarity='SR'] { --top: #fff9df; --bottom: #8dcce7; --glow: #ffe895; }
+.capsule {
+  position: absolute;
+  top: 77%;
+  left: 50%;
+  width: 23%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -155%) scale(3.05);
+  isolation: isolate;
+}
+.shadow {
+  position: absolute;
+  top: 86%;
+  left: 50%;
+  width: 62%;
+  height: 6%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #201021ac, #24162944 46%, transparent 72%);
+  transform: translateX(-50%);
+  opacity: .75;
+  filter: blur(3px);
+}
+.body, .shell, .reflection, .innerLight { position: absolute; inset: 0; border-radius: 50%; }
+.body {
+  z-index: 2;
+  border: 1px solid #fff7e3;
+  background: radial-gradient(circle at 30% 22%, #fff, var(--top) 28%, var(--bottom) 73%, #5e475f);
+  box-shadow: inset 3px 3px 5px #fff9, inset -5px -6px 7px #34243f66, 0 3px 5px #1c122866;
+  transition: box-shadow .26s, border-color .26s;
+}
+.shell { overflow: hidden; }
+.upper, .lower {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  box-sizing: border-box;
+}
+.upper {
+  top: 0;
+  border-radius: 100% 100% 0 0;
+  background: radial-gradient(ellipse at 30% 26%, #fff 2%, var(--top) 42%, var(--bottom) 140%);
+  box-shadow: inset 1px 1px 2px #fff, inset -3px 0 6px #69566b44;
+}
+.lower {
+  bottom: 0;
+  border-radius: 0 0 100% 100%;
+  background: radial-gradient(ellipse at 32% 4%, var(--top), var(--bottom) 52%, #493550 125%);
+  box-shadow: inset -3px -4px 6px #34244866;
+}
+.shell::before {
+  content: '';
+  position: absolute;
+  z-index: 4;
+  top: 12%;
+  left: 20%;
+  width: 21%;
+  height: 12%;
+  border-radius: 50%;
+  background: #fffdf4d9;
+  transform: rotate(-32deg);
+}
+.shell::after {
+  content: '';
+  position: absolute;
+  z-index: 4;
+  top: 48%;
+  left: 1%;
+  width: 98%;
+  height: 4%;
+  border-radius: 50%;
+  background: #fff4df;
+  box-shadow: 0 1px 1px #6f506e88;
+}
+.reflection {
+  z-index: 2;
+  opacity: 0;
+  background: linear-gradient(120deg, transparent 12%, #fff8 23%, #bd75ffbb 38%, transparent 55%, #efd4ff88 70%, transparent 83%);
+  background-size: 220% 100%;
+  transition: opacity .3s;
+}
+.innerLight {
+  z-index: 3;
+  opacity: 0;
+  background: radial-gradient(ellipse at 50% 49%, #fff9 0%, #fff3 30%, transparent 64%);
+}
+.aura {
+  position: absolute;
+  z-index: 0;
+  inset: -32%;
+  opacity: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 33%, color-mix(in srgb, var(--glow) 40%, transparent) 44%, transparent 69%);
+  transition: opacity .3s;
+}
+.stage:not([data-rarity='N']) .body { border-color: var(--glow); box-shadow: inset 2px 2px 4px #fff9, inset -4px -5px 7px #361b4c77, 0 0 2px #fff, 0 0 7px var(--glow); }
+.stage:not([data-rarity='N']) .reflection { opacity: .8; animation: surfaceSweep 1.3s ease-in-out infinite alternate; }
+.stage:not([data-rarity='N']) .aura { opacity: .8; }
+.stage[data-rarity='SR'] .reflection { background-image: linear-gradient(115deg, #ff87cc66, #ffd36ca6 20%, #a4ffdba6 40%, #89c4ffa6 60%, #cb93fbaa 80%, #ff87cc66); }
+.stage[data-rarity='SR'] .lower { background: linear-gradient(115deg, #df8fc3, #ecd38c 30%, #84ceb8 58%, #86b8e5 78%, #b58adc); }
+.stage[data-rarity='SR'] .shell::after { height: 5%; background: #fff; box-shadow: 0 0 3px #fff, 0 0 7px #fff, 0 0 13px var(--glow); }
+.stage[data-rarity='SR']:is([data-phase='charge'], [data-phase='freeze']) .innerLight { animation: internalGlow .64s ease-in-out infinite alternate; }
+.stage[data-phase='drop'] .capsule { animation: launch 1.1s linear both; }
+.stage[data-phase='drop'] .shadow { animation: landingShadow 1.1s linear both; }
+.stage[data-phase='drop'] .shell { animation: roll .92s cubic-bezier(.12,.5,.2,1) both; }
+.stage[data-phase='charge'] .body { animation: charge .46s ease-in-out infinite; }
+.stage[data-rarity='N'][data-phase='charge'] .body { animation: charge .7s ease-in-out 1; }
+.stage[data-rarity='SR'][data-phase='charge'] .body { animation: strongCharge .6s ease-in-out infinite; }
+.stage[data-phase='freeze'] .body { transform: scale(1.08); filter: brightness(1.28); }
+.stage[data-phase='freeze'] .reflection { animation-play-state: paused; }
+.stage[data-phase='freeze'] .innerLight { animation: none !important; opacity: .72; }
+.release {
+  position: absolute;
+  z-index: 3;
+  inset: -35%;
+  display: grid;
+  place-items: center;
+  color: #fff9e8;
+  font-size: 24px;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(circle, #fff9 0%, color-mix(in srgb, var(--glow) 75%, transparent) 25%, transparent 65%);
+}
+.stage[data-phase='open'][data-rarity] .body { background: transparent; border-color: transparent; box-shadow: none; }
+.stage[data-phase='open'] .shell { overflow: visible; }
+.stage[data-phase='open'] :is(.reflection, .innerLight), .stage[data-phase='open'] .shell::before, .stage[data-phase='open'] .shell::after { opacity: 0; animation: none; }
+.stage[data-phase='open'] .upper { animation: lid .65s cubic-bezier(.12,.65,.2,1) both; }
+.stage[data-phase='open'] .lower { animation: base .65s ease-out both; }
+.stage[data-phase='open'] .release { animation: release .6s ease-out both; }
+.stage[data-rarity='SR'][data-phase='open'] .upper { animation-name: lidBurst; animation-duration: .8s; }
+.stage[data-rarity='SR'][data-phase='open'] .release { animation-name: releaseBurst; animation-duration: .75s; }
+.stage[data-rarity='N'][data-phase='open'] .release { background: none; }
+@keyframes launch {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(.58); }
+  10% { opacity: 1; transform: translate(-50%, -90%) scale(1.05); }
+  28% { transform: translate(-50%, -115%) scale(2.5, 2.2); }
+  53% { transform: translate(-44%, -245%) scale(2.82); }
+  76% { transform: translate(-40%, -155%) scale(3.17, 2.93) rotate(8deg); }
+  88% { transform: translate(-35%, -157%) scale(3.05) rotate(13deg); }
+  96% { transform: translate(-52%, -155%) scale(3.05) rotate(-3deg); }
+  100% { opacity: 1; transform: translate(-50%, -155%) scale(3.05); }
+}
+@keyframes landingShadow {
+  0% { opacity: 0; transform: translateX(-50%) scale(.3); }
+  28% { opacity: .85; transform: translateX(-50%) scale(1.05); }
+  53% { opacity: .26; transform: translateX(-44%) scale(.7); filter: blur(7px); }
+  76% { opacity: .85; transform: translateX(-40%) scale(1.15); filter: blur(2px); }
+  100% { opacity: .75; transform: translateX(-50%) scale(1); filter: blur(3px); }
+}
+@keyframes roll { from { transform: rotateX(0deg); } to { transform: rotateX(360deg); } }
+@keyframes surfaceSweep { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+@keyframes internalGlow { from { opacity: .16; } to { opacity: .72; } }
+@keyframes charge { 0%,100% { transform: scale(1); filter: brightness(1); } 35% { transform: translateX(-.65px) scale(1.035); filter: brightness(1.15); } 65% { transform: translateX(.65px) scale(1.015); } }
+@keyframes strongCharge { 0%,100% { transform: scale(1.025); filter: brightness(1.06); } 40% { transform: translateX(-1px) scale(1.085); filter: brightness(1.32); } 60% { transform: translateX(1px) scale(1.065); } }
+@keyframes lid { to { transform: translate(-12%, -95%) rotate(-25deg); opacity: 0; } }
+@keyframes lidBurst { 0% { transform: scale(1.08); } 38% { opacity: 1; transform: translate(-18%, -195%) rotate(-30deg); } 100% { opacity: 0; transform: translate(-45%, -255%) rotate(-65deg); } }
+@keyframes base { to { transform: translate(13%, 65%) rotate(18deg); opacity: 0; } }
+@keyframes release { 0% { opacity: 0; transform: scale(.3); } 20% { opacity: .85; transform: scale(.8); } 100% { opacity: 0; transform: scale(1.45); } }
+@keyframes releaseBurst { 0% { opacity: 0; transform: scale(.18); } 14% { opacity: 1; transform: scale(.9); } 100% { opacity: 0; transform: scale(1.7); } }
+@media (prefers-reduced-motion: reduce) {
+  .stage *, .stage *::before, .stage *::after { animation: none !important; transition: none !important; }
+  .stage[data-phase='open'] .upper { transform: translate(-12%, -60%) rotate(-20deg); }
+  .stage[data-phase='open'] .lower { transform: translate(12%, 50%) rotate(18deg); }
+  .stage[data-phase='freeze'] .innerLight { opacity: .3; }
+}

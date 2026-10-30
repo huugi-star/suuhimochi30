@@ -31,7 +31,7 @@ export const CATEGORY_LABELS: Record<WordCategory, string> = {
   SPORTS: 'スポーツ・運動',
   WORK: '仕事',
   SCHOOL: '学校・勉強',
-  GAME_MEDIA: '漫画・アニメ・ゲーム',
+  GAME_MEDIA: '漫画・アニメ・ゲーム・小説',
   AV_MEDIA: '音楽・映画・動画',
   KNOWLEDGE: '本・雑学・トリビア',
   BODY: 'からだ・健康',
@@ -57,7 +57,7 @@ export const CATEGORY_CHOICES: CategoryChoice[] = [
   { category: 'SPORTS', label: 'スポーツ・運動' },
   { category: 'WORK', label: '仕事' },
   { category: 'SCHOOL', label: '学校・勉強' },
-  { category: 'GAME_MEDIA', label: '漫画・アニメ・ゲーム' },
+  { category: 'GAME_MEDIA', label: '漫画・アニメ・ゲーム・小説' },
   { category: 'AV_MEDIA', label: '音楽・映画・動画' },
   { category: 'KNOWLEDGE', label: '本・雑学・トリビア' },
   { category: 'BODY', label: 'からだ・健康' },
@@ -72,9 +72,45 @@ function subCategories(category: string, labels: string[]): SubCategoryChoice[] 
   return labels.map((label, index) => ({ id: `${category}_${index + 1}`, label }));
 }
 
+/**
+ * 人だけは、初期6分類の数値IDを保存済みデータで使っていた。
+ * そのため表示順と保存IDを分離し、将来の分類追加で既存記憶を読み替えない。
+ */
+export const PERSON_SUBCATEGORY_CHOICES: SubCategoryChoice[] = [
+  { id: 'PERSON_1', label: '家族・親戚' },
+  { id: 'PERSON_2', label: '友達・知り合い' },
+  { id: 'PERSON_3', label: '好きな人・大切な人' },
+  { id: 'PERSON_4', label: '仕事・学校の人' },
+  { id: 'PERSON_ENTERTAINER', label: '芸能人・音楽家' },
+  { id: 'PERSON_MANGA_ARTIST', label: '漫画家' },
+  { id: 'PERSON_AUTHOR_WRITER', label: '小説家・作家' },
+  { id: 'PERSON_ATHLETE', label: 'スポーツ選手' },
+  { id: 'PERSON_SCIENTIST', label: '科学者・研究者' },
+  { id: 'PERSON_HISTORICAL_MILITARY', label: '歴史の軍事的人物' },
+  { id: 'PERSON_HISTORICAL_CULTURAL', label: '歴史の文化的人物' },
+  { id: 'PERSON_STREAMER', label: '配信者' },
+  { id: 'PERSON_OTHER', label: 'その他の人' },
+];
+
+/** 表示選択肢には出さない、旧「有名人・歴史の人物」保存値の説明用ラベル。 */
+export const LEGACY_SUBCATEGORY_LABELS: Readonly<Record<string, string>> = {
+  PERSON_LEGACY_FAMOUS: '有名人・歴史の人物',
+  PERSON_LEGACY_CREATOR: '漫画家・クリエイター',
+};
+
 export const SUBCATEGORY_CHOICES: Partial<Record<WordCategory, SubCategoryChoice[]>> = {
-  PERSON: subCategories('PERSON', ['家族・親戚', '友達・知り合い', '好きな人・大切な人', '仕事・学校の人', '有名人・歴史の人物', 'その他']),
-  ANIMAL: subCategories('ANIMAL', ['犬・猫などの動物', '鳥', '魚・水の生き物', '虫・小さな生き物', '植物', 'その他']),
+  PERSON: PERSON_SUBCATEGORY_CHOICES,
+  // 既存のANIMAL_1〜6は保存済み単語で使用しているため維持する。
+  // ペット個体だけを意味IDで追加し、表示上は先頭に置く。
+  ANIMAL: [
+    { id: 'ANIMAL_PET', label: '飼っている・飼っていた動物' },
+    { id: 'ANIMAL_1', label: '犬・猫などの動物' },
+    { id: 'ANIMAL_2', label: '鳥' },
+    { id: 'ANIMAL_3', label: '魚・水の生き物' },
+    { id: 'ANIMAL_4', label: '虫・小さな生き物' },
+    { id: 'ANIMAL_5', label: '植物' },
+    { id: 'ANIMAL_6', label: 'その他' },
+  ],
   FOOD: subCategories('FOOD', ['料理・食べ物', 'お菓子・甘いもの', '飲み物', '食材', '調味料', 'その他']),
   OBJECT: subCategories('OBJECT', ['家具', '日用品', '文房具', '料理・食事の道具', '趣味・作業の道具', 'その他']),
   CLOTHING: subCategories('CLOTHING', ['服', '靴', '帽子', 'バッグ', 'アクセサリー', 'その他']),
@@ -82,12 +118,46 @@ export const SUBCATEGORY_CHOICES: Partial<Record<WordCategory, SubCategoryChoice
   PLACE: subCategories('PLACE', ['家・住む場所', '店', '建物・施設', '学校・職場', '町・地域', '国', '自然の場所', 'その他']),
   VEHICLE: subCategories('VEHICLE', ['電車・鉄道', '車・バイク', '自転車', '飛行機', '船', 'その他']),
   ACTIVITY: subCategories('ACTIVITY', ['遊び', 'お出かけ・旅行', '作ること', '集めること', '料理・手作り', 'その他の趣味']),
-  SPORTS: subCategories('SPORTS', ['球技', '武道・格闘技', '陸上・体操', '水のスポーツ', '雪・氷のスポーツ', 'その他']),
+  // 既存のSPORTS_1〜6は保存済み単語で使用しているため維持する。
+  SPORTS: [
+    { id: 'SPORTS_DISCIPLINE', label: '競技・種目' },
+    { id: 'SPORTS_TEAM_CLUB', label: 'チーム・クラブ' },
+    { id: 'SPORTS_EVENT_MATCH', label: '大会・試合' },
+    { id: 'SPORTS_1', label: '球技' },
+    { id: 'SPORTS_2', label: '武道・格闘技' },
+    { id: 'SPORTS_3', label: '陸上・体操' },
+    { id: 'SPORTS_4', label: '水のスポーツ' },
+    { id: 'SPORTS_5', label: '雪・氷のスポーツ' },
+    { id: 'SPORTS_6', label: 'その他' },
+  ],
   WORK: subCategories('WORK', ['職業・役職', '仕事内容・作業', '会社・職場', '勤務・働き方', '仕事のルール・制度', 'その他']),
   SCHOOL: subCategories('SCHOOL', ['学校生活', '教科', '宿題・課題', '試験・受験', '資格', '仕事・将来のための勉強', 'その他']),
-  GAME_MEDIA: subCategories('GAME_MEDIA', ['漫画', 'アニメ', 'ゲーム', 'キャラクター', '作品・シリーズ', '作中のもの・用語', 'その他']),
+  // 既存のGAME_MEDIA_1〜7は保存済み単語で使用しているため並べ替えない。
+  // 小説だけを意味IDで追加し、表示上はゲームの次に置く。
+  GAME_MEDIA: [
+    { id: 'GAME_MEDIA_1', label: '漫画' },
+    { id: 'GAME_MEDIA_2', label: 'アニメ' },
+    { id: 'GAME_MEDIA_3', label: 'ゲーム' },
+    { id: 'GAME_MEDIA_NOVEL', label: '小説' },
+    { id: 'GAME_MEDIA_4', label: 'キャラクター' },
+    { id: 'GAME_MEDIA_5', label: '作品・シリーズ' },
+    { id: 'GAME_MEDIA_6', label: '作中のもの・用語' },
+    { id: 'GAME_MEDIA_7', label: 'その他' },
+  ],
   AV_MEDIA: subCategories('AV_MEDIA', ['音楽', '映画', 'ドラマ・テレビ', '動画', '配信・配信者', '芸能・番組', 'その他']),
-  KNOWLEDGE: subCategories('KNOWLEDGE', ['本', '歴史', '科学・自然', '社会・世の中', '思想・哲学', '言葉・文化', '雑学・トリビア', 'その他']),
+  // 既存のKNOWLEDGE_1〜8は保存済み単語で使用しているため維持する。
+  // 美術・芸術のみ意味IDで追加し、既存の分類番号をずらさない。
+  KNOWLEDGE: [
+    { id: 'KNOWLEDGE_1', label: '本' },
+    { id: 'KNOWLEDGE_2', label: '歴史' },
+    { id: 'KNOWLEDGE_3', label: '科学・自然' },
+    { id: 'KNOWLEDGE_4', label: '社会・世の中' },
+    { id: 'KNOWLEDGE_5', label: '思想・哲学' },
+    { id: 'KNOWLEDGE_6', label: '言葉・文化' },
+    { id: 'KNOWLEDGE_ART', label: '美術・芸術' },
+    { id: 'KNOWLEDGE_7', label: '雑学・トリビア' },
+    { id: 'KNOWLEDGE_8', label: 'その他' },
+  ],
   BODY: subCategories('BODY', ['体の部分', '体調・症状', '病気・けが', '睡眠・休養', '食事・栄養', '医療・病院', 'その他']),
   EMOTION: subCategories('EMOTION', ['うれしい・楽しい', '怒り・嫌な気持ち', '悲しい・さみしい', '不安・悩み', '好き・嫌い・恋愛', '性格・価値観', '考え・意見', 'その他']),
   NATURE_TIME: subCategories('NATURE_TIME', ['天気', '季節', '時間帯', '日付・曜日', '山・海などの自然', '自然現象', '空・宇宙', 'その他']),
@@ -96,6 +166,12 @@ export const SUBCATEGORY_CHOICES: Partial<Record<WordCategory, SubCategoryChoice
   OTHER: subCategories('OTHER', ['どれにも当てはまらない', 'まだよくわからない']),
 };
 
+export function subcategoryLabel(category: WordCategory, subcategory?: string) {
+  if (!subcategory) return undefined;
+  return SUBCATEGORY_CHOICES[category]?.find((choice) => choice.id === subcategory)?.label
+    ?? LEGACY_SUBCATEGORY_LABELS[subcategory];
+}
+
 /** 明示的な「ことばを教える」機能専用。新しい通常会話では使用しない。 */
 export const WORD_FEELING_CHOICES: ConversationChoice[] = [
   { id: 'WORD_LOVE', label: '大好き' },
@@ -103,6 +179,19 @@ export const WORD_FEELING_CHOICES: ConversationChoice[] = [
   { id: 'WORD_NEUTRAL', label: 'ふつう' },
   { id: 'WORD_DISLIKE', label: '苦手' },
   { id: 'WORD_HATE', label: '嫌い' },
+];
+
+/** ペット個体を登録する時だけ確認する、現在・過去の区分。 */
+export const PET_STATUS_CHOICES: ConversationChoice[] = [
+  { id: 'PET_CURRENT', label: 'いま一緒に暮らしている' },
+  { id: 'PET_FORMER', label: '前に一緒に暮らしていた' },
+];
+
+/** 現在一緒に暮らすペットの近況を、通常会話でそっと聞く時の返答。 */
+export const PET_CHECKIN_CHOICES: ConversationChoice[] = [
+  { id: 'PET_CHECKIN_WELL', label: '元気にしてる' },
+  { id: 'PET_CHECKIN_USUAL', label: 'いつもどおり' },
+  { id: 'PET_CHECKIN_CONCERN', label: '少し気になる' },
 ];
 
 export const WORD_FEELING_PROMPTS: ((word: string) => string)[] = [
@@ -139,16 +228,66 @@ export const MIDDLE_CATEGORY_DIALOGUE: Record<string, (word: string) => string[]
     `${word}も、人間さんと同じところで頑張ってる人なんだね。${word}のこと、好き？`,
     `${word}は……`,
   ],
-  PERSON_5: (word) => [
+  PERSON_LEGACY_FAMOUS: (word) => [
     `${word}って、たくさんの人が知ってる人なんだね。人間さんも知ってるんだ。`,
     '会ったことがなくても、その人のことをいっぱい知れるんだね。不思議なの。',
     `昔の人や有名な人にも、気になる人がいるんだね。人間さん、${word}のこと好き？`,
     `${word}は……`,
   ],
-  PERSON_6: (word) => [
+  PERSON_OTHER: (word) => [
     `${word}っていう人なんだね。人間さんの世界には、いろんな人がいるの。`,
     `${word}も、人間さんが知ってる人なんだね。覚えておくの。`,
     `${word}っていう人がいるんだね。人間さんは${word}のこと、好き？`,
+    `${word}は……`,
+  ],
+  PERSON_ENTERTAINER: (word) => [
+    `${word}って、芸能や音楽のお仕事をしている人なんだね。`,
+    `${word}の声や歌やお芝居を、たくさんの人が知っているのかな。`,
+    `${word}は……`,
+  ],
+  PERSON_LEGACY_CREATOR: (word) => [
+    `${word}って、物語や絵を作る人なんだね。`,
+    '人の頭の中にあったものを、みんなが見られる形にするのかな。',
+    `${word}は……`,
+  ],
+  PERSON_MANGA_ARTIST: (word) => [
+    `${word}って、漫画を描く人なんだね。`,
+    '絵とお話で、まだ見たことのない世界を作るのかな。',
+    `${word}は……`,
+  ],
+  PERSON_AUTHOR_WRITER: (word) => [
+    `${word}って、言葉で物語を書く人なんだね。`,
+    '文字だけで、人の頭の中に景色を作れるのかな。',
+    `${word}は……`,
+  ],
+  PERSON_ATHLETE: (word) => [
+    `${word}って、スポーツをする人なんだね。`,
+    '体をたくさん動かして、できることを磨いているのかな。',
+    `${word}は……`,
+  ],
+  PERSON_SCIENTIST: (word) => [
+    `${word}って、世界の仕組みを調べる人なんだね。`,
+    'まだ分からないことを、ずっと考えて見つけるのかな。',
+    `${word}は……`,
+  ],
+  PERSON_HISTORICAL_MILITARY: (word) => [
+    `${word}って、昔の国や戦いに関わった人なんだね。`,
+    'ずっと前にいた人のことも、今まで語り継がれているの。',
+    `${word}は……`,
+  ],
+  PERSON_HISTORICAL_CULTURAL: (word) => [
+    `${word}って、昔の文化や考え方に関わった人なんだね。`,
+    '残した言葉や作品が、今にもつながっているのかな。',
+    `${word}は……`,
+  ],
+  PERSON_STREAMER: (word) => [
+    `${word}って、配信で人に何かを届ける人なんだね。`,
+    '画面の向こうにいても、同じ時間を過ごせるのかな。',
+    `${word}は……`,
+  ],
+  ANIMAL_PET: (word) => [
+    `${word}は、人間さんと一緒に暮らした子なんだね。`,
+    `${word}のことは、種類だけじゃなくて一緒にいた時間も覚えておきたいの。`,
     `${word}は……`,
   ],
   ANIMAL_1: (word) => [
@@ -493,6 +632,21 @@ export const MIDDLE_CATEGORY_DIALOGUE: Record<string, (word: string) => string[]
     `${word}っていうスポーツなんだね。上手になるまで何度も練習したりするのかな。`,
     `${word}は……`,
   ],
+  SPORTS_DISCIPLINE: (word) => [
+    `${word}っていう競技なんだね。体や道具を使って、できることを比べるのかな。`,
+    '競技・種目なんだ。人によって得意な動きが違うの、おもしろいの。',
+    `${word}は……`,
+  ],
+  SPORTS_TEAM_CLUB: (word) => [
+    `${word}っていうチームやクラブなんだね。ひとりじゃなくて、みんなで同じところを目指すのかな。`,
+    'チーム・クラブなんだ。応援する人も、いっしょに増えていきそうなの。',
+    `${word}は……`,
+  ],
+  SPORTS_EVENT_MATCH: (word) => [
+    `${word}っていう大会や試合なんだね。その日だけの勝ち負けがあるのかな。`,
+    '大会・試合なんだ。終わったあとも、ずっと覚えている一日があるんだね。',
+    `${word}は……`,
+  ],
   WORK_1: (word) => [
     `${word}っていうお仕事なんだね。人間さんの世界には、いろんな役目の人がいるの。`,
     `${word}は、人がする仕事の名前なんだね。できることによって仕事も変わるんだ。`,
@@ -589,10 +743,16 @@ export const MIDDLE_CATEGORY_DIALOGUE: Record<string, (word: string) => string[]
     `${word}っていうゲームなんだね。クリアしても離れたくないゲームってあるみたいなの。`,
     `${word}は……`,
   ],
+  GAME_MEDIA_NOVEL: (word) => [
+    `${word}っていう小説なんだね。文字だけなのに、頭の中に景色や声が出てくるの、不思議なの。`,
+    '小説なんだ。ページを閉じても、続きが頭の中に残ることもあるのかな。',
+    `${word}っていう小説なんだね。人間さんの中で、どんな世界が動いたのかな。`,
+    `${word}は……`,
+  ],
   GAME_MEDIA_4: (word) => [
     `${word}っていうキャラクターなんだね。本当にはいないのに、大切な人みたいになることもあるんだ。`,
     'キャラクターなんだ。人間さんって、誰かの考え方や生き方まで好きになることがあるんだね。',
-    `${word}っていうキャラクターなんだね。もしかして、人間さんの「推し」だったりするのかな。`,
+    `${word}っていうキャラクターなんだね。人間さんにとって、どんなところが気になるのかな。`,
     `${word}は……`,
   ],
   GAME_MEDIA_5: (word) => [
@@ -689,6 +849,12 @@ export const MIDDLE_CATEGORY_DIALOGUE: Record<string, (word: string) => string[]
     `${word}って、言葉や文化に関係することなんだね。同じ人間さんでも、場所や時代で変わるんだ。`,
     '言葉って、意味だけじゃなくて昔からの使われ方も残ってるんだね。',
     `${word}っていう文化があるんだね。人間さんがずっと続けてきたものもあるんだ。`,
+    `${word}は……`,
+  ],
+  KNOWLEDGE_ART: (word) => [
+    `${word}って、美術や芸術に関係するものなんだね。見たり作ったりして、気持ちを形にするのかな。`,
+    '美術や芸術なんだ。言葉にしにくいものも、色や形で残せるんだね。',
+    `${word}っていう作品や表現なんだね。人によって見え方が少しずつ違うのも面白そうなの。`,
     `${word}は……`,
   ],
   KNOWLEDGE_7: (word) => [

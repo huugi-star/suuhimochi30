@@ -110,13 +110,26 @@ type CuriousConversationBase = {
   opening: DialogueBeat[];
   context: {
     category?: WordCategory;
+    /** Day-specific curious scripts may constrain the target middle category. */
+    subcategory?: string;
     humanRelations: MemoryRelationType[];
   };
+  classification?: CuriousClassificationFlow;
 };
 
 export type CuriousConversationBranch = {
   response: DialogueBeat[];
   choices: CuriousConversationChoice[];
+};
+
+/** Day2以降で、入力語を大・中カテゴリーへ分類する会話用の台本。 */
+export type CuriousClassificationFlow = {
+  afterInput: DialogueBeat[];
+  afterSubcategory: DialogueBeat[];
+  openQuestions?: Array<{
+    field: OpenQuestionField;
+    questionHint: string;
+  }>;
 };
 
 /**
@@ -158,4 +171,3 @@ export type ConversationEngineResult = {
   conversation?: ConversationScript;
 };
 import type { WordCategory } from '../conversationTypes';
-

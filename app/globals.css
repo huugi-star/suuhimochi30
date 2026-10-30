@@ -8,6 +8,16 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; background: var(--night); color: var(--ink); }
 body { font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; }
+/* Lock the phone's room to the viewport; sheets retain their own scrolling. */
+html:has(.game-shell[data-home-fixed=true]), body:has(.game-shell[data-home-fixed=true]) { height:100%; overflow:hidden; overscroll-behavior:none; }
+body:has(.game-shell[data-home-fixed=true]) { position:fixed; inset:0; width:100%; }
+.game-shell[data-home-fixed=true] { overscroll-behavior:none; }
+.game-shell[data-home-fixed=true] .room-home > .room-touch-surface,
+.game-shell[data-home-fixed=true] .room-home > .world-layer { touch-action:none; }
+.initial-mission-post { position:absolute; z-index:7; left:clamp(8px,76%,calc(100% - 72px)); top:clamp(56px,24%,calc(100% - 84px)); width:64px; height:76px; pointer-events:none; }
+.initial-mission-post > span { transform:none; }
+.game-shell[data-room-guide=mission] [data-mission-post] { outline:3px solid #ffe19b; outline-offset:5px; border-radius:8px; }
+.game-shell[data-room-guide=journal] [data-room-guide-target=journal],.game-shell[data-room-guide=items] [data-room-guide-target=items] { outline:3px solid #ffe19b; outline-offset:1px; background:#715b3d; color:#fff7dc; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #ffd995; outline-offset: 3px; }
@@ -92,11 +102,270 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 .game-shell { display: grid; place-items: center; background: #0b0f17; transition: filter 1.2s, opacity 1.2s; }
 .game-shell.blackout { filter: brightness(0); }
+/* Journal editing is also available from the phone's portrait entry point. */
+.journal-portrait .journal-entry-overlay { position:fixed; inset:0; z-index:151; padding:12px; }
+.game-shell.person-word-combo-open {
+  --combo-energy: .1;
+  --combo-cyan: #4cf5ff;
+  --combo-pink: #ff4fd8;
+  --combo-violet: #845dff;
+  --combo-glow-alpha: .08;
+  --combo-edge-blur: 28px;
+  --combo-eq-height: 38%;
+  isolation: isolate;
+  overflow: hidden;
+  background: #05040e;
+}
+.game-shell.person-word-combo-level-1 { --combo-energy: .18; --combo-glow-alpha: .14; --combo-eq-height: 46%; }
+.game-shell.person-word-combo-level-2 { --combo-energy: .4; --combo-glow-alpha: .25; --combo-edge-blur: 48px; --combo-eq-height: 60%; }
+.game-shell.person-word-combo-level-3 { --combo-energy: .56; --combo-glow-alpha: .31; --combo-edge-blur: 58px; --combo-eq-height: 68%; }
+.game-shell.person-word-combo-level-4 { --combo-energy: .68; --combo-glow-alpha: .36; --combo-edge-blur: 68px; --combo-eq-height: 76%; }
+.game-shell.person-word-combo-level-5 { --combo-energy: .82; --combo-glow-alpha: .42; --combo-edge-blur: 80px; --combo-eq-height: 86%; }
+.game-shell.person-word-combo-level-6 { --combo-energy: 1; --combo-glow-alpha: .5; --combo-edge-blur: 94px; --combo-eq-height: 96%; }
+.game-shell.person-word-combo-open .world-layer {
+  filter: brightness(.34) saturate(.92) contrast(1.08) hue-rotate(8deg);
+  transition: filter 180ms ease;
+}
+.game-shell.person-word-combo-level-3 .world-layer { filter: brightness(.38) saturate(1.04) contrast(1.1) hue-rotate(10deg); }
+.game-shell.person-word-combo-level-5 .world-layer { filter: brightness(.43) saturate(1.14) contrast(1.12) hue-rotate(12deg); }
+.game-shell.word-combo-beat .world-layer { animation: word-combo-world-success 2.2s ease-out both; }
+.word-combo-stage-effects {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 108%, rgba(76,245,255,var(--combo-glow-alpha)), transparent 42%),
+    radial-gradient(circle at 3% 50%, rgba(255,79,216,var(--combo-glow-alpha)), transparent 35%),
+    radial-gradient(circle at 97% 45%, rgba(132,93,255,var(--combo-glow-alpha)), transparent 35%),
+    linear-gradient(180deg, rgba(3,2,12,.18), rgba(5,3,18,.34));
+  box-shadow:
+    inset 0 0 var(--combo-edge-blur) rgba(76,245,255,var(--combo-glow-alpha)),
+    inset 0 0 92px rgba(255,79,216,var(--combo-glow-alpha));
+  transition: background 220ms ease, box-shadow 220ms ease;
+}
+.word-combo-stage-effects::before,
+.word-combo-stage-effects::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+.word-combo-stage-effects::before {
+  inset: auto -10% -22% -10%;
+  height: 56%;
+  opacity: var(--combo-energy);
+  background:
+    repeating-linear-gradient(90deg, rgba(76,245,255,.22) 0 1px, transparent 1px 7vw),
+    repeating-linear-gradient(0deg, rgba(255,79,216,.16) 0 1px, transparent 1px 5vh);
+  transform: perspective(360px) rotateX(63deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(to top, #000 24%, transparent 94%);
+  mask-image: linear-gradient(to top, #000 24%, transparent 94%);
+}
+.word-combo-stage-effects::after {
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(circle, rgba(255,255,255,.86), rgba(76,245,255,.4) 24%, rgba(255,79,216,.18) 48%, transparent 72%);
+}
+.word-combo-stage-effects.is-beat {
+  animation: word-combo-stage-hit 2.2s cubic-bezier(.17,.84,.3,1);
+}
+.word-combo-stage-effects.is-beat::after {
+  animation: word-combo-stage-flash 620ms ease-out;
+}
+.word-combo-stage-effects.is-perfect-beat {
+  animation: word-combo-perfect-hit 2.2s cubic-bezier(.17,.84,.3,1);
+}
+.word-combo-stage-effects.is-perfect-beat::after {
+  animation: word-combo-perfect-flash 900ms ease-out;
+}
+
+.word-combo-dance-stage.is-visible { opacity: 1; }
+.word-combo-dance-stage.is-celebrating {
+  border-color: rgba(255,226,123,.5);
+  background: radial-gradient(ellipse at 50% 84%, rgba(255,224,111,.3), rgba(76,245,255,.12) 42%, transparent 70%);
+  box-shadow: 0 0 24px rgba(255,210,83,.28), 0 0 42px rgba(76,245,255,.2), inset 0 -18px 32px rgba(255,79,216,.1);
+}
+
+.word-combo-dance-stage::after {
+  content: "";
+  position: absolute;
+  right: 12%;
+  bottom: 5%;
+  left: 12%;
+  height: 10%;
+  border-radius: 50%;
+  background: rgba(0,0,0,.42);
+  filter: blur(7px);
+}
+.word-combo-dance-stage .word-combo-dance { z-index: 1; }
+.word-combo-stage-grid {
+  position: absolute;
+  inset: 0;
+  opacity: var(--combo-energy);
+  background-image:
+    linear-gradient(rgba(76,245,255,.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,79,216,.1) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000, transparent 78%);
+  mask-image: radial-gradient(ellipse at center, #000, transparent 78%);
+  animation: word-combo-grid-drift 8s linear infinite;
+}
+.word-combo-stage-rays {
+  position: absolute;
+  left: 50%;
+  bottom: -24%;
+  width: 94%;
+  height: 112%;
+  opacity: var(--combo-energy);
+  background: conic-gradient(from 250deg at 50% 100%, transparent 0 5deg, rgba(76,245,255,.25) 6deg 9deg, transparent 10deg 20deg, rgba(255,79,216,.22) 21deg 24deg, transparent 25deg 37deg, rgba(132,93,255,.24) 38deg 42deg, transparent 43deg 360deg);
+  filter: blur(8px);
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  animation: word-combo-rays-sway 4.6s ease-in-out infinite alternate;
+}
+.word-combo-stage-label {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  padding: 4px 13px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(76,245,255,.4);
+  border-radius: 999px;
+  color: rgba(229,254,255,.84);
+  background: rgba(4,5,20,.56);
+  box-shadow: 0 0 18px rgba(76,245,255,.2), inset 0 0 12px rgba(132,93,255,.12);
+  font-size: clamp(9px, 1.1vw, 12px);
+  font-weight: 900;
+  letter-spacing: .2em;
+  text-shadow: 0 0 8px var(--combo-cyan);
+}
+.word-combo-equalizer {
+  display: none !important;
+  position: absolute;
+  bottom: 8%;
+  z-index: 2;
+  align-items: flex-end;
+  gap: 3px;
+  width: min(13vw, 150px);
+  height: 46%;
+  opacity: var(--combo-energy);
+  filter: drop-shadow(0 0 8px var(--combo-cyan));
+}
+.word-combo-equalizer-left { left: max(8px, env(safe-area-inset-left)); }
+.word-combo-equalizer-right { right: max(8px, env(safe-area-inset-right)); transform: scaleX(-1); filter: drop-shadow(0 0 8px var(--combo-pink)); }
+.word-combo-equalizer i {
+  flex: 1 1 0;
+  min-width: 2px;
+  height: 22%;
+  border-radius: 999px 999px 3px 3px;
+  background: linear-gradient(to top, var(--combo-violet), var(--combo-pink) 52%, var(--combo-cyan));
+  box-shadow: 0 0 8px currentColor;
+  animation: word-combo-eq 780ms ease-in-out infinite alternate;
+}
+.word-combo-equalizer i:nth-child(3n+2) { animation-duration: 640ms; }
+.word-combo-equalizer i:nth-child(4n) { animation-duration: 900ms; }
+.person-word-combo-level-3 .word-combo-equalizer i { animation-duration: 610ms; }
+.person-word-combo-level-5 .word-combo-equalizer i { animation-duration: 490ms; }
+.word-combo-stage-effects.is-beat .word-combo-equalizer i { animation-duration: 230ms; }
+.word-combo-particles i {
+  position: absolute;
+  width: 4px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  opacity: var(--combo-energy);
+  background: #fff;
+  box-shadow: 0 0 8px 2px var(--combo-cyan), 0 0 15px 4px rgba(255,79,216,.36);
+  animation: word-combo-particle 2.8s ease-in-out infinite alternate;
+}
+.person-word-combo-level-0 .word-combo-particles i,
+.person-word-combo-level-1 .word-combo-particles i:nth-child(n+7),
+.person-word-combo-level-2 .word-combo-particles i:nth-child(n+13) { opacity: 0; }
+.word-combo-stage-shards {
+  position: absolute;
+  top: max(36px, calc(env(safe-area-inset-top) + 32px));
+  left: 50%;
+  display: flex;
+  gap: clamp(5px, 1vw, 12px);
+  transform: translateX(-50%);
+}
+.word-combo-stage-shards i {
+  color: rgba(129,139,173,.28);
+  font-style: normal;
+  font-size: clamp(12px, 2vw, 22px);
+  transition: color 180ms ease, transform 180ms ease, text-shadow 180ms ease;
+}
+.word-combo-stage-shards i.is-lit {
+  color: #fff4a8;
+  transform: scale(1.2);
+  text-shadow: 0 0 6px #fff, 0 0 15px #ffcc4d, 0 0 25px var(--combo-pink);
+}
+.word-combo-stage-punch {
+  position: absolute;
+  top: auto;
+  bottom: 12%;
+  left: 43%;
+  z-index: 5;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: clamp(36px, 8vw, 94px);
+  font-weight: 1000;
+  font-style: italic;
+  letter-spacing: -.04em;
+  white-space: nowrap;
+  text-shadow: 0 0 5px #fff, 0 0 16px var(--combo-cyan), 0 0 34px var(--combo-pink), 4px 5px 0 rgba(91,42,184,.65);
+  animation: word-combo-punch 920ms cubic-bezier(.16,1.35,.28,1) both;
+}
+.word-combo-perfect-beat .word-combo-stage-punch { font-size: clamp(48px, 10vw, 118px); }
+@keyframes word-combo-stage-hit { 0% { filter:brightness(.9); } 5% { filter:brightness(1.08); } 16% { filter:brightness(1.72) saturate(1.32); } 38% { filter:brightness(1.16) saturate(1.12); } 82% { filter:brightness(1.04); } 100% { filter:brightness(1); } }
+@keyframes word-combo-stage-flash { 0% { opacity: .8; transform: scale(.7); } 100% { opacity: 0; transform: scale(1.3); } }
+@keyframes word-combo-perfect-hit { 0%, 5% { filter:brightness(.72); } 13% { filter:brightness(2) saturate(1.55); } 42% { filter:brightness(1.24) saturate(1.18); } 100% { filter:brightness(1); } }
+@keyframes word-combo-perfect-flash { 0%, 7% { opacity: 0; } 14% { opacity: 1; transform: scale(.55); } 100% { opacity: 0; transform: scale(1.45); } }
+@keyframes word-combo-grid-drift { to { background-position: 64px 64px; } }
+@keyframes word-combo-rays-sway { from { transform: translateX(-50%) rotate(-5deg); } to { transform: translateX(-50%) rotate(5deg); } }
+@keyframes word-combo-eq { from { height: 12%; } to { height: var(--combo-eq-height); } }
+@keyframes word-combo-particle { from { transform: translate3d(-6px, 8px, 0) scale(.7); } to { transform: translate3d(7px, -13px, 0) scale(1.25); } }
+@keyframes word-combo-punch { 0% { opacity: 0; transform: translateX(-50%) scale(.55) rotate(-3deg); } 38% { opacity: 1; transform: translateX(-50%) scale(1.55) rotate(1deg); } 68% { transform: translateX(-50%) scale(.96); } 100% { opacity: 0; transform: translateX(-50%) scale(1); } }
+@keyframes word-combo-world-success { 0% { filter:brightness(.34) saturate(.92) contrast(1.08); } 6% { filter:brightness(.4) saturate(1); } 16% { filter:brightness(.62) saturate(1.35) contrast(1.16) hue-rotate(15deg); } 42% { filter:brightness(.46) saturate(1.12) contrast(1.1); } 100% { filter:brightness(.34) saturate(.92) contrast(1.08); } }
+.game-shell.person-word-combo-open .suuhimochi-keyboard {
+  border-color: rgba(76,245,255,.62) !important;
+  background: linear-gradient(155deg,rgba(255,252,238,.98),rgba(241,222,184,.98)) !important;
+  box-shadow: 0 0 0 2px rgba(76,245,255,.2),0 0 22px rgba(76,245,255,.2),0 14px 36px rgba(0,0,0,.38) !important;
+  animation:none;
+}
+.game-shell.person-word-combo-open .face-talk-close {
+  position: fixed;
+  z-index: 320;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+}
+
+
+
+.game-shell.person-word-combo-level-5 .suuhimochi-keyboard {
+  box-shadow: 0 0 0 2px rgba(255,240,153,.42),0 0 38px rgba(76,245,255,.58),0 0 62px rgba(255,79,216,.46),inset 0 0 32px rgba(132,93,255,.2) !important;
+}
+@keyframes word-combo-keyboard-breathe {
+  from { filter: brightness(.94); }
+  to { filter: brightness(1.1) drop-shadow(0 0 8px rgba(76,245,255,.28)); }
+}
+
+.game-shell.word-combo-perfect-beat .word-combo-stage-shards i {
+  animation: word-combo-shard-converge 900ms cubic-bezier(.18,.85,.24,1) both;
+}
+@keyframes word-combo-shard-converge {
+  0% { opacity: 1; transform: translateX(0) scale(1.2); }
+  45% { opacity: 1; transform: translateX(var(--shard-shift, 0)) scale(1.65); }
+  100% { opacity: .35; transform: translateX(0) scale(.45); }
+}
+.person-combo-invite > p { margin: 8px 0 14px; color: #654b39; font-weight: 700; line-height: 1.65; }
 .room-stage { position: relative; width: min(100vw, calc(100svh * 1.6)); aspect-ratio: 16 / 10; max-height: 100svh; }
 .room { position: relative; width: 100%; height: 100%; overflow: hidden; background: #17130f url('/assets/room-evening.png') center/cover no-repeat; box-shadow: 0 0 80px #000; }
 .mobile-room-background { display: none; }
 .room-touch-surface { display: none; }
 .room-tint { position: absolute; inset: 0; pointer-events: none; transition: background 1s; }
+.world-layer.world-layer-sleeping-day > .room-tint { background: rgba(8, 15, 32, .52); mix-blend-mode: multiply; }
 .room-items { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: visible; }
 .room-item { position: absolute; display: block; height: auto; user-select: none; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 4px 4px rgba(43, 23, 11, .22)); }
 .room-item-editable { cursor: grab; touch-action: none; }
@@ -117,8 +386,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .room-item-rug { left: 21%; top: 63%; width: 50%; z-index: 0; clip-path: inset(22.2% .8% 16.8% 1.4%); }
 .room-item-low-table { left: 40%; top: 61%; width: 27%; z-index: 3; clip-path: inset(28.5% 4.9% 21.2% 4.9%); }
 .room-item-cushion { left: 3%; top: 72%; width: 18%; z-index: 3; clip-path: inset(24% 3.7% 17.3% 4.9%); }
+.room-item-gacha-cushion { width: 18%; z-index: 3; clip-path: inset(24% 3.7% 17.3% 4.9%); }
 .room-item-plant { left: 69%; top: 49%; width: 15%; z-index: 3; clip-path: inset(3.1% 15.1% 3% 17.6%); }
+.room-item-gacha-plant { width: 15%; z-index: 3; clip-path: inset(3.1% 15.1% 3% 17.6%); }
 .room-item-vase { left: 49%; top: 53%; width: 8%; z-index: 3; clip-path: inset(12% 20.6% 9.3% 20.6%); }
+.room-item-gacha-vase { width: 8%; z-index: 3; clip-path: inset(12% 20.6% 9.3% 20.6%); }
 .room-item-wall-clock { left: 59%; top: 11%; width: 13%; aspect-ratio: 1; z-index: 2; }
 .room-item-wall-clock-digital { left: 74%; top: 13%; width: 11%; aspect-ratio: 1; z-index: 2; }
 .room-item-mask-case { left: 45%; top: 7%; width: 14%; aspect-ratio: 1316 / 1195; z-index: 2; }
@@ -240,6 +512,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .encounter-caption { position: absolute; left: 50%; bottom: 8%; z-index: 8; width: min(90%, 580px); transform: translateX(-50%); color: #fff8e8; text-align: center; text-shadow: 0 3px 10px #000; }
 .encounter-caption p { min-height: 2em; margin: 0 0 18px; font-family: "Yu Mincho", serif; font-size: clamp(1.15rem, 3vw, 1.8rem); letter-spacing: .14em; animation: textin .55s ease both; }
 .encounter-caption button { border: 0; border-bottom: 1px solid rgba(255,255,255,.7); padding: 9px 4px; color: #fff; background: transparent; font-size: .9rem; letter-spacing: .1em; animation: appear .8s 1s both; }
+.encounter-caption .encounter-next { min-height:44px; animation:none; cursor:pointer; }
 
 .dialogue-box { position: absolute; left: 50%; bottom: 7%; z-index: 10; width: min(86%, 700px); min-height: 132px; padding: 28px 30px 24px; transform: translateX(-50%); border: 3px solid #3b3b3b; border-radius: 26px; color: #2f2f2f; background: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.18); }
 .dialogue-box::before { content: ""; position: absolute; left: 54%; bottom: -24px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-top: 24px solid #3b3b3b; transform: translateX(-50%); }
@@ -254,6 +527,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .initial-goal-form .choices button:last-child { color: #735d4b; background: #f5eee1; }
 .initial-goal-form .choices button:disabled { cursor: not-allowed; opacity: .42; }
 .dialogue-next { position: absolute; right: 18px; bottom: 12px; border: 0; color: #d46f4b; background: transparent; font-size: .7rem; animation: pulse 1s infinite; }
+.initial-dialogue-box .dialogue-next { right:4px; bottom:4px; min-width:44px; min-height:44px; animation:none; cursor:pointer; }
+.initial-dialogue-box:has(.dialogue-next) p { padding-right:36px; }
 .choices { display: flex; gap: 12px; justify-content: flex-end; margin-top: 17px; }
 .choices button, .soft-accept { min-height: 42px; border: 1px solid #a7876b; border-radius: 4px; padding: 8px 22px; color: #4a392d; background: #fffaf0; }
 .choices button:first-child { color: white; background: #cf6745; border-color: #b85335; }
@@ -364,7 +639,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .thought-bubble-page { position: absolute; right: 48px; bottom: 13px; color: #71877c; font-size: .68em; font-weight: 700; letter-spacing: .08em; }
 .thought-bubble-next { position: absolute; right: 20px; bottom: 12px; color: #617a6d; font-size: .7em; animation: pulse 1s ease-in-out infinite; }
 .thought-bubble.sleep-thought-bubble { --bubble-border: #94a9bd; --bubble-fill: rgba(255, 255, 252, .96); right: auto; z-index: 10; width: min(33%, 350px); min-height: 92px; padding: clamp(15px, 1.8vw, 21px) clamp(18px, 2.2vw, 26px) clamp(25px, 3vw, 34px); border-radius: 29px; color: #405264; font-size: clamp(.94rem, 1.45vw, 1.13rem); line-height: 1.5; box-shadow: 0 4px 12px rgba(49, 66, 82, .18); }
-.sleep-thought-bubble .thought-bubble-tail { left: calc(50% - 26px); bottom: -35px; transform: scaleX(.82); transform-origin: top center; }
+.sleep-thought-bubble .thought-bubble-tail { left: var(--sleep-tail-left, calc(50% - 26px)); bottom: -35px; transform: var(--sleep-tail-transform, scaleX(.82)); transform-origin: top center; }
+.mobile-room-background-sleeping-day { filter: brightness(.48) saturate(.72); }
 
 .memory-note { position: absolute; z-index: 20; inset: 12% 12% auto auto; width: min(82%, 360px); max-height: 72%; padding: 29px 26px 27px; overflow-y: auto; border-radius: 2px; color: #4a3d31; background: #fff7dc; box-shadow: 0 15px 45px rgba(0,0,0,.46); transform: rotate(1deg); animation: bubblein .25s ease both; }
 .memory-note::before { content: ""; position: absolute; top: -9px; left: 42%; width: 62px; height: 20px; background: rgba(226,202,149,.74); transform: rotate(-3deg); }
@@ -457,9 +733,24 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .dictionary-category { display: inline-block; margin-top: 7px; padding: 2px 6px; border-radius: 999px; color: #876551; background: #f1e1bf; font-size: .65rem; font-weight: 800; }
 .dictionary-word-card p { margin: 7px 0 0; color: #735c4b; font-size: .73rem; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
 .dictionary-word-card small { display: block; margin-top: 7px; padding-top: 6px; border-top: 1px dashed rgba(160,116,82,.3); color: #a06052; font-size: .67rem; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.dictionary-pet-status { margin-top: 7px; }
+.dictionary-pet-status small { margin-top: 0; }
+.dictionary-pet-status > div { display: flex; gap: 5px; margin-top: 5px; }
+.dictionary-pet-status button { flex: 1; min-height: 27px; border: 1px solid rgba(118,149,124,.44); border-radius: 8px; color: #526f59; background: rgba(235,246,230,.86); font-size: .64rem; font-weight: 900; }
+.dictionary-pet-status button.active { color: #fffdf4; border-color: #719378; background: #7da184; box-shadow: inset 0 -2px 0 rgba(49,89,58,.2); }
 .dictionary-word-delete { display: block; width: 100%; min-height: 27px; margin-top: 9px; border: 1px dashed rgba(172,104,86,.45); border-radius: 8px; color: #a06654; background: rgba(255,248,233,.7); font-size: .67rem; font-weight: 800; }
 .dictionary-word-delete:hover { border-color: #c2765d; color: #8f4c3b; background: #fff1dd; }
 .dictionary-word-delete:active { transform: translateY(1px); }
+.dictionary-word-reading { display: block; margin-top: 4px; color: #9a7458; font-size: .68rem; font-weight: 800; }
+.dictionary-word-edit-button { width: 100%; min-height: 29px; margin-top: 9px; border: 1px solid rgba(156,111,72,.46); border-radius: 8px; color: #76523d; background: rgba(248,231,193,.72); font-size: .69rem; font-weight: 900; }
+.dictionary-word-edit { display: grid; gap: 6px; }
+.dictionary-word-edit label { color: #76523d; font-size: .68rem; font-weight: 900; }
+.dictionary-word-edit input { width: 100%; min-width: 0; min-height: 34px; border: 1px solid #c49d76; border-radius: 8px; padding: 5px 8px; color: #513a2c; background: #fffdf5; font: inherit; }
+.dictionary-word-edit > small { margin: 0; padding: 0; border: 0; }
+.dictionary-word-edit > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dictionary-word-edit button { min-height: 29px; border: 1px solid #c49d76; border-radius: 8px; color: #6f4b34; background: #f8e8c8; font-size: .7rem; font-weight: 900; }
+.dictionary-word-edit button[type="submit"] { color: #fffaf0; border-color: #a96d4a; background: #b96f49; }
+.dictionary-edit-notice { margin-top: 8px; border-radius: 9px; padding: 7px 8px; color: #98512f; background: #fff0cf; font-size: .7rem; font-weight: 900; line-height: 1.45; }
 .dictionary-filter-empty { grid-column: 1 / -1; margin: 24px 8px; color: #8b705d; font-family: "Yu Mincho", serif; font-size: .9rem; line-height: 1.6; text-align: center; }
 .dictionary-empty { position: relative; margin: auto 14px; color: #806555; font-family: "Yu Mincho", serif; font-size: 1rem; line-height: 1.8; text-align: center; }
 
@@ -470,6 +761,23 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .dev-panel button, .dev-panel select { min-height: 28px; border: 1px solid #596774; border-radius: 3px; color: #eaf0f4; background: #26313b; }
 .dev-panel button { display: flex; align-items: center; justify-content: center; gap: 5px; }
 .dev-panel label { display: grid; grid-template-columns: 1fr 72px; align-items: center; gap: 6px; }
+.dev-tabs { display:flex; gap:6px; }
+.dev-tabs button { flex:1; }
+.dev-tabs button[aria-selected="true"] { background:#456079; border-color:#a2c5df; }
+.dev-panel-external > div { width:min(680px, calc(100vw - 28px)); max-height:78dvh; }
+.external-topic-monitor { display:grid; gap:8px; min-width:0; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+.external-topic-monitor h2, .external-topic-monitor h3, .external-topic-monitor p { margin:0; }
+.external-topic-summary { display:grid; grid-template-columns:minmax(90px, 1fr) minmax(0, 3fr); gap:5px 10px; margin:0; }
+.external-topic-summary dd { margin:0; }
+.external-topic-filters { display:flex; flex-wrap:wrap; gap:8px; }
+.external-topic-filters label { flex:1 1 150px; }
+.external-topic-list { display:grid; gap:8px; }
+.external-source-stages { display:grid; gap:8px; }
+.external-source-stages article { padding:8px; border:1px solid #596774; border-radius:5px; }
+.external-topic-card { display:grid; gap:6px; padding:10px; border:1px solid #596774; border-radius:5px; min-width:0; }
+.external-topic-monitor a { color:#a9d8ff; text-decoration:underline; }
+.external-topic-preview { position:sticky; bottom:0; display:grid; gap:8px; padding:12px; border:2px solid #a2c5df; background:#182533; border-radius:6px; }
+@media (max-width:700px) { .external-topic-summary { grid-template-columns:100px minmax(0, 1fr); } .dev-panel-external > div { max-height:72dvh; } }
 .dev-initial-preview { display: grid; gap: 6px; padding: 9px; border: 1px solid #6c8090; border-radius: 5px; background: rgba(91, 116, 130, .18); }
 .dev-initial-preview b { color: #d8edf5; font-size: 11px; letter-spacing: .06em; }
 .dev-initial-preview span { color: #b9ccd6; font-size: 10px; }
@@ -857,18 +1165,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     bottom: max(65px, calc(env(safe-area-inset-bottom) + 59px)) !important;
   }
 
-  .mobile-landscape .journal-overlay {
-    inset: max(38px, env(safe-area-inset-top)) max(44px, env(safe-area-inset-right)) max(55px, env(safe-area-inset-bottom)) max(44px, env(safe-area-inset-left)) !important;
-    align-items: start !important;
-    overflow-y: auto !important;
-    padding: 6px 42px !important;
-    overscroll-behavior: contain;
-  }
-
-  .mobile-landscape .journal-book { width: min(820px, 100%) !important; max-height: none !important; }
-  .mobile-landscape .journal-page,
-  .mobile-landscape .journal-archive-sheet { max-height: calc(100dvh - 104px) !important; }
-
   .mobile-landscape .daily-progress-overlay,
   .mobile-landscape .graduation-overlay,
   .mobile-landscape .two-day-review-talk {
@@ -917,6 +1213,240 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-landscape input,
   .mobile-landscape textarea,
   .mobile-landscape select { scroll-margin-block: 72px; }
+}
+
+/* Word Combo is a self-contained game surface.  Its keyboard is deliberately
+   available on desktop as well as mobile, while every rule remains scoped to
+   the combo state so journal and ordinary conversation input keep their
+   existing layout. */
+.game-shell.person-word-combo-open .room-stage .mochi {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard-display-shell {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 46px;
+  min-height: 46px;
+  overflow: hidden;
+  border: 1px solid rgba(71, 124, 151, .55);
+  border-radius: 9px;
+  background: rgba(255, 255, 252, .96);
+  box-shadow: inset 0 1px 4px rgba(67, 74, 92, .12), 0 0 0 rgba(76,245,255,0);
+}
+
+.game-shell.person-word-combo-open .person-combo-input.is-typing .suuhimochi-keyboard-display-shell {
+  animation: word-combo-input-tap 130ms ease-out;
+}
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard-display,
+.game-shell.person-word-combo-open .suuhimochi-keyboard-display-mirror {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 9px 10px;
+  overflow: auto;
+  border: 0;
+  border-radius: inherit;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard-display-mirror {
+  z-index: 1;
+  color: #33271f;
+  pointer-events: none;
+  scrollbar-width: none;
+}
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard-display {
+  z-index: 2;
+  resize: none;
+  color: transparent;
+  background: transparent;
+  caret-color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.18em;
+  margin: 0 -1px;
+  vertical-align: -.19em;
+  border-radius: 2px;
+  background: #377f9e;
+  animation: suuhimochi-caret-blink 1s steps(1,end) infinite;
+}
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard-placeholder { color:#907d6e; }
+
+.game-shell.person-word-combo-open .suuhimochi-flick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(42px, 1fr));
+  gap: 5px;
+  min-height: 0;
+}
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard-controls,
+.game-shell.person-word-combo-open .suuhimochi-keyboard-functions {
+  display: grid;
+  min-height: 0;
+  gap: 5px;
+}
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard-controls { grid-template: 1fr / 1fr; }
+.game-shell.person-word-combo-open .suuhimochi-keyboard-functions { grid-template-columns: 1fr 1.08fr 1.28fr; }
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard button {
+  appearance: none;
+  min-width: 0;
+  min-height: 0;
+  padding: 3px;
+  border: 1px solid rgba(112, 91, 58, .42);
+  border-radius: 10px;
+  color: #443226;
+  background: linear-gradient(#fffefa, #f0ddb5);
+  box-shadow: 0 3px 0 rgba(86,54,34,.22), inset 0 0 0 rgba(255,255,255,0);
+  font: inherit;
+  font-size: clamp(.86rem, 1.45vw, 1rem);
+  font-weight: 850;
+  line-height: 1;
+  transition: transform 110ms ease, filter 110ms ease, box-shadow 110ms ease, border-color 110ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard button:active,
+.game-shell.person-word-combo-open .suuhimochi-keyboard button.is-active {
+  color: #403025;
+  border-color: rgba(76,190,218,.82);
+  background: linear-gradient(#fffef5,#f7d998);
+  box-shadow: 0 1px 0 rgba(86,54,34,.2), inset 0 0 12px rgba(255,255,255,.7), 0 0 12px rgba(76,245,255,.32);
+  filter: brightness(1.08);
+  transform: translateY(1px) scale(.95);
+}
+
+.game-shell.person-word-combo-open .suuhimochi-keyboard-functions button {
+  font-size: .78rem;
+}
+.game-shell.person-word-combo-open .suuhimochi-keyboard-functions button small {
+  margin-left: 3px;
+  font-size: .66rem;
+}
+.game-shell.person-word-combo-open .suuhimochi-keyboard-functions .is-decide {
+  color:#fffdf4;
+  border-color:#5a91a6;
+  background:linear-gradient(#61a9bd,#397b9a);
+}
+.game-shell.person-word-combo-open .suuhimochi-keyboard-functions .is-decide:disabled { opacity:.42; }
+.game-shell.person-word-combo-open.word-combo-beat .suuhimochi-keyboard-functions .is-decide {
+  animation:word-combo-decide-accepted 620ms ease-out;
+}
+
+.game-shell.person-word-combo-open .person-combo-count strong {
+  transform-origin:50% 70%;
+}
+.game-shell.person-word-combo-open.person-word-combo-level-2 .person-combo-count,
+.game-shell.person-word-combo-open.person-word-combo-level-2 .person-combo-count strong {
+  color:#dffcff;
+  text-shadow:0 0 8px #4cf5ff,0 0 16px rgba(255,207,92,.42);
+}
+.game-shell.person-word-combo-open.person-word-combo-level-3 .person-combo-count,
+.game-shell.person-word-combo-open.person-word-combo-level-3 .person-combo-count strong,
+.game-shell.person-word-combo-open.person-word-combo-level-4 .person-combo-count,
+.game-shell.person-word-combo-open.person-word-combo-level-4 .person-combo-count strong,
+.game-shell.person-word-combo-open.person-word-combo-level-5 .person-combo-count,
+.game-shell.person-word-combo-open.person-word-combo-level-5 .person-combo-count strong,
+.game-shell.person-word-combo-open.person-word-combo-level-6 .person-combo-count,
+.game-shell.person-word-combo-open.person-word-combo-level-6 .person-combo-count strong {
+  color:#fff2a8;
+  text-shadow:0 0 6px #fff,0 0 15px #ffcc4d,0 0 24px rgba(255,79,216,.46);
+}
+.game-shell.person-word-combo-open.word-combo-beat .person-combo-count strong {
+  animation:word-combo-count-pop 820ms cubic-bezier(.15,1.35,.32,1);
+}
+.game-shell.person-word-combo-open.word-combo-beat .word-combo-particles i {
+  animation:word-combo-star-burst 880ms ease-out both;
+}
+
+@keyframes word-combo-input-tap {
+  0% { border-color:rgba(71,124,151,.55); box-shadow:inset 0 1px 4px rgba(67,74,92,.12); }
+  45% { border-color:rgba(76,245,255,.9); box-shadow:inset 0 0 8px rgba(76,245,255,.12),0 0 14px rgba(76,245,255,.34); }
+  100% { border-color:rgba(71,124,151,.55); box-shadow:inset 0 1px 4px rgba(67,74,92,.12); }
+}
+@keyframes word-combo-decide-accepted {
+  0% { filter:brightness(1); transform:scale(1); }
+  32% { filter:brightness(1.42); box-shadow:0 0 22px rgba(255,220,105,.68); transform:scale(1.055); }
+  100% { filter:brightness(1); transform:scale(1); }
+}
+@keyframes word-combo-count-pop {
+  0% { transform:scale(1); }
+  14% { transform:scale(1.08); }
+  34% { transform:scale(1.52); }
+  62% { transform:scale(.96); }
+  100% { transform:scale(1); }
+}
+@keyframes word-combo-star-burst {
+  0% { opacity:0; transform:translate3d(0,8px,0) scale(.35); }
+  28% { opacity:.95; transform:translate3d(0,-8px,0) scale(1.35); }
+  100% { opacity:0; transform:translate3d(0,-24px,0) scale(.75); }
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+
+
+
+}
+
+@media (max-width: 1024px) and (orientation: landscape) and (max-height: 390px) {
+
+  .game-shell.person-word-combo-open .suuhimochi-keyboard-display-shell { height:36px; min-height:36px; }
+  .game-shell.person-word-combo-open .suuhimochi-keyboard-display,
+  .game-shell.person-word-combo-open .suuhimochi-keyboard-display-mirror { padding:6px 8px; font-size:13px; }
+  .game-shell.person-word-combo-open .suuhimochi-flick-grid { grid-template-rows:repeat(4,minmax(30px,1fr)); gap:3px; }
+  .game-shell.person-word-combo-open .suuhimochi-keyboard button { border-radius:7px; font-size:.78rem; }
+
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+
+  .game-shell.person-word-combo-open .person-combo-question { min-height:120px; max-height:23dvh; }
+
+  .word-combo-dance-stage {
+    left:50%;
+    bottom:calc(min(390px,46dvh) + 14px);
+    width:min(36vw,150px);
+    transform:translateX(-50%);
+  }
+  .person-combo-accepted { left:50% !important; bottom:calc(min(390px,46dvh) + 22px) !important; transform:translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-shell.person-word-combo-open .word-combo-stage-grid,
+  .game-shell.person-word-combo-open .word-combo-stage-rays,
+  .game-shell.person-word-combo-open .word-combo-equalizer i,
+  .game-shell.person-word-combo-open .word-combo-particles i,
+  .game-shell.person-word-combo-open .person-combo-count strong,
+  .game-shell.person-word-combo-open .suuhimochi-keyboard,
+  .game-shell.person-word-combo-open .suuhimochi-keyboard button,
+  .game-shell.person-word-combo-open .suuhimochi-keyboard-display-shell {
+    animation-duration:1ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:1ms !important;
+  }
 }
 
 @media (display-mode: standalone), (display-mode: fullscreen) {
@@ -998,10 +1528,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 /* Ambient bubble tail: one continuous, hand-drawn curve with the exact body colors. */
 .thought-bubble-tail {
   position: absolute;
-  left: 43px;
-  bottom: -39px;
-  width: 64px;
-  height: 48px;
+  left: 29px;
+  bottom: -28px;
+  width: 46px;
+  height: 40px;
   overflow: visible;
   pointer-events: none;
   z-index: 1;
@@ -1014,7 +1544,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .thought-bubble-tail-stroke {
   fill: none;
   stroke: var(--bubble-border);
-  stroke-width: 2;
+  stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
@@ -1054,14 +1584,14 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   }
 
   .thought-bubble-tail {
-    left: 28px;
-    bottom: -33px;
-    width: 54px;
-    height: 41px;
+    left: 22px;
+    bottom: -24px;
+    width: 40px;
+    height: 34px;
   }
 
-  .thought-bubble.sleep-thought-bubble { left: 12px !important; top: 7% !important; width: min(76%, 330px); min-height: 82px; padding: 14px 17px 27px; font-size: .95rem; }
-  .sleep-thought-bubble .thought-bubble-tail { left: calc(50% - 22px); bottom: -31px; }
+  .thought-bubble.sleep-thought-bubble { width: min(76%, 330px); min-height: 82px; padding: 14px 17px 27px; font-size: .95rem; }
+  .sleep-thought-bubble .thought-bubble-tail { left: var(--sleep-tail-left, calc(50% - 22px)); bottom: -31px; transform: var(--sleep-tail-transform, scaleX(.82)); }
 }
 
 /* Poteno arrival greeting: use the same warm rounded bubble language as Poteno. */
@@ -1152,6 +1682,24 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     width: min(54vw, 560px);
     max-height: calc(100dvh - 70px);
     overflow: visible;
+  }
+
+  /* ことばコンボは固定表示のすうひもちキーボードと重ねない。
+     左側を質問・コンボ表示、右側をキーボードとして常に分離する。 */
+
+
+
+
+
+
+
+
+  .mobile-landscape.person-word-combo-tier-3 .suuhimochi-keyboard {
+    box-shadow: 0 0 0 2px rgba(255,214,126,.55), 0 0 42px rgba(255,151,47,.62), 0 16px 38px rgba(37,20,8,.46);
+  }
+
+  .mobile-landscape.person-word-combo-tier-5 .suuhimochi-keyboard {
+    box-shadow: 0 0 0 3px rgba(255,225,145,.68), 0 0 54px rgba(255,139,36,.78), 0 16px 42px rgba(37,20,8,.52);
   }
 
   .mobile-landscape.mobile-keyboard-open .face-talk-input,
@@ -1714,3 +2262,852 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     font-size: .72rem;
   }
 }
+
+
+/* ========================================================================
+   Word combo overlay: one coordinate system, no transformed camera ancestors.
+   The combo panel and portaled keyboard are direct game-shell children.
+   These rules intentionally never target ordinary conversation keyboards.
+   ======================================================================== */
+.game-shell.person-word-combo-open > .person-combo-shell {
+  position: fixed !important;
+  z-index: 270;
+  top: max(15px, env(safe-area-inset-top)) !important;
+  left: max(16px, env(safe-area-inset-left)) !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: min(55vw, 690px, calc(100vw - 405px)) !important;
+  max-height: none;
+  overflow: visible !important;
+  transform: none !important;
+  pointer-events: auto;
+}
+.game-shell.person-word-combo-open > .person-combo-shell .person-combo {
+  width: 100% !important;
+  max-height: none;
+  padding: 16px 18px;
+  backdrop-filter: none;
+}
+.game-shell.person-word-combo-open > .person-combo-shell .person-combo-question {
+  min-height: 0;
+  max-height: min(40dvh, 220px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  padding: 14px 17px;
+}
+.game-shell.person-word-combo-open > .person-combo-shell .person-combo-question p {
+  font-size: clamp(15px, 1.65vw, 17px);
+  line-height: 1.55;
+  margin-bottom: 7px;
+}
+/* Portaled form is the sole position owner; the keyboard is naturally sized. */
+.game-shell.person-word-combo-open > .person-combo-keyboard-portal {
+  position: fixed !important;
+  z-index: 280;
+  top: clamp(78px, 16dvh, 102px) !important;
+  right: max(24px, env(safe-area-inset-right)) !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: clamp(300px, 34vw, 350px);
+  height: auto !important;
+  max-height: calc(100dvh - 102px);
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: block;
+  pointer-events: auto;
+  transform: none !important;
+}
+.game-shell.person-word-combo-open .person-combo-keyboard-portal > .suuhimochi-keyboard.is-combo-contained {
+  position: relative !important;
+  z-index: auto;
+  inset: auto !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: 44px  min-content 42px !important;
+  gap: 5px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: 7px !important;
+  margin: 0 !important;
+  transform: none !important;
+  transform-origin: center;
+  animation: none !important;
+  overflow: visible !important;
+}
+.game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-flick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  grid-template-rows: repeat(4, 42px);
+  gap: 5px;
+  height: auto !important;
+  min-height: 0 !important;
+}
+.game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-keyboard-controls,
+.game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-keyboard-functions {
+  min-height: 0 !important;
+  height: 42px !important;
+}
+.game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-keyboard-display-shell {
+  height: 44px !important;
+  min-height: 44px !important;
+}
+.game-shell.person-word-combo-open .person-combo-keyboard-portal.is-typing .suuhimochi-keyboard-display-shell {
+  animation: word-combo-input-tap 130ms ease-out;
+}
+/* Do not animate transform of any positioning element. */
+.game-shell.person-word-combo-open.word-combo-beat .person-combo-keyboard-portal > .suuhimochi-keyboard {
+  filter: brightness(1.055) drop-shadow(0 0 8px rgba(255,218,116,.28));
+}
+/* Character: a visible, fixed-size left-side performer; never moves its origin. */
+.game-shell.person-word-combo-open > .word-combo-dance-stage {
+  /* v8: a deliberately small, clipped performer box keeps every PNG stable. */
+  position: fixed;
+  z-index: 268;
+  left: clamp(20px, 5vw, 72px);
+  right: auto;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  top: auto;
+  width: clamp(190px, 22vw, 230px);
+  height: auto;
+  aspect-ratio: 1;
+  overflow: hidden;
+  contain: layout paint;
+  transform: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, filter 160ms ease;
+}
+.game-shell.person-word-combo-open > .word-combo-dance-stage.is-visible { opacity:1; }
+.game-shell.person-word-combo-open > .word-combo-dance-stage.is-celebrating {
+  filter: drop-shadow(0 0 18px rgba(255,210,83,.24)) drop-shadow(0 0 32px rgba(76,245,255,.18));
+}
+.game-shell.person-word-combo-open .word-combo-idle-mochi {
+  position: absolute;
+  inset: 3%;
+  display: block;
+  width: 94%;
+  height: 94%;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 10px 8px rgba(49, 27, 14, .32));
+  user-select: none;
+  pointer-events: none;
+}
+/* The final combo card is its own viewport-level result, not a leftover
+   question panel.  Its visual centre sits to the right of the performer. */
+.game-shell.person-word-combo-open .person-combo.is-finished {
+  box-sizing: border-box;
+  position: fixed;
+  z-index: 310;
+  top: 48%;
+  left: calc(50% + 125px);
+  width: min(420px, calc(100vw - 282px));
+  max-width: calc(100vw - 282px);
+  max-height: calc(100dvh - max(32px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: clamp(14px, 1.8vw, 20px);
+  transform: translate(-50%, -50%) !important;
+  border-color: rgba(255, 226, 123, .62);
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(8, 16, 43, .98), rgba(24, 13, 54, .97));
+  box-shadow: 0 20px 58px rgba(0, 0, 0, .56), 0 0 30px rgba(76, 245, 255, .2), 0 0 48px rgba(255, 79, 216, .16);
+}
+.game-shell.person-word-combo-open .person-combo.is-finished .person-combo-result {
+  min-height: 140px;
+  align-content: center;
+  gap: 8px;
+  padding: 0;
+}
+.game-shell.person-word-combo-open .person-combo.is-finished .person-combo-result > strong {
+  font-size: clamp(24px, 5vw, 42px);
+}
+.game-shell.person-word-combo-open .person-combo.is-finished .person-combo-result p {
+  margin: 2px 0;
+  font-size: clamp(14px, 1.8vw, 17px);
+}
+.game-shell.person-word-combo-open .person-combo.is-finished .person-combo-result button {
+  min-width: 132px;
+  min-height: 42px;
+}
+/* Small landscape screens need both columns without cropping. */
+@media (max-width: 780px) and (orientation: landscape) {
+  .game-shell.person-word-combo-open > .person-combo-shell {
+    top: max(7px, env(safe-area-inset-top)) !important;
+    left: max(7px, env(safe-area-inset-left)) !important;
+    width: calc(100vw - clamp(250px,46vw,360px) - 28px) !important;
+    max-height: calc(100dvh - 155px);
+  }
+  .game-shell.person-word-combo-open > .person-combo-shell .person-combo { padding: 9px; }
+  .game-shell.person-word-combo-open > .person-combo-shell .person-combo-question {
+    max-height: min(35dvh, 140px); padding: 8px 10px;
+  }
+  .game-shell.person-word-combo-open > .person-combo-shell .person-combo-question p {
+    font-size: 13px; line-height: 1.4;
+  }
+  .game-shell.person-word-combo-open > .person-combo-keyboard-portal {
+    top: max(8px, env(safe-area-inset-top)) !important;
+    right: max(7px, env(safe-area-inset-right)) !important;
+    width: clamp(230px,43vw,340px);
+  }
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal > .suuhimochi-keyboard.is-combo-contained {
+    grid-template-rows: 35px min-content 35px !important; gap: 3px !important; padding: 5px !important;
+  }
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-flick-grid {
+    grid-template-rows: repeat(4, 32px); gap: 3px;
+  }
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-keyboard-controls,
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-keyboard-functions {
+    height: 35px !important;
+  }
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-keyboard-display-shell {
+    height: 35px !important; min-height: 35px !important;
+  }
+  .game-shell.person-word-combo-open > .word-combo-dance-stage {
+    width: clamp(130px, 35dvh, 175px); left: 8px; bottom: 6px;
+  }
+  .game-shell.person-word-combo-open .person-combo.is-finished {
+    top: 50%;
+    left: calc(50% + 92px);
+    width: min(400px, calc(100vw - 205px));
+    max-width: calc(100vw - 205px);
+    max-height: calc(100dvh - 20px);
+    padding: 10px 12px;
+  }
+  .game-shell.person-word-combo-open .person-combo.is-finished .person-combo-result {
+    min-height: 0;
+  }
+}
+/* Portrait: question top, sprite between question and keypad, keyboard bottom. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .game-shell.person-word-combo-open > .person-combo-shell {
+    top: max(8px, env(safe-area-inset-top)) !important;
+    left: 8px !important;
+    width: calc(100vw - 16px) !important;
+    max-height: 38dvh;
+  }
+  .game-shell.person-word-combo-open > .person-combo-shell .person-combo { padding: 10px 12px; }
+  .game-shell.person-word-combo-open > .person-combo-shell .person-combo-question {
+    max-height: 21dvh; padding: 9px 11px;
+  }
+  .game-shell.person-word-combo-open > .person-combo-keyboard-portal {
+    top: auto !important;
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto;
+    max-height: 46dvh;
+  }
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal > .suuhimochi-keyboard.is-combo-contained {
+    grid-template-rows: 40px min-content 40px !important; gap: 3px !important; padding: 5px !important;
+  }
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-flick-grid {
+    grid-template-rows: repeat(4, min(38px, 5.2dvh)); gap: 3px;
+  }
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-keyboard-controls,
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-keyboard-functions {
+    height: 40px !important;
+  }
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal .suuhimochi-keyboard-display-shell {
+    height: 40px !important; min-height: 40px !important;
+  }
+  .game-shell.person-word-combo-open > .word-combo-dance-stage {
+    width: clamp(128px, 40vw, 170px);
+    left: 50%;
+    bottom: calc(292px + max(16px, env(safe-area-inset-bottom)));
+    transform: translateX(-50%);
+  }
+  .game-shell.person-word-combo-open .person-combo-accepted {
+    left: 50% !important;
+    bottom: 330px !important;
+    transform: translateX(-50%);
+  }
+  .game-shell.person-word-combo-open .person-combo.is-finished {
+    top: 42%;
+    left: 50%;
+    width: calc(100vw - 32px);
+    max-width: calc(100vw - 32px);
+    max-height: min(44dvh, 350px);
+  }
+  .game-shell.person-word-combo-open:has(.person-combo.is-finished) > .word-combo-dance-stage {
+    left: max(10px, env(safe-area-inset-left));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-shell.person-word-combo-open > .word-combo-dance-stage,
+  .game-shell.person-word-combo-open .person-combo-keyboard-portal > .suuhimochi-keyboard.is-combo-contained {
+    transition: none !important;
+  }
+}
+
+
+/* Word Combo — vivid neon / geometric wonder backdrop (2026-10).
+   Bright in the lower-middle / right background, restrained behind readable UI. */
+.game-shell.person-word-combo-open {
+  --wonder-halo: .88;
+  --wonder-glyph-peak: .30;
+  --wonder-grid: .11;
+  --wonder-ray: .15;
+}
+.game-shell.person-word-combo-level-1,
+.game-shell.person-word-combo-level-2 {
+  --wonder-halo: 1.02;
+  --wonder-glyph-peak: .38;
+  --wonder-grid: .14;
+  --wonder-ray: .20;
+}
+.game-shell.person-word-combo-level-3,
+.game-shell.person-word-combo-level-4 {
+  --wonder-halo: 1.14;
+  --wonder-glyph-peak: .50;
+  --wonder-grid: .18;
+  --wonder-ray: .26;
+}
+.game-shell.person-word-combo-level-5,
+.game-shell.person-word-combo-level-6 {
+  --wonder-halo: 1.28;
+  --wonder-glyph-peak: .64;
+  --wonder-grid: .24;
+  --wonder-ray: .32;
+}
+.game-shell.person-word-combo-open .word-combo-stage-grid {
+  opacity: var(--wonder-grid);
+  filter: saturate(1.25) drop-shadow(0 0 12px rgba(95,232,255,.16));
+}
+.game-shell.person-word-combo-open .word-combo-stage-rays {
+  opacity: var(--wonder-ray);
+  filter: saturate(1.2) blur(.1px);
+}
+.game-shell.person-word-combo-open .word-combo-particles i {
+  width: 3px;
+  box-shadow:
+    0 0 10px 2px rgba(76,245,255,.9),
+    0 0 18px 4px rgba(255,79,216,.36),
+    0 0 28px 6px rgba(116,102,255,.18);
+}
+.game-shell.person-word-combo-open .word-combo-equalizer { display: none !important; }
+.word-combo-wonder {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  isolation: isolate;
+}
+.word-combo-wonder::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 44% 27% at 54% 84%, rgba(109,243,255,.24), transparent 72%),
+    radial-gradient(ellipse 34% 24% at 76% 72%, rgba(255,93,210,.18), transparent 72%);
+  opacity: .95;
+  mix-blend-mode: screen;
+  filter: blur(12px);
+}
+.word-combo-wonder-neon {
+  position: absolute;
+  inset: -14%;
+  background:
+    radial-gradient(ellipse 36% 31% at 54% 69%, rgba(89,233,255,.78), rgba(65,162,255,.30) 34%, rgba(65,162,255,.08) 52%, transparent 74%),
+    radial-gradient(ellipse 28% 28% at 80% 72%, rgba(255,89,208,.64), rgba(142,79,255,.24) 40%, rgba(142,79,255,.06) 58%, transparent 76%),
+    radial-gradient(ellipse 26% 26% at 23% 83%, rgba(123,89,255,.50), rgba(74,210,255,.16) 44%, transparent 72%),
+    radial-gradient(ellipse 18% 16% at 65% 58%, rgba(255,255,255,.22), transparent 78%),
+    radial-gradient(ellipse 18% 14% at 67% 17%, rgba(102,247,241,.28), transparent 78%);
+  opacity: var(--wonder-halo);
+  mix-blend-mode: screen;
+  filter: saturate(1.32) blur(3px);
+  will-change: opacity, transform;
+  animation: word-combo-wonder-breathe 4.8s ease-in-out infinite alternate;
+}
+.word-combo-wonder-surge {
+  position: absolute;
+  inset: -4%;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 54% 70%, rgba(187,253,255,.75), rgba(104,208,255,.30) 20%, rgba(111,76,255,.10) 36%, transparent 58%),
+    radial-gradient(circle at 80% 77%, rgba(255,134,228,.34), transparent 48%),
+    radial-gradient(circle at 34% 82%, rgba(101,226,255,.24), transparent 42%);
+  filter: blur(2px);
+  pointer-events: none;
+}
+.word-combo-stage-effects.is-beat .word-combo-wonder-surge,
+.word-combo-stage-effects.is-perfect-beat .word-combo-wonder-surge {
+  animation: word-combo-wonder-surge 2.2s ease-out both;
+}
+.word-combo-wonder-geometry { position: absolute; inset: 0; }
+.word-combo-wonder-glyph {
+  position: absolute;
+  display: block;
+  width: clamp(118px, 17vw, 220px);
+  height: auto;
+  aspect-ratio: 1;
+  color: #70eaff;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+  opacity: 0;
+  filter: drop-shadow(0 0 7px currentColor) drop-shadow(0 0 18px rgba(65,194,255,.28));
+  will-change: transform, opacity;
+  animation: word-combo-wonder-glyph 7.4s ease-in-out infinite;
+}
+.word-combo-wonder-glyph.is-hex {
+  left: 48%; top: 56%;
+  color: #64efff;
+  width: clamp(138px, 19vw, 246px);
+  animation-duration: 6.8s;
+  animation-delay: -1.9s;
+}
+.word-combo-wonder-glyph.is-orbit {
+  left: 70%; top: 58%;
+  color: #f88fe6;
+  width: clamp(150px, 21vw, 272px);
+  animation-duration: 8.8s;
+  animation-delay: -5.4s;
+}
+.word-combo-wonder-glyph.is-diamond {
+  left: 30%; top: 73%;
+  color: #c7a2ff;
+  width: clamp(104px, 14vw, 176px);
+  animation-duration: 7.6s;
+  animation-delay: -3.8s;
+}
+.word-combo-wonder-glyph.is-cube {
+  left: 76%; top: 26%;
+  color: #67eadc;
+  width: clamp(118px, 16vw, 196px);
+  animation-duration: 9.2s;
+  animation-delay: -1.5s;
+}
+.word-combo-wonder-glyph.is-triangle {
+  left: 58%; top: 22%;
+  color: #ffc0e8;
+  width: clamp(126px, 16vw, 192px);
+  animation-duration: 7.2s;
+  animation-delay: -4.6s;
+}
+.word-combo-wonder-glyph.is-circuit {
+  left: 8%; top: 55%;
+  color: #7dd7ff;
+  width: clamp(108px, 14vw, 184px);
+  animation-duration: 8.6s;
+  animation-delay: -6.2s;
+}
+/* Increase the number of motifs gradually; none should cover interactive controls. */
+.game-shell.person-word-combo-open.person-word-combo-level-0
+  .word-combo-wonder-glyph:nth-child(n+3),
+.game-shell.person-word-combo-level-1 .word-combo-wonder-glyph:nth-child(n+4),
+.game-shell.person-word-combo-level-2 .word-combo-wonder-glyph:nth-child(n+5),
+.game-shell.person-word-combo-level-3 .word-combo-wonder-glyph:nth-child(n+6),
+.game-shell.person-word-combo-level-4 .word-combo-wonder-glyph:nth-child(n+7) {
+  animation: none;
+  opacity: 0;
+}
+@keyframes word-combo-wonder-breathe {
+  0% { opacity: .6; transform: scale(1); }
+  50% { opacity: var(--wonder-halo); transform: scale(1.075); }
+  100% { opacity: .78; transform: scale(1.025); }
+}
+@keyframes word-combo-wonder-glyph {
+  0%, 8% { opacity: 0; transform: translate3d(0,22px,0) scale(.82) rotate(-15deg); }
+  22% { opacity: calc(var(--wonder-glyph-peak) * .82); }
+  48% { opacity: var(--wonder-glyph-peak); transform: translate3d(0,-6px,0) scale(1.02) rotate(3deg); }
+  70% { opacity: calc(var(--wonder-glyph-peak) * .72); }
+  100% { opacity: 0; transform: translate3d(0,-28px,0) scale(1.12) rotate(16deg); }
+}
+@keyframes word-combo-wonder-surge {
+  0%, 5% { opacity: 0; }
+  14% { opacity: .82; }
+  36% { opacity: .26; }
+  100% { opacity: 0; }
+}
+/* Small phones: reduce overdraw and concentrate the decoration between controls. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .word-combo-wonder-glyph { width: 92px; }
+  .word-combo-wonder-glyph.is-orbit { width: 132px; }
+  .word-combo-wonder-glyph.is-hex { left: 18%; top: 50%; }
+  .word-combo-wonder-glyph.is-orbit { left: 60%; top: 47%; }
+  .word-combo-wonder-glyph.is-diamond { left: 14%; top: 67%; }
+  .word-combo-wonder-glyph.is-cube { left: 74%; top: 61%; }
+  .word-combo-wonder-glyph.is-triangle,
+  .word-combo-wonder-glyph.is-circuit { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .word-combo-wonder::before { opacity: .35; filter: blur(10px); }
+  .word-combo-wonder-neon { animation: none; opacity: .55; will-change: auto; }
+  .word-combo-wonder-glyph { animation: none; opacity: 0; will-change: auto; }
+  .word-combo-wonder-glyph.is-hex,
+  .word-combo-wonder-glyph.is-orbit { opacity: .22; }
+  .word-combo-wonder-surge { animation: none !important; opacity: 0 !important; }
+}
+
+/* Word-combo performer v7 responsive rules. Keep the larger desktop pose,
+   but prevent a zoomed PNG from obstructing input on narrow screens. */
+@media (max-width: 780px) and (orientation: landscape) {
+  .game-shell.person-word-combo-open > .word-combo-dance-stage {
+    left: 22px;
+    bottom: 4px;
+    width: clamp(155px, 33dvh, 230px);
+    --word-combo-sprite-zoom: 1.15;
+  }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  .game-shell.person-word-combo-open > .word-combo-dance-stage {
+    left: 50%;
+    bottom: calc(292px + max(16px, env(safe-area-inset-bottom)));
+    width: clamp(128px, 40vw, 170px);
+    transform: translateX(-50%);
+    --word-combo-sprite-zoom: 1.08;
+  }
+}
+
+/* Gacha is a separate, opaque screen; the room and conversation never share
+   its visual layer. All timings follow the draw's rarity, not reward logic. */
+.item-gacha-open { width: 100%; min-height: 40px; margin: 5px 0 9px; border: 1px solid #a7804a; border-radius: 11px; color: #503725; background: linear-gradient(#fff8e5, #eecf91); font-weight: 800; cursor: pointer; }
+.item-gacha-open:disabled { opacity: .55; cursor: not-allowed; }
+.item-gacha-error { display: block; margin: 0 0 8px; color: #9e3e3e; }
+.item-tile-owned-count { color: #73543c; font-size: .68rem; }
+.gacha-snack-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.food-shelf-snack { opacity: 1; }
+.gacha-snack-list button { display: flex; align-items: center; gap: 7px; min-height: 39px; padding: 5px 9px; border: 1px solid #cfb58b; border-radius: 11px; color: #604531; background: #fff9e9; }
+.gacha-snack-list button span { font-size: 1.2rem; }
+.gacha-snack-list button strong { font-size: .78rem; }
+.gacha-snack-list button small { font-size: .68rem; }
+.gacha-snack-reaction { margin: 7px 2px; color: #785539; font-size: .82rem; }
+.food-coming-soon-title { margin-top: 13px; padding-top: 10px; border-top: 1px dashed #d9bea0; }
+
+.gacha-screen { --gacha-light:#7ad9e4; position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; max-width: none; height: 100vh; height: 100dvh; max-height: none; margin: 0; padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); overflow: hidden; border: 0; color: #f7fdff; background: #08101d; isolation: isolate; }
+.gacha-screen.gacha-purple { --gacha-light:#bb83f9; }
+.gacha-screen.gacha-rainbow { --gacha-light:#ffe995; }
+.gacha-haze { position: absolute; inset: -15%; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--gacha-light) 13%, transparent), transparent 43%), radial-gradient(ellipse at 50% 95%, #24577955, transparent 52%), linear-gradient(135deg,#07101d,#101c2f 50%,#080e19); transition: filter .4s, opacity .4s; }
+.gacha-phase-pause .gacha-haze { filter: brightness(.28); }
+.gacha-phase-rainbow.gacha-rainbow .gacha-haze { background: radial-gradient(ellipse at 50% 50%, #ffd9aa28, transparent 52%), radial-gradient(ellipse at 50% 95%, #8d4fe733, transparent 55%), #090e1c; }
+.gacha-topbar { position: absolute; z-index: 10; top: max(10px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right)); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.gacha-topbar > div:first-child { display: grid; gap: 2px; }
+.gacha-topbar small { color: #8cadc2; font-size: .61rem; letter-spacing: .23em; }
+.gacha-topbar strong { font-size: clamp(.92rem, 2.5vw, 1.25rem); letter-spacing: .1em; }
+.gacha-topbar-actions { display: flex; align-items: center; gap: 9px; }
+.gacha-topbar-actions span { padding: 5px 10px; border: 1px solid #7facc07b; border-radius: 999px; color: #dbf8ff; background: #101e31c9; font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.gacha-topbar-actions button { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #7196a8; border-radius: 50%; color: white; background: #13263e; cursor: pointer; }
+.gacha-test-progress { position: absolute; z-index: 10; top: 53px; right: max(16px, env(safe-area-inset-right)); font-size: .74rem; }
+.gacha-device { position: relative; width: min(72vmin, 470px); aspect-ratio: 1; flex: 0 0 auto; max-height: calc(100dvh - 82px); filter: drop-shadow(0 0 35px color-mix(in srgb, var(--gacha-light) 25%, transparent)); transition: filter .5s; }
+.gacha-phase-coin .gacha-device { filter: brightness(.65) drop-shadow(0 0 8px #65bccc); }
+.gacha-phase-pause .gacha-device { filter: brightness(.36); }
+.gacha-phase-rainbow .gacha-device { filter: drop-shadow(0 0 60px color-mix(in srgb, var(--gacha-light) 60%, transparent)); }
+.gacha-ring { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; animation: gacha-clockwise 11s linear infinite; transition: opacity .45s, filter .45s; }
+.gacha-ring-outer { border: 2px solid var(--gacha-light); box-shadow: 0 0 16px var(--gacha-light), inset 0 0 14px #76d6e66b; background: repeating-conic-gradient(from 0deg, var(--gacha-light) 0deg 1deg, transparent 1deg 10deg) center / 100% 100%; mask: radial-gradient(circle, transparent 0 44%, #000 45% 49%, transparent 50%); }
+.gacha-ring-ticks { position: absolute; inset: 7%; border: 1px dotted var(--gacha-light); border-radius: 50%; }
+.gacha-ring-middle { inset: 11%; border: 3px double var(--gacha-light); background: repeating-conic-gradient(from 17deg, transparent 0deg 29deg, color-mix(in srgb, var(--gacha-light) 54%, transparent) 30deg 31deg, transparent 32deg 60deg); box-shadow: inset 0 0 12px var(--gacha-light), 0 0 12px var(--gacha-light); animation-name: gacha-counterclockwise; animation-duration: 9s; }
+.gacha-ring-inner { inset: 25%; border: 2px solid var(--gacha-light); background: conic-gradient(from 0deg, transparent 0deg 24deg, color-mix(in srgb, var(--gacha-light) 50%, transparent) 25deg 30deg, transparent 31deg 84deg, color-mix(in srgb, var(--gacha-light) 50%, transparent) 85deg 90deg, transparent 91deg 360deg); box-shadow: 0 0 16px var(--gacha-light), inset 0 0 18px var(--gacha-light); animation-duration: 7s; }
+.gacha-phase-windup .gacha-ring { animation-duration: 6s; }
+.gacha-phase-windup .gacha-ring-middle { animation-duration: 5.3s; }
+.gacha-phase-windup .gacha-ring-inner { animation-duration: 4.7s; }
+.gacha-phase-spin .gacha-ring { animation-duration: 3s; }
+.gacha-phase-spin .gacha-ring-middle { animation-duration: 2.6s; }
+.gacha-phase-spin .gacha-ring-inner { animation-duration: 2.2s; }
+.gacha-phase-fast .gacha-ring { animation-duration: 1.9s; }
+.gacha-phase-fast .gacha-ring-middle { animation-duration: 1.6s; }
+.gacha-phase-fast .gacha-ring-inner { animation-duration: 1.35s; }
+.gacha-phase-fast .gacha-core, .gacha-phase-rainbow .gacha-core { animation-duration: .85s; }
+.gacha-phase-pause .gacha-ring { animation-play-state: paused; opacity: .08; }
+.gacha-phase-ray .gacha-ring { animation-play-state: paused; opacity: .08; }
+.gacha-phase-ray .gacha-nodes { opacity: .08; }
+.gacha-phase-rainbow .gacha-ring { animation-duration: 1.05s; }
+.gacha-phase-rainbow .gacha-ring-middle { animation-duration: .83s; }
+.gacha-phase-rainbow .gacha-ring-inner { animation-duration: .72s; }
+.gacha-rainbow.gacha-phase-rainbow .gacha-ring, .gacha-rainbow.gacha-phase-release .gacha-ring { border-color: transparent; background-image: repeating-conic-gradient(#f786db 0deg 3deg,#f9d078 28deg 33deg,#92e7a7 59deg 64deg,#89caf5 88deg 93deg,#b4a2ed 118deg 123deg,#f786db 148deg 153deg); box-shadow: 0 0 24px #facfae, inset 0 0 22px #a6bfff; }
+.gacha-rainbow.gacha-phase-rainbow .gacha-ring-outer { mask: radial-gradient(circle, transparent 0 44%, #000 45% 49%, transparent 50%); }
+.gacha-nodes { position: absolute; inset: 0; animation: gacha-clockwise 17s linear infinite; }
+.gacha-nodes i { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; margin: -5px; border: 1px solid #d9fcff; border-radius: 50%; background: var(--gacha-light); box-shadow: 0 0 14px var(--gacha-light); transform: rotate(var(--angle)) translateY(-35vmin); opacity: .35; animation: gacha-node-pulse 1.2s ease-in-out infinite; }
+.gacha-phase-pause .gacha-nodes { animation-play-state: paused; opacity: .08; }
+.gacha-core { position: absolute; inset: 38%; display: grid; place-items: center; border: 2px solid var(--gacha-light); border-radius: 50%; background: radial-gradient(circle, #eefeff, #83dbf0 18%, #204060 56%, #0c1a2b 75%); box-shadow: 0 0 24px var(--gacha-light), inset 0 0 20px #fff7; animation: gacha-core-pulse 1.5s ease-in-out infinite; }
+.gacha-core span { color: #f9fdff; font-size: clamp(25px, 6vmin, 50px); text-shadow: 0 0 14px white; }
+.gacha-phase-pause .gacha-core { filter: brightness(2); }
+.gacha-coin { position: absolute; z-index: 3; top: -30%; left: 50%; color: #ffe1a0; font-size: clamp(28px, 5vmin, 50px); text-shadow: 0 0 12px #ffeaa7; transform: translate(-50%,0) scale(1); opacity: 0; animation: gacha-coin-drop .44s ease-in forwards; }
+.gacha-phase-windup .gacha-coin, .gacha-phase-spin .gacha-coin, .gacha-phase-fast .gacha-coin, .gacha-phase-pause .gacha-coin, .gacha-phase-ray .gacha-coin, .gacha-phase-rainbow .gacha-coin, .gacha-phase-release .gacha-coin { display: none; }
+.gacha-rainbow-ray { position: absolute; inset: 3%; border-radius: 50%; opacity: 0; pointer-events: none; background: conic-gradient(from 0deg, transparent 0 330deg,#ff9ccf 340deg,#ffea8d 346deg,#8eeace 352deg,#b2b0ff 358deg,transparent 360deg); mask: radial-gradient(circle, transparent 0 45%,#000 46% 48%,transparent 49%); }
+.gacha-rainbow.gacha-phase-ray .gacha-rainbow-ray { opacity: 1; animation: gacha-clockwise .48s linear both; }
+.gacha-rainbow.gacha-phase-rainbow .gacha-rainbow-ray { opacity: 1; animation: gacha-clockwise .85s linear infinite; }
+.gacha-particles { position: absolute; inset: 0; pointer-events: none; }
+.gacha-particles i { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: var(--gacha-light); box-shadow: 0 0 8px var(--gacha-light); opacity: .3; animation: gacha-particle 1.6s ease-in-out infinite; }
+.gacha-phase-rainbow .gacha-particles i { opacity: .9; animation-duration: .65s; }
+.gacha-phase-pause .gacha-particles i { opacity: 0; }
+.gacha-phase-release .gacha-ring, .gacha-phase-release .gacha-nodes { animation: gacha-converge .48s ease-in forwards; }
+.gacha-phase-release .gacha-core { animation: gacha-core-burst .48s ease-in forwards; }
+.gacha-status { position: absolute; z-index: 3; bottom: max(12px, env(safe-area-inset-bottom)); margin: 0; color: #d4ebf4; font-size: clamp(.8rem, 2.5vmin, 1rem); letter-spacing: .12em; text-shadow: 0 0 9px var(--gacha-light); }
+.gacha-phase-release::after { content: ''; position: absolute; inset: 0; z-index: 5; background: radial-gradient(circle at center,#fff 0,#fff9 15%,transparent 64%); pointer-events: none; animation: gacha-flash .45s ease-out both; }
+.gacha-phase-result .gacha-device { opacity: .28; filter: blur(5px); }
+.gacha-result { position: absolute; z-index: 8; inset: 44px 8px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; pointer-events: none; }
+.gacha-reward-card { display: grid; justify-items: center; align-content: center; gap: 4px; width: min(310px, 43vw); min-width: 170px; max-height: min(68dvh, 440px); padding: clamp(12px, 3vmin, 25px); border: 2px solid #a6dce5; border-radius: 20px; color: #fcfeff; background: linear-gradient(140deg,#244760,#0a2035 55%,#0f3045); box-shadow: 0 0 0 5px #8bdeeb22,0 12px 45px #0009,0 0 30px #84d9e477; text-align: center; pointer-events: auto; animation: gacha-card-open .52s cubic-bezier(.2,1.4,.45,1) both; }
+.gacha-reward-r { border-color: #c49af6; box-shadow: 0 0 0 5px #a879f522,0 12px 45px #0009,0 0 34px #b481f977; }
+.gacha-reward-sr { border-color: #ffe5a4; background: linear-gradient(140deg,#665184,#1c365e 50%,#65465e); box-shadow: 0 0 0 5px #ffdf9b33,0 12px 45px #0009,0 0 38px #ffd3a8bb; }
+.gacha-rarity { justify-self: start; padding: 3px 10px; border: 1px solid #ffffff88; border-radius: 999px; font-weight: 900; letter-spacing: .2em; }
+.gacha-reward-art { display: grid; place-items: center; width: clamp(85px, 16vmin, 125px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; background: radial-gradient(circle,#ffffff44,transparent 72%); font-size: clamp(50px, 10vmin, 80px); }
+.gacha-reward-art img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 7px 10px #0007); }
+.gacha-reward-card small { color: #cfedf4; font-weight: 750; }
+.gacha-reward-card strong { font-size: clamp(.95rem, 3vmin, 1.3rem); line-height: 1.2; }
+.gacha-reward-card b { color: #ffe8a8; font-size: clamp(.85rem, 2.7vmin, 1.1rem); letter-spacing: .18em; }
+.gacha-result-actions { display: flex; gap: 9px; pointer-events: auto; }
+.gacha-result-actions button { min-width: 105px; min-height: 36px; padding: 5px 15px; border: 1px solid #addbe4; border-radius: 999px; color: #f7fcff; background: #21465e; font-weight: 800; cursor: pointer; }
+.gacha-result-actions button:first-child { color: #233044; background: #f5d999; border-color: #fff2cb; }
+.gacha-result-actions button:disabled { opacity: .48; cursor: not-allowed; }
+.gacha-no-coins { color: #bdd3df; }
+@keyframes gacha-clockwise { to { transform: rotate(360deg); } }
+@keyframes gacha-counterclockwise { to { transform: rotate(-360deg); } }
+@keyframes gacha-node-pulse { 0%,100% { opacity:.25; transform: rotate(var(--angle)) translateY(-35vmin) scale(.65); } 50% { opacity:1; transform: rotate(var(--angle)) translateY(-35vmin) scale(1.3); } }
+@keyframes gacha-core-pulse { 50% { box-shadow: 0 0 48px var(--gacha-light), inset 0 0 25px #fff; transform: scale(1.08); } }
+@keyframes gacha-converge { 0% { transform:scale(1); opacity:1; } 67% { transform:scale(.22); opacity:.9; } 100% { transform:scale(.08); opacity:0; } }
+@keyframes gacha-core-burst { 0% { transform:scale(1); } 65% { transform:scale(1.5); filter:brightness(3); } 100% { transform:scale(.1); opacity:0; } }
+@keyframes gacha-coin-drop { 0% { top:-30%; opacity:1; transform: translate(-50%,0) scale(1); } 75% { opacity:1; } 100% { top:50%; opacity:0; transform: translate(-50%,-50%) scale(.12); } }
+@keyframes gacha-particle { 50% { opacity:.85; transform: translate(0,-9px) scale(1.8); } }
+@keyframes gacha-flash { 0% { opacity:0; } 30% { opacity:.95; } 100% { opacity:0; } }
+@keyframes gacha-card-open { 0% { opacity:0; transform:scale(.3); } 65% { opacity:1; transform:scale(1.2); } 100% { transform:scale(1); } }
+@media (max-height: 470px) { .gacha-device { width: min(66vmin, 390px); } .gacha-reward-card { width: min(265px, 42vw); max-height: 56dvh; gap: 1px; padding: 9px 15px; } .gacha-reward-art { width: 63px; } .gacha-result { gap: 5px; } .gacha-result-actions button { min-height: 30px; } }
+@media (max-width: 600px) and (orientation: portrait) { .gacha-device { width: min(87vw, 430px); } .gacha-reward-card { width: min(80vw, 310px); } }
+@media (prefers-reduced-motion: reduce) { .gacha-ring, .gacha-nodes, .gacha-core, .gacha-particles i, .gacha-coin, .gacha-rainbow-ray { animation: none !important; } .gacha-reward-card { animation-duration: .01ms; } }
+
+/* Capsule-toy machine: the draw logic is independent from this presentation. */
+.gacha-screen { color: #493226; background: #35283a; }
+.gacha-haze { --gacha-background: radial-gradient(ellipse at 50% 32%, #8b708e 0, #4d3b50 52%, #302537 100%); inset: 0; background: radial-gradient(ellipse at 50% 88%, #e9b98888 0, transparent 55%), var(--gacha-background) center / cover no-repeat; }
+.gacha-time-morning .gacha-haze { --gacha-background: linear-gradient(#382b3a73,#382b3aa1), url('/assets/gatya/gacha_bg_morning.png'); }
+.gacha-time-day .gacha-haze { --gacha-background: linear-gradient(#382b3a64,#382b3a96), url('/assets/gatya/gacha_bg_day.png'); }
+.gacha-time-night .gacha-haze { --gacha-background: linear-gradient(#17172980,#171729b8), url('/assets/gatya/gacha_bg_night.png'); }
+.gacha-phase-jam .gacha-haze { filter: brightness(.43); }
+.gacha-phase-color.gacha-rarity-sr .gacha-haze, .gacha-phase-drop.gacha-rarity-sr:not(.gacha-late-upgrade) .gacha-haze { background: radial-gradient(ellipse at 50% 70%, #f8ca9eaa 0, transparent 55%), var(--gacha-background) center / cover no-repeat; }
+.gacha-topbar { color: #fff7ed; }
+.gacha-topbar small { color: #e2c6d6; }
+.gacha-topbar-actions span { border-color: #f5d8bb88; color: #fff7e9; background: #3b2d3cbd; }
+.gacha-topbar-actions button { border-color: #e8c9bc; color: #fffaf2; background: #5b4054; }
+.gacha-test-progress { color: #fff4e6; }
+.gacha-camera { position: relative; width: min(61vmin, 380px); aspect-ratio: .82; flex: none; margin-top: 24px; transform-origin: center; transition: transform .52s cubic-bezier(.22,.72,.2,1); will-change: transform; }
+.gacha-machine { position: absolute; inset: 0; filter: drop-shadow(0 16px 18px #1b122055); transition: filter .3s, opacity .35s; }
+.gacha-phase-coin .gacha-camera { transform: translate(53%,-31%) scale(1.72); }
+.gacha-phase-coin-hold .gacha-camera { transform: translate(53%,-31%) scale(1.72); }
+.gacha-phase-crank .gacha-camera { transform: translate(-37%,-38%) scale(1.78); }
+.gacha-phase-tumble .gacha-camera, .gacha-phase-jam .gacha-camera, .gacha-phase-glimmer .gacha-camera, .gacha-phase-color .gacha-camera, .gacha-phase-ready .gacha-camera, .gacha-phase-drop .gacha-camera, .gacha-phase-hold .gacha-camera, .gacha-phase-anticipate .gacha-camera, .gacha-phase-open .gacha-camera, .gacha-phase-result .gacha-camera { transform: translate(0,0) scale(1); }
+.gacha-phase-tumble .gacha-machine { animation: gacha-machine-hop 1.02s cubic-bezier(.28,.72,.26,1) both; }
+.gacha-machine-shadow { position: absolute; left: 8%; right: 8%; bottom: -1%; height: 8%; border-radius: 50%; background: #160f1b7a; filter: blur(10px); }
+.gacha-tank { position: absolute; z-index: 2; top: 0; left: 10%; width: 80%; height: 55%; overflow: hidden; border: clamp(5px, 1.3vmin, 9px) solid #cda581; border-bottom-width: 3px; border-radius: 43% 43% 17% 17% / 32% 32% 10% 10%; background: linear-gradient(116deg,#ffffffb8,#d7f7f8aa 28%,#9ad8d9a8 70%,#ffffff8c), radial-gradient(circle at 50% 96%,#ecf5ec,#90afb9); box-shadow: inset 8px 0 10px #fff9, inset -10px 0 14px #64899966, 0 3px 0 #8f624f; }
+.gacha-tank::after { content: ''; position: absolute; z-index: 3; left: 1%; right: 1%; bottom: 0; height: 11%; background: linear-gradient(#e6f5f694,#7aa9a5a8); border-radius: 40% 40% 0 0; }
+.gacha-tank-capsules { position: absolute; inset: 0; }
+.gacha-screen:not(.gacha-phase-overview):not(.gacha-phase-coin):not(.gacha-phase-coin-hold):not(.gacha-phase-result) .gacha-tank-capsules { animation: gacha-tank-rattle 1.02s ease-out 1 both; }
+.gacha-capsule { --cap-top: #fff5e6; --cap-bottom: #f3a995; position: absolute; display: block; width: 25%; aspect-ratio: 1; overflow: hidden; border: 2px solid #fff9ed; border-radius: 50%; background: radial-gradient(circle at 31% 24%, #fff 0%, var(--cap-top) 29%, var(--cap-bottom) 75%, #8a7280 120%); box-shadow: inset 4px 5px 7px #fff8, inset -6px -7px 9px #65516466, 1px 5px 6px #5368768a; transform-origin: 50% 80%; }
+.gacha-capsule i, .gacha-capsule b, .gacha-dispensed-shell > i, .gacha-dispensed-shell > b { position: absolute; left: 0; right: 0; height: 50%; }
+.gacha-capsule i, .gacha-dispensed-shell > i { top: 0; border-radius: 100% 100% 0 0; background: radial-gradient(circle at 30% 22%, #fff 0%, #ffffffaa 18%, var(--cap-top) 68%, color-mix(in srgb,var(--cap-top) 70%,#927f91) 100%); }
+.gacha-capsule b, .gacha-dispensed-shell > b { bottom: 0; border-radius: 0 0 100% 100%; background: radial-gradient(circle at 32% 5%, color-mix(in srgb,var(--cap-bottom) 55%,#fff) 0%, var(--cap-bottom) 55%, color-mix(in srgb,var(--cap-bottom) 56%,#4d4356) 100%); }
+.gacha-capsule::before, .gacha-dispensed-shell::before { content: ''; position: absolute; z-index: 3; top: 13%; left: 18%; width: 21%; height: 12%; border-radius: 50%; background: #fffdf4d9; filter: blur(1px); transform: rotate(-35deg); }
+.gacha-capsule::after, .gacha-dispensed-shell::after { content: ''; position: absolute; z-index: 2; top: 48%; left: 2%; width: 96%; height: 4%; border-radius: 50%; background: #fffaf0; box-shadow: 0 1px 2px #7d6575a6; }
+.gacha-capsule-mint { --cap-bottom: #94d3b7; }
+.gacha-capsule-blue { --cap-bottom: #91b9e7; }
+.gacha-capsule-lemon { --cap-bottom: #f2d58c; }
+.gacha-capsule-lavender { --cap-bottom: #be9ad9; }
+.gacha-capsule-rainbow { --cap-bottom: #f3b1bc; --cap-top: #fff0a6; filter: drop-shadow(0 0 11px #fff2a4); }
+.gacha-capsule-rainbow b, .gacha-dispensed.gacha-capsule-rainbow .gacha-dispensed-shell > b { background: linear-gradient(115deg,#f1a8c7,#ffe29b 35%,#91dbca 68%,#a7a6ee); }
+.gacha-capsule-position-1 { left: 1%; top: 78%; --base-angle: -31deg; z-index: 3; }
+.gacha-capsule-position-2 { left: 23%; top: 76%; --base-angle: 37deg; z-index: 3; }
+.gacha-capsule-position-3 { left: 47%; top: 80%; --base-angle: -18deg; z-index: 3; }
+.gacha-capsule-position-4 { left: 74%; top: 77%; --base-angle: 51deg; z-index: 3; }
+.gacha-capsule-position-5 { left: 7%; top: 55%; --base-angle: 16deg; z-index: 2; }
+.gacha-capsule-position-6 { left: 32%; top: 59%; --base-angle: -43deg; z-index: 2; }
+.gacha-capsule-position-7 { left: 56%; top: 54%; --base-angle: 27deg; z-index: 2; }
+.gacha-capsule-position-8 { left: 77%; top: 51%; --base-angle: -39deg; z-index: 2; }
+.gacha-capsule-position-9 { left: 1%; top: 36%; --base-angle: 8deg; z-index: 1; }
+.gacha-capsule-position-10 { left: 24%; top: 38%; --base-angle: -24deg; z-index: 1; }
+.gacha-capsule-position-11 { left: 48%; top: 34%; --base-angle: 42deg; z-index: 1; }
+.gacha-capsule-position-12 { left: 70%; top: 32%; --base-angle: -13deg; z-index: 1; }
+.gacha-capsule-position-13 { left: 16%; top: 22%; --base-angle: 33deg; z-index: 1; }
+.gacha-capsule-position-14 { left: 43%; top: 21%; --base-angle: -36deg; z-index: 1; }
+.gacha-tank-capsules .gacha-capsule { --nudge-x: 4px; --nudge-y: -7px; --nudge-back: -3px; --wobble: 17deg; --return-tilt: -9deg; --settle-tilt: 4deg; --settle-delay: 0ms; --settle-time: 1.45s; transform: rotate(var(--base-angle)); }
+.gacha-tank-capsules .gacha-capsule:nth-child(2n) { --nudge-x: -5px; --nudge-y: -5px; --nudge-back: 4px; --wobble: -19deg; --return-tilt: 10deg; --settle-tilt: -4deg; --settle-delay: 70ms; --settle-time: 1.55s; }
+.gacha-tank-capsules .gacha-capsule:nth-child(3n) { --nudge-x: 3px; --nudge-y: -8px; --nudge-back: -4px; --wobble: 15deg; --return-tilt: -8deg; --settle-tilt: 3deg; --settle-delay: 125ms; --settle-time: 1.36s; }
+.gacha-tank-capsules .gacha-capsule:nth-child(5n) { --nudge-x: -4px; --nudge-y: -7px; --nudge-back: 5px; --wobble: -16deg; --return-tilt: 8deg; --settle-tilt: -3deg; --settle-delay: 165ms; --settle-time: 1.62s; }
+.gacha-tank-capsules .gacha-capsule:nth-child(-n+4) { --nudge-y: -3px; }
+.gacha-tank-capsules .gacha-capsule:nth-child(n+5):nth-child(-n+8) { --nudge-y: -5px; }
+.gacha-tank-capsules .gacha-capsule:nth-child(n+9) { --nudge-y: -8px; }
+.gacha-screen:not(.gacha-phase-overview):not(.gacha-phase-coin):not(.gacha-phase-coin-hold):not(.gacha-phase-result) .gacha-tank-capsules .gacha-capsule { animation: gacha-capsule-shuffle var(--settle-time) ease-out var(--settle-delay) 1 both; }
+.gacha-phase-ready .gacha-tank-capsules, .gacha-phase-ready .gacha-tank-capsules .gacha-capsule { animation: none !important; }
+.gacha-screen.gacha-phase-drop .gacha-tank-capsules .gacha-capsule.gacha-capsule-position-7, .gacha-screen.gacha-phase-hold .gacha-tank-capsules .gacha-capsule.gacha-capsule-position-7, .gacha-screen.gacha-phase-anticipate .gacha-tank-capsules .gacha-capsule.gacha-capsule-position-7, .gacha-screen.gacha-phase-open .gacha-tank-capsules .gacha-capsule.gacha-capsule-position-7 { animation: gacha-capsule-feed .62s ease-in forwards; }
+.gacha-tank-shine { position: absolute; z-index: 4; top: 5%; left: 8%; width: 19%; height: 76%; border-radius: 60%; background: linear-gradient(90deg,#fff8,transparent); transform: rotate(12deg); pointer-events: none; }
+.gacha-upgrade-streak { position: absolute; z-index: 5; inset: 0; opacity: 0; pointer-events: none; background: linear-gradient(115deg,transparent 35%,#ff9bcb 41%,#ffef95 46%,#9feacb 52%,#aaa8f0 57%,transparent 64%); transform: translateX(-120%); }
+.gacha-phase-glimmer .gacha-upgrade-streak { opacity: .8; animation: gacha-color-sweep .55s ease-out both; }
+.gacha-phase-color.gacha-rarity-sr .gacha-tank { box-shadow: inset 8px 0 10px #fff9, inset -10px 0 14px #64899966, 0 3px 0 #8f624f, 0 0 30px #f7d1e5; }
+.gacha-rarity-sr.gacha-phase-color .gacha-capsule-position-7 b, .gacha-rarity-sr.gacha-phase-ready .gacha-capsule-position-7 b, .gacha-rarity-sr.gacha-phase-drop .gacha-capsule-position-7 b, .gacha-rarity-sr.gacha-phase-open .gacha-capsule-position-7 b { background: linear-gradient(115deg,#f1a8c7,#ffe29b 35%,#91dbca 68%,#a7a6ee); }
+.gacha-rarity-sr.gacha-phase-color .gacha-capsule-position-7, .gacha-rarity-sr.gacha-phase-ready .gacha-capsule-position-7, .gacha-rarity-sr.gacha-phase-drop .gacha-capsule-position-7 { filter: drop-shadow(0 0 8px #fff6b6); }
+.gacha-rarity-r.gacha-phase-color .gacha-capsule-position-7 b, .gacha-rarity-r.gacha-phase-ready .gacha-capsule-position-7 b, .gacha-rarity-r.gacha-phase-drop .gacha-capsule-position-7 b { background: linear-gradient(130deg,#e0b3f3,#9c77c9); }
+.gacha-tank-rim { position: absolute; z-index: 5; top: 50%; left: 8%; width: 84%; height: 6%; border: 3px solid #b17a64; border-radius: 12px; background: linear-gradient(#efd5ae,#bc8669); box-shadow: 0 2px 5px #54373877; }
+.gacha-machine-body { position: absolute; z-index: 3; top: 53%; left: 6%; width: 88%; height: 40%; border: clamp(4px, 1vmin, 7px) solid #9b6655; border-radius: 13% 13% 17% 17%; background: linear-gradient(115deg,#fff1d5,#f6d8b2 43%,#e5b88f 100%); box-shadow: inset 5px 5px 0 #fff8, inset -8px -8px 0 #bd826866, 0 10px 0 #734d4d; }
+.gacha-machine-label { position: absolute; top: 6%; left: 19%; right: 19%; padding: 1% 2%; border: 2px solid #bc8072; border-radius: 999px; color: #985c54; background: #fff8e9; font-size: clamp(9px, 2vmin, 15px); font-weight: 900; letter-spacing: .04em; text-align: center; white-space: nowrap; }
+.gacha-machine-label span { color: #e1a474; }
+.gacha-coin-slot { position: absolute; top: 38%; left: 15%; width: 23%; height: 25%; border: 5px solid #ad7b66; border-radius: 50%; background: #e2b58d; box-shadow: inset 0 2px 3px #513e4a88, 0 2px 0 #fff9; }
+.gacha-coin-slot::after { content: ''; position: absolute; inset: -30%; border-radius: 50%; opacity: 0; pointer-events: none; background: radial-gradient(circle,#fffbdc 0 9%,#ffd57888 27%,transparent 66%); }
+.gacha-phase-coin-hold .gacha-coin-slot::after { animation: gacha-slot-catch .38s ease-out both; }
+.gacha-phase-coin-hold .gacha-machine { animation: gacha-coin-feedback .28s ease-out both; }
+.gacha-coin-slot span { position: absolute; left: 41%; top: 19%; width: 18%; height: 64%; border-radius: 6px; background: #55414a; box-shadow: inset 2px 0 2px #1b1620; }
+.gacha-coin { position: absolute; z-index: 20; top: 73.2%; left: 29.3%; width: clamp(30px, 6.7vmin, 50px); aspect-ratio: 1; opacity: 0; perspective: 360px; filter: drop-shadow(0 2px 1px #673a2488) drop-shadow(0 0 5px #ffe8a2); animation: gacha-coin-in var(--gacha-coin-duration) var(--gacha-coin-delay) linear both; }
+.gacha-coin img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; backface-visibility: hidden; }
+.gacha-coin-front { animation: gacha-coin-front-turn var(--gacha-coin-duration) var(--gacha-coin-delay) linear both; }
+.gacha-coin-edge { opacity: 0; animation: gacha-coin-edge-turn var(--gacha-coin-duration) var(--gacha-coin-delay) linear both; }
+.gacha-coin-fallback { display: block; color: #ffdc86; font-size: clamp(30px, 6.7vmin, 50px); line-height: 1; }
+.gacha-phase-overview .gacha-coin, .gacha-phase-coin-hold .gacha-coin, .gacha-phase-crank .gacha-coin, .gacha-phase-tumble .gacha-coin, .gacha-phase-jam .gacha-coin, .gacha-phase-glimmer .gacha-coin, .gacha-phase-color .gacha-coin, .gacha-phase-ready .gacha-coin, .gacha-phase-drop .gacha-coin, .gacha-phase-hold .gacha-coin, .gacha-phase-anticipate .gacha-coin, .gacha-phase-open .gacha-coin, .gacha-phase-result .gacha-coin { display: none; }
+.gacha-crank { position: absolute; top: 32%; right: 12%; width: 29%; aspect-ratio: 1; border: 4px solid #986a5c; border-radius: 50%; background: #fff1d4; box-shadow: 0 3px 4px #764e5077; }
+.gacha-crank-wheel { position: absolute; inset: 12%; border: 5px solid #bd8271; border-radius: 50%; background: radial-gradient(circle,#fff8e1 0 21%,#a86c5c 23% 32%,#eac199 34%); }
+.gacha-crank-wheel span { position: absolute; top: -25%; left: 39%; width: 22%; height: 73%; border-radius: 999px; background: linear-gradient(90deg,#d58974,#f5d1ac,#b87266); box-shadow: 0 2px 3px #78495388; transform-origin: 50% 105%; }
+.gacha-phase-crank .gacha-crank-wheel { animation: gacha-handle-turn 1.04s cubic-bezier(.35,.06,.22,1) 1 both; }
+.gacha-phase-crank .gacha-crank { animation: gacha-crank-feedback 1.04s ease-in-out both; }
+.gacha-phase-crank .gacha-tank { animation: gacha-tank-charge 1.04s ease-in-out both; }
+.gacha-phase-tumble .gacha-crank-wheel, .gacha-phase-jam .gacha-crank-wheel, .gacha-phase-glimmer .gacha-crank-wheel, .gacha-phase-color .gacha-crank-wheel, .gacha-phase-ready .gacha-crank-wheel, .gacha-phase-drop .gacha-crank-wheel, .gacha-phase-hold .gacha-crank-wheel, .gacha-phase-anticipate .gacha-crank-wheel, .gacha-phase-open .gacha-crank-wheel, .gacha-phase-result .gacha-crank-wheel { transform: rotate(360deg); }
+.gacha-chute { position: absolute; left: 35%; bottom: 0; width: 30%; height: 32%; overflow: hidden; border: 5px solid #986955; border-bottom: 0; border-radius: 47% 47% 0 0; background: #473b42; box-shadow: inset 0 5px 10px #271d27; }
+.gacha-chute-flap { position: absolute; z-index: 2; inset: 7% 5% 0; border: 2px solid #ffe0b6; border-bottom: 0; border-radius: 45% 45% 0 0; background: linear-gradient(#c3866a,#a56e5f); transform-origin: top center; }
+.gacha-phase-drop .gacha-chute-flap, .gacha-phase-hold .gacha-chute-flap, .gacha-phase-anticipate .gacha-chute-flap, .gacha-phase-open .gacha-chute-flap { animation: gacha-flap-open .35s ease-out both; }
+.gacha-machine-foot { position: absolute; z-index: 2; bottom: 1%; width: 18%; height: 8%; border-radius: 0 0 10px 10px; background: #8e625b; }
+.gacha-machine-foot-left { left: 12%; }
+.gacha-machine-foot-right { right: 12%; }
+.gacha-dispensed { --cap-top: #fff5e6; --cap-bottom: #f3a995; position: absolute; z-index: 7; top: 77%; left: 50%; width: 23%; aspect-ratio: 1; isolation: isolate; border: 2px solid #fff9ed; border-radius: 50%; background: radial-gradient(circle at 31% 24%, #fff 0%, var(--cap-top) 29%, var(--cap-bottom) 75%, #8a7280 120%); box-shadow: inset 4px 5px 7px #fff8, inset -7px -8px 10px #65516466, 0 6px 10px #332b3988; opacity: 0; transform: translate(-50%,-35%) scale(.55); filter: drop-shadow(0 5px 5px #45323e77); perspective: 500px; }
+.gacha-dispensed-shell { position: absolute; z-index: 2; inset: 0; overflow: hidden; border-radius: 50%; transform-origin: center; }
+.gacha-dispensed-effect { --rarity-glow:#d9a7ff; position: absolute; z-index: 1; inset: -72%; border-radius: 50%; opacity: 0; pointer-events: none; }
+.gacha-dispensed-effect::before, .gacha-dispensed-effect::after { content:''; position:absolute; inset:15%; border-radius:50%; }
+.gacha-dispensed-effect::before { background: radial-gradient(circle,#fff 0 4%,color-mix(in srgb,var(--rarity-glow) 78%,transparent) 16%,transparent 62%); filter:blur(2px); }
+.gacha-dispensed-effect::after { border:2px solid color-mix(in srgb,var(--rarity-glow) 75%,white); box-shadow:0 0 8px var(--rarity-glow),inset 0 0 8px var(--rarity-glow); }
+.gacha-dispensed-effect i { --angle:0deg; position:absolute; top:50%; left:50%; width:5px; aspect-ratio:1; border-radius:50%; background:#fff; box-shadow:0 0 5px #fff,0 0 10px var(--rarity-glow); transform:rotate(var(--angle)) translateY(-22px); opacity:0; }
+.gacha-dispensed-effect i:nth-child(2) { --angle:45deg; animation-delay:.08s; }
+.gacha-dispensed-effect i:nth-child(3) { --angle:90deg; animation-delay:.15s; }
+.gacha-dispensed-effect i:nth-child(4) { --angle:135deg; animation-delay:.03s; }
+.gacha-dispensed-effect i:nth-child(5) { --angle:180deg; animation-delay:.12s; }
+.gacha-dispensed-effect i:nth-child(6) { --angle:225deg; animation-delay:.2s; }
+.gacha-dispensed-effect i:nth-child(7) { --angle:270deg; animation-delay:.06s; }
+.gacha-dispensed-effect i:nth-child(8) { --angle:315deg; animation-delay:.17s; }
+.gacha-rarity-r:is(.gacha-phase-drop,.gacha-phase-hold,.gacha-phase-anticipate,.gacha-phase-open) .gacha-dispensed-effect { opacity:.9; animation:gacha-rarity-aura 1.05s ease-in-out infinite alternate; }
+.gacha-rarity-r:is(.gacha-phase-drop,.gacha-phase-hold,.gacha-phase-anticipate,.gacha-phase-open) .gacha-dispensed-effect i { animation:gacha-rarity-particle 1.15s ease-out infinite; }
+.gacha-rarity-sr .gacha-dispensed-effect { --rarity-glow:#ffe996; }
+.gacha-rarity-sr:is(.gacha-phase-drop,.gacha-phase-hold,.gacha-phase-anticipate,.gacha-phase-open) .gacha-dispensed-effect { opacity:1; background:conic-gradient(from 0deg,transparent,#ff7fc8aa,#ffe878bb,#88e9bcaa,#82bdffaa,#b99affaa,transparent 72%); filter:drop-shadow(0 0 8px #fff1a7); animation:gacha-sr-aura .82s linear infinite; }
+.gacha-rarity-sr:is(.gacha-phase-drop,.gacha-phase-hold,.gacha-phase-anticipate,.gacha-phase-open) .gacha-dispensed-effect::after { border-color:#fff8cf; box-shadow:0 0 10px #fff,0 0 20px #ffd86d,inset 0 0 12px #aaddff; animation:gacha-sr-ring .72s ease-out infinite; }
+.gacha-rarity-sr:is(.gacha-phase-drop,.gacha-phase-hold,.gacha-phase-anticipate,.gacha-phase-open) .gacha-dispensed-effect i { animation:gacha-rarity-particle .78s ease-out infinite; }
+.gacha-rarity-r.gacha-phase-drop .gacha-dispensed-effect, .gacha-rarity-sr.gacha-phase-drop .gacha-dispensed-effect { animation-name:gacha-rarity-entry; animation-duration:.9s; animation-iteration-count:1; }
+.gacha-dispensed-shell i { box-shadow: inset 0 2px 0 #fffaf0bb; }
+.gacha-dispensed-shell b { box-shadow: inset 0 -2px 0 #74556855; }
+.gacha-dispensed.gacha-capsule-lavender { --cap-bottom: #be9ad9; filter: drop-shadow(0 0 9px #d9b2ec); }
+.gacha-dispensed.gacha-capsule-rainbow { --cap-bottom: #f3b1bc; --cap-top: #fff0a6; filter: drop-shadow(0 0 16px #ffe7b0); }
+.gacha-dispensed span { position: absolute; z-index: 4; top: 27%; left: 38%; color: #fff; font-size: 1.1rem; opacity: 0; text-shadow: 0 0 6px #fff; }
+.gacha-dispensed { transform-origin: center center; }
+.gacha-phase-drop .gacha-dispensed { opacity: 1; animation: gacha-capsule-drop .9s cubic-bezier(.2,.67,.2,1) both; }
+.gacha-phase-drop .gacha-dispensed-shell { animation: gacha-capsule-vertical-spin .9s linear both; }
+.gacha-phase-hold .gacha-dispensed, .gacha-phase-anticipate .gacha-dispensed { opacity: 1; transform: translate(-50%,0) rotate(360deg) scale(1.9); }
+.gacha-phase-hold .gacha-dispensed-shell, .gacha-phase-anticipate .gacha-dispensed-shell { transform: rotateX(360deg); }
+.gacha-phase-anticipate .gacha-dispensed { animation: gacha-capsule-anticipate .85s ease-in-out infinite alternate; }
+.gacha-phase-anticipate .gacha-haze { filter: brightness(.76); }
+.gacha-phase-open .gacha-dispensed { opacity: 1; transform: translate(-50%,0) rotate(360deg) scale(1.9); }
+.gacha-phase-open .gacha-dispensed { border-color: transparent; background: radial-gradient(circle,#fffef4 0%,#fff4cbbb 20%,transparent 67%); box-shadow: none; }
+.gacha-phase-open .gacha-dispensed-shell { overflow: visible; transform: rotateX(360deg); }
+.gacha-phase-open .gacha-dispensed-shell::before, .gacha-phase-open .gacha-dispensed-shell::after { opacity: 0; }
+.gacha-phase-open .gacha-dispensed-shell > i { animation: gacha-shell-top .4s ease-out both; }
+.gacha-phase-open .gacha-dispensed-shell > b { animation: gacha-shell-bottom .4s ease-out both; }
+.gacha-phase-open .gacha-dispensed span { animation: gacha-capsule-star-release .58s .1s ease-out both; }
+.gacha-status { bottom: max(10px, env(safe-area-inset-bottom)); color: #fff2e4; text-shadow: 0 2px 6px #241929; font-weight: 750; }
+.gacha-ejected .gacha-camera { transform: translate(0,0) scale(1); }
+.gacha-ejected .gacha-coin { display: none; }
+.gacha-ejected .gacha-crank-wheel { transform: rotate(360deg); }
+.gacha-screen.gacha-ejected .gacha-tank-capsules .gacha-capsule.gacha-capsule-position-7 { animation: gacha-capsule-feed .62s ease-in forwards; }
+.gacha-ejected .gacha-chute-flap { animation: gacha-flap-open .35s ease-out both; }
+.gacha-late-upgrade .gacha-capsule-position-7 b { background: radial-gradient(circle at 32% 5%, color-mix(in srgb,var(--cap-bottom) 55%,#fff), var(--cap-bottom) 55%, #566f67 100%) !important; }
+.gacha-late-upgrade .gacha-capsule-position-7 { filter: none !important; }
+.gacha-phase-drop .gacha-machine { animation: gacha-ejection-recoil .42s ease-out; }
+.gacha-phase-drop .gacha-chute { animation: gacha-chute-recoil .32s ease-out; }
+.gacha-ejected .gacha-machine { transition: opacity .35s, filter .35s; }
+.gacha-screen:is(.gacha-phase-hold,.gacha-phase-upgrade,.gacha-phase-anticipate,.gacha-phase-freeze,.gacha-phase-open) .gacha-machine { opacity: .48; filter: brightness(.7); }
+.gacha-phase-freeze .gacha-haze { filter: brightness(.6); }
+.gacha-phase-result .gacha-machine { opacity: .24; filter: blur(4px); }
+.gacha-result-from-capsule .gacha-reward-card { animation: gacha-card-launch .6s .08s cubic-bezier(.16,.75,.25,1) both; }
+.gacha-rarity-sr .gacha-result-from-capsule .gacha-reward-card { animation-duration: .74s; animation-delay: .14s; }
+.gacha-result-opening .gacha-result-actions, .gacha-result-opening .gacha-no-coins { visibility: hidden; pointer-events: none; }
+@keyframes gacha-ejection-recoil { 0%,100% { transform: translateY(0) scale(1); } 24% { transform: translateY(-1.6%) scale(.975); } 62% { transform: translateY(.5%) scale(1.005); } }
+@keyframes gacha-chute-recoil { 0%,100% { transform: translateY(0); } 25% { transform: translateY(-10%) scaleY(.9); } 64% { transform: translateY(3%); } }
+@keyframes gacha-card-launch { 0% { opacity: 0; transform: translateY(20dvh) scale(.07) rotate(-8deg); } 20% { opacity: 1; } 68% { opacity: 1; transform: translateY(-1dvh) scale(1.12) rotate(2deg); } 100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); } }
+@media (prefers-reduced-motion: reduce) { .gacha-phase-drop .gacha-chute, .gacha-result-from-capsule .gacha-reward-card { animation: none !important; } }
+.gacha-result { inset: max(44px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); gap: 14px; }
+.gacha-reward-card { border-color: #efd5af; color: #624236; background: linear-gradient(145deg,#fffdf2,#f8e9cf 65%,#f0d2b6); box-shadow: 0 0 0 5px #fff2d766,0 12px 38px #24172a99,0 0 28px #ffe1b077; }
+.gacha-reward-r { border-color: #cdafd9; background: linear-gradient(145deg,#fff9f4,#f4e1f7); box-shadow: 0 0 0 5px #f6d8f766,0 12px 38px #24172a99,0 0 28px #d7b6eaaa; }
+.gacha-reward-sr { border-color: #ffe6a2; background: linear-gradient(135deg,#fff9e5,#fde6ed 38%,#e1f7ef 70%,#e7e5fd); box-shadow: 0 0 0 5px #ffedb777,0 12px 38px #24172a99,0 0 38px #ffdbb1cc; }
+.gacha-rarity { border-color: #a67e6e; color: #815648; background: #fff9f0; }
+.gacha-reward-art { background: radial-gradient(circle,#fff9,transparent 72%); }
+.gacha-reward-card small { color: #967260; }
+.gacha-reward-card b { color: #b47655; }
+.gacha-result-actions button { border-color: #edcfaa; color: #fffaf2; background: #805d5b; }
+.gacha-result-actions button:first-child { border-color: #fff1d4; color: #674331; background: #ffe3a9; }
+.gacha-no-coins { color: #fff4e7; }
+@keyframes gacha-coin-in {
+  0% { opacity: 0; transform: translate(-50%,-360%) scale(.72); }
+  8% { opacity: 1; transform: translate(-50%,-330%) scale(.78); animation-timing-function: cubic-bezier(.18,.72,.32,1); }
+  66% { opacity: 1; transform: translate(-50%,-112%) scale(.66); }
+  79% { opacity: 1; transform: translate(-49%,-78%) scale(.5); animation-timing-function: cubic-bezier(.6,0,.9,.4); }
+  94% { opacity: 1; transform: translate(-43%,-50%) scale(.25); }
+  100% { opacity: 0; transform: translate(-40%,-50%) scale(.07); }
+}
+@keyframes gacha-coin-front-turn {
+  0%,72% { opacity: 1; transform: rotateY(0deg); }
+  81% { opacity: 1; transform: rotateY(44deg); }
+  88%,100% { opacity: 0; transform: rotateY(78deg); }
+}
+@keyframes gacha-coin-edge-turn {
+  0%,74% { opacity: 0; transform: rotateY(-42deg) scale(1.1); }
+  88%,100% { opacity: 1; transform: rotateY(0deg) scale(1.1); }
+}
+@keyframes gacha-slot-catch { 0% { opacity:0; transform:scale(.65); } 18% { opacity:.8; transform:scale(1.05); } 48% { opacity:.3; transform:scale(1.3); } 100% { opacity:0; transform:scale(1.45); } }
+@keyframes gacha-coin-feedback { 0%,100% { transform: translateY(0); } 25% { transform: translateY(1px); } 55% { transform: translateY(-.6px); } }
+@media (prefers-reduced-motion: reduce) {
+  .gacha-coin-front, .gacha-coin-edge, .gacha-phase-coin-hold .gacha-coin-slot::after { animation: none !important; }
+  .gacha-phase-coin .gacha-coin { opacity: 1; transform: translate(-50%,-125%); }
+  .gacha-coin-front { opacity: 1; }
+  .gacha-coin-edge { opacity: 0; }
+}
+@keyframes gacha-handle-turn { 0% { transform: rotate(0); } 68% { transform: rotate(345deg); } 100% { transform: rotate(360deg); } }
+@keyframes gacha-crank-feedback { 0%,100% { transform:translate(0,0); filter:brightness(1); } 28% { transform:translate(-1px,1px); } 55% { transform:translate(2px,-1px); filter:brightness(1.2) drop-shadow(0 0 5px #ffd99a); } 78% { transform:translate(-1px,0); } }
+@keyframes gacha-tank-charge { 0%,100% { filter:brightness(1); } 48% { filter:brightness(1.16) drop-shadow(0 0 8px #fff0ad); } }
+@keyframes gacha-machine-hop { 0%,100% { transform:translate(0,0) rotate(0); filter:drop-shadow(0 16px 18px #1b122055); } 18% { transform:translate(-7px,-5px) rotate(-.8deg); filter:drop-shadow(0 12px 22px #ffd89888); } 38% { transform:translate(8px,1px) rotate(.9deg); } 57% { transform:translate(-5px,-4px) rotate(-.55deg); filter:drop-shadow(0 11px 26px #fff0afaa); } 76% { transform:translate(4px,1px) rotate(.4deg); } 90% { transform:translate(-1px,-2px); } }
+@keyframes gacha-tank-rattle { 0%,100% { transform: translate(0,0); } 18% { transform: translate(-2px,-1px); } 36% { transform: translate(3px,1px); } 57% { transform: translate(-2px,0); } 76% { transform: translate(1px,1px); } }
+@keyframes gacha-capsule-shuffle { 0%,100% { transform: translate(0,0) rotate(var(--base-angle)); } 22% { transform: translate(var(--nudge-x),var(--nudge-y)) rotate(calc(var(--base-angle) + var(--wobble))); } 49% { transform: translate(var(--nudge-back),2px) rotate(calc(var(--base-angle) + var(--return-tilt))); } 75% { transform: translate(1px,-1px) rotate(calc(var(--base-angle) + var(--settle-tilt))); } }
+@keyframes gacha-capsule-feed { 0% { transform: rotate(var(--base-angle)); opacity: 1; } 100% { transform: translate(-9px,55px) rotate(105deg); opacity: 0; } }
+@keyframes gacha-color-sweep { to { transform: translateX(120%); } }
+@keyframes gacha-flap-open { to { transform: rotateX(70deg); opacity: .4; } }
+@keyframes gacha-capsule-drop { 0% { opacity: 0; transform: translate(-50%,-58%) scale(.67); } 52% { opacity: 1; transform: translate(-50%,2%) scale(1.96); } 67% { transform: translate(-50%,-10%) scale(1.84); } 81% { transform: translate(-50%,1%) scale(1.92); } 91% { transform: translate(-50%,-3%) scale(1.88); } 100% { opacity: 1; transform: translate(-50%,0) scale(1.9); } }
+@keyframes gacha-capsule-vertical-spin { from { transform: rotateX(0deg); } to { transform: rotateX(360deg); } }
+@keyframes gacha-capsule-anticipate { from { transform: translate(-50%,0) rotate(360deg) scale(1.9); filter: brightness(1); } to { transform: translate(-50%,0) rotate(360deg) scale(1.99); filter: brightness(1.15) drop-shadow(0 0 9px #fff3c5); } }
+@keyframes gacha-shell-top { to { transform: translate(-17px,-18px) rotate(-30deg); opacity: .94; } }
+@keyframes gacha-shell-bottom { to { transform: translate(17px,16px) rotate(25deg); opacity: .94; } }
+@keyframes gacha-capsule-star-release { 0% { opacity: 0; transform: scale(.25) rotate(-20deg); } 28% { opacity: 1; transform: scale(1.22) rotate(10deg); } 68% { opacity: 1; transform: scale(1.54) rotate(22deg); } 100% { opacity: 0; transform: scale(2.1) rotate(34deg); } }
+@keyframes gacha-rarity-entry { 0%,24% { opacity:0; transform:scale(.38) rotate(-20deg); } 50% { opacity:1; transform:scale(1.3) rotate(5deg); } 72% { transform:scale(.92) rotate(-3deg); } 100% { opacity:1; transform:scale(1) rotate(0); } }
+@keyframes gacha-rarity-aura { from { transform:scale(.92); filter:brightness(.9); } to { transform:scale(1.08); filter:brightness(1.35) drop-shadow(0 0 8px var(--rarity-glow)); } }
+@keyframes gacha-sr-aura { to { transform:rotate(360deg) scale(1.04); } }
+@keyframes gacha-sr-ring { 0% { opacity:.9; transform:scale(.62); } 100% { opacity:0; transform:scale(1.38); } }
+@keyframes gacha-rarity-particle { 0% { opacity:0; transform:rotate(var(--angle)) translateY(-16px) scale(.35); } 24% { opacity:1; } 100% { opacity:0; transform:rotate(var(--angle)) translateY(-58px) scale(1.3); } }
+@media (max-height: 470px) { .gacha-camera { width: min(57vmin, 240px); margin-top: 8px; } .gacha-status { bottom: 4px; font-size: .72rem; } .gacha-reward-card { width: min(265px, 42vw); } .gacha-result { gap: 11px; } }
+@media (max-width: 600px) and (orientation: portrait) { .gacha-camera { width: min(70vw, 320px); } .gacha-reward-card { width: min(80vw, 310px); } }
+@media (prefers-reduced-motion: reduce) { .gacha-camera { transition: none; } .gacha-machine, .gacha-crank, .gacha-tank, .gacha-coin, .gacha-crank-wheel, .gacha-tank-capsules, .gacha-tank-capsules .gacha-capsule, .gacha-upgrade-streak, .gacha-chute-flap, .gacha-dispensed, .gacha-dispensed-effect, .gacha-dispensed-effect::after, .gacha-dispensed-effect i, .gacha-dispensed-shell, .gacha-dispensed-shell > i, .gacha-dispensed-shell > b, .gacha-dispensed span { animation: none !important; } .gacha-phase-drop .gacha-dispensed, .gacha-phase-hold .gacha-dispensed, .gacha-phase-anticipate .gacha-dispensed, .gacha-phase-open .gacha-dispensed { opacity: 1; transform: translate(-50%,0) scale(1.9); } .gacha-phase-open .gacha-dispensed-shell > i { transform: translate(-17px,-18px) rotate(-30deg); } .gacha-phase-open .gacha-dispensed-shell > b { transform: translate(17px,16px) rotate(25deg); } }
+/* Reviews are invitations inside the journal, never startup gates. */
+.journal-optional-review { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.journal-optional-review button, .journal-progress-row > button { padding:8px 12px; border:1px solid #bca58b; border-radius:12px; background:#fff9eb; color:#614b37; font-weight:700; cursor:pointer; }
+.room-current-goal { max-width:42%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:6px 12px; border:1px solid #d6c4a5; border-radius:12px; background:#fff9e9; color:#5f4b36; font-size:.8rem; cursor:pointer; }
+
+/* The same room noticeboard stays usable on the existing portrait entry screen. */
+.rotate-device-screen.rotate-device-home { display:flex; flex-direction:column; justify-content:center; gap:24px; overflow-y:auto; background:linear-gradient(#2517084d,#25170899),url('/assets/backgrounds/room-noon.png') center/cover; }
+.rotate-device-home::before { display:none; }
+.rotate-device-home .rotate-device-card { width:min(88vw,330px); gap:6px; padding:14px 16px; border-radius:13px; background:#4b382bea; backdrop-filter:none; }
+.rotate-device-home .rotate-device-poteno,.rotate-device-home .rotate-device-icon { display:none; }
+.rotate-device-home .rotate-device-card h1 { font-size:14px; }.rotate-device-home .rotate-device-card p { font-size:12px; }
+.rotate-device-home .rotate-device-card button { min-height:44px; font-size:13px; padding:8px 14px; }
+@media (max-height:650px) and (orientation:portrait) { .rotate-device-screen.rotate-device-home { gap:17px; padding-top:18px; padding-bottom:18px; } }
+
+.item-tile-fixed { display:block; padding:8px 4px; color:#967e5e; font-size:.72rem; text-align:center; }

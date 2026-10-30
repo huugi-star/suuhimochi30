@@ -1,0 +1,11 @@
+.noticeBackdrop { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 16px; background: #17130f88; }
+.notice { width: min(430px, calc(100vw - 32px)); padding: 18px; border: 1px solid #c8a36e; border-radius: 14px; background: #fff7e9; color: #433226; box-shadow: 0 5px 25px #0006; font-size: 14px; }
+.notice h2 { margin: 0 0 10px; font-size: 18px; line-height: 1.45; }
+.notice p, .settings p { margin: 8px 0; line-height: 1.6; }
+.notice small, .settings small { display: block; line-height: 1.5; }
+.notice div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.notice button { border: 1px solid #8e714f; border-radius: 8px; padding: 8px 10px; background: #fffdf8; color: inherit; }
+.settings { display: grid; gap: 6px; margin: 12px 0; padding: 12px; border: 1px solid #94764e; border-radius: 10px; }
+.settings label { display: flex; gap: 8px; align-items: center; }
+.settings input { width: auto; }
+.settings output { font-size: 12px; }

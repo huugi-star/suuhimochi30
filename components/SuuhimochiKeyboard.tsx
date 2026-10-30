@@ -20,6 +20,10 @@ interface SuuhimochiKeyboardProps {
   maxLength: number;
   placeholder: string;
   ariaLabel: string;
+  /** ことばコンボ用。かな盤だけを表示し、漢字変換・標準IMEを出さない。 */
+  kanaOnly?: boolean;
+  /** ことばコンボ専用：位置は親レイアウトが管理する。 */
+  comboContained?: boolean;
 }
 
 interface FlickKey {
@@ -76,9 +80,10 @@ function getFlickDirection(deltaX: number, deltaY: number): FlickDirection {
   return deltaY < 0 ? 'up' : 'down';
 }
 
-export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, placeholder, ariaLabel }: SuuhimochiKeyboardProps) {
+export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, placeholder, ariaLabel, kanaOnly = false, comboContained = false }: SuuhimochiKeyboardProps) {
   const [mode, setMode] = useState<KeyboardMode>('kana');
   const [nativeMode, setNativeMode] = useState(false);
+  const [nativeDraft, setNativeDraft] = useState('');
   const [guideOpen, setGuideOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
     try { return window.localStorage.getItem(SUUHIMOCHI_KEYBOARD_GUIDE_KEY) !== '1'; } catch { return false; }
@@ -104,6 +109,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   const previousValueRef = useRef(value);
   const nativeSourceRef = useRef('');
   const nativeSelectionRef = useRef({ start: value.length, end: value.length });
+  const nativeInsertionRef = useRef({ start: value.length, end: value.length });
   const composingRef = useRef(false);
   const flickRef = useRef<{ pointerId: number; x: number; y: number; key: FlickKey; direction: FlickDirection } | null>(null);
   const multiTapRef = useRef<{ keyLabel: string; nextIndex: number; cursor: number; at: number } | null>(null);
@@ -138,7 +144,8 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   }, [nativeMode]);
 
   const candidates = useMemo(() => findSuuhimochiConversions(conversions, value), [conversions, value]);
-  const flickKeys = mode === 'katakana' ? KATAKANA_KEYS : HIRAGANA_KEYS;
+  const activeMode: KeyboardMode = kanaOnly ? 'kana' : mode;
+  const flickKeys = activeMode === 'katakana' ? KATAKANA_KEYS : HIRAGANA_KEYS;
 
   function replaceSelection(text: string) {
     multiTapRef.current = null;
@@ -175,7 +182,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     if (direction === 'left') replacePrevious(DAKUTEN);
     else if (direction === 'up') replacePrevious(HANDAKUTEN);
     else if (direction === 'right') replaceSelection('ー');
-    else if (direction === 'down') replaceSelection(mode === 'katakana' ? 'ッ' : 'っ');
+    else if (direction === 'down') replaceSelection(activeMode === 'katakana' ? 'ッ' : 'っ');
     else replacePrevious({ ...SMALL, ...LARGE });
   }
 
@@ -259,11 +266,14 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   }
 
   function enterNativeMode() {
+    // Keep the main draft intact while the separate IME field starts empty.
     const input = displayRef.current;
     const start = input?.selectionStart ?? cursorRef.current;
-    const end = input?.selectionEnd ?? start;
-    nativeSourceRef.current = value;
-    nativeSelectionRef.current = { start, end };
+    nativeInsertionRef.current = { start, end: input?.selectionEnd ?? start };
+    nativeSourceRef.current = '';
+    nativeSelectionRef.current = { start: 0, end: 0 };
+    setNativeDraft('');
+    multiTapRef.current = null;
     composingRef.current = false;
     setNativeMode(true);
     setConversionLookupRequested(false);
@@ -274,13 +284,15 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
     const source = nativeSourceRef.current;
     const input = nativeRef.current;
     // React state can be one render behind an IME's final input event. Read
-    // the native field directly so the exact source → converted pair is never
-    // lost when the user confirms immediately after editing.
-    const converted = input?.value ?? value;
-    const nextCursor = input?.selectionDirection === 'backward'
-      ? (input.selectionStart ?? converted.length)
-      : (input?.selectionEnd ?? converted.length);
-    if (converted !== value) onChange(converted);
+    // the native field directly so the final text is inserted even when the
+    // user confirms immediately after editing.
+    const entered = input?.value ?? nativeDraft;
+    const start = Math.min(nativeInsertionRef.current.start, value.length);
+    const end = Math.min(Math.max(start, nativeInsertionRef.current.end), value.length);
+    const converted = entered.slice(0, Math.max(0, maxLength - (value.length - (end - start))));
+    const next = converted ? value.slice(0, start) + converted + value.slice(end) : value;
+    const nextCursor = converted ? start + converted.length : start;
+    if (next !== value) onChange(next);
     setConversions(saveSuuhimochiConversion(source, converted));
     cursorRef.current = nextCursor;
     setCaretPosition(nextCursor);
@@ -322,8 +334,8 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
   } as React.CSSProperties : undefined;
 
   return (
-    <section className={`suuhimochi-keyboard${nativeMode ? ' is-native' : ''}`} style={nativeStyle} aria-label="すうひもちキーボード">
-      {guideOpen && <aside className="suuhimochi-keyboard-guide" aria-label="すうひもちキーボードの説明">
+    <section className={`suuhimochi-keyboard${comboContained ? ' is-combo-contained' : ''}${nativeMode ? ' is-native' : ''}`} style={nativeStyle} aria-label="すうひもちキーボード">
+      {!kanaOnly && guideOpen && <aside className="suuhimochi-keyboard-guide" aria-label="すうひもちキーボードの説明">
         <b>すうひもち</b>
         <p>人間さんの言葉は分かるんだけど、漢字の書き方にはまだ自信がないの。</p>
         <p>知らない漢字は「漢字を手に入れる」から教えてほしいの。</p>
@@ -338,10 +350,10 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
         </header>
         <textarea
           ref={nativeRef}
-          value={value}
-          maxLength={maxLength}
+          value={nativeDraft}
+          maxLength={Math.max(0, maxLength - (value.length - (nativeInsertionRef.current.end - nativeInsertionRef.current.start)))}
           aria-label={`${ariaLabel}。標準キーボード入力`}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => setNativeDraft(event.target.value)}
           onCompositionStart={() => { composingRef.current = true; }}
           onCompositionUpdate={() => { composingRef.current = true; }}
           onCompositionEnd={() => { composingRef.current = false; }}
@@ -386,13 +398,13 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
             : <small>この読みの変換は、まだ覚えていません</small>}
         </div>}
 
-        <div className="suuhimochi-keyboard-modes" aria-label="入力モード">
+        {!kanaOnly && <div className="suuhimochi-keyboard-modes" aria-label="入力モード">
           {([['kana', 'かな'], ['katakana', 'カナ'], ['abc', 'ABC'], ['number', '123']] as const).map(([id, label]) => (
             <button type="button" className={mode === id ? 'is-active' : ''} key={id} onClick={() => setMode(id)}>{label}</button>
           ))}
-        </div>
+        </div>}
 
-        {mode === 'kana' || mode === 'katakana' ? <div className="suuhimochi-flick-grid">
+        {activeMode === 'kana' || activeMode === 'katakana' ? <div className="suuhimochi-flick-grid">
           {flickKeys.map((key) => <button
             type="button"
             key={key.label}
@@ -401,8 +413,8 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
             onPointerUp={endFlick}
             onPointerCancel={() => { flickRef.current = null; setActiveFlick(null); }}
           >{key.label}</button>)}
-        </div> : <div className={`suuhimochi-direct-grid is-${mode}`}>
-          {(mode === 'abc' ? ABC_KEYS : NUMBER_KEYS).map((key) => <button type="button" key={key} onClick={() => replaceSelection(key)}>{key}</button>)}
+        </div> : <div className={`suuhimochi-direct-grid is-${activeMode}`}>
+          {(activeMode === 'abc' ? ABC_KEYS : NUMBER_KEYS).map((key) => <button type="button" key={key} onClick={() => replaceSelection(key)}>{key}</button>)}
         </div>}
 
         {activeFlick && <div className="suuhimochi-flick-guide" aria-hidden="true">
@@ -410,7 +422,7 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
           <span className={activeFlick.direction === 'left' ? 'is-active' : ''}>{activeFlick.key.modifier ? '゛' : activeFlick.key.values?.[1]}</span>
           <span className={activeFlick.direction === 'center' ? 'is-active' : ''}>{activeFlick.key.modifier ? '小' : activeFlick.key.values?.[0]}</span>
           <span className={activeFlick.direction === 'right' ? 'is-active' : ''}>{activeFlick.key.modifier ? 'ー' : activeFlick.key.values?.[3]}</span>
-          <span className={activeFlick.direction === 'down' ? 'is-active' : ''}>{activeFlick.key.modifier ? (mode === 'katakana' ? 'ッ' : 'っ') : activeFlick.key.values?.[4]}</span>
+          <span className={activeFlick.direction === 'down' ? 'is-active' : ''}>{activeFlick.key.modifier ? (activeMode === 'katakana' ? 'ッ' : 'っ') : activeFlick.key.values?.[4]}</span>
         </div>}
 
         <div className="suuhimochi-keyboard-controls">
@@ -420,10 +432,10 @@ export function SuuhimochiKeyboard({ value, onChange, onDecide, maxLength, place
             <button type="button" className="is-decide" disabled={!value.trim()} onClick={onDecide}>決定</button>
           </div>
 
-          <div className="suuhimochi-kanji-actions">
+          {!kanaOnly && <div className="suuhimochi-kanji-actions">
             <button type="button" onClick={() => setConversionLookupRequested(true)}><b>漢字変換</b><small>覚えている変換</small></button>
             <button type="button" onClick={enterNativeMode}><b>漢字を手に入れる</b><small>標準IME</small></button>
-          </div>
+          </div>}
         </div>
       </>}
     </section>

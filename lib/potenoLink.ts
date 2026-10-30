@@ -184,7 +184,7 @@ const ANALYSIS_RULES = [
   '4ブロック以外を増やさず、重複説明は削るが分析の深さと必要な文章量は維持する。',
   '短期間で結果が出ていないだけで失敗と断定しない。',
   '実際にやったことと2日後の振り返りを重視する。',
-  'ホップ、ステップ、ジャンプ、ひと呼吸等の自己評価は分析に使用しない。',
+  '廃止済みの旧自己評価は分析に使用しない。',
   '判断材料不足なら無理に結論を出さず、不足している情報をpotenoSummaryかcheckpointsへ明記する。',
   '入力記録に存在しない書籍名・数字・出来事を推測で追加しない。固有名詞は必ず入力データの表記と内容に忠実に扱う。',
   '過去の作戦がある場合は、実行後にどう変化したかも確認する。',
@@ -205,7 +205,7 @@ const COMPACT_ANALYSIS_RULES = [
   '短期間で結果が出ないだけで失敗と断定しない。不足情報はpotenoSummaryかcheckpointsへ書く。',
   '入力にない書籍名・数字・出来事は推測で追加しない。固有名詞は入力データに忠実に扱う。',
   'strategiesがあれば、作戦実行後に何が変化したかも確認する。',
-  'ホップ・ステップ・ジャンプ・ひと呼吸等の自己評価は分析に使わない。',
+  '廃止済みの旧自己評価は分析に使わない。',
   'response.jsonと同じキーのJSONをUTF-8→Base64にして、response.templateの<Base64>へ入れる。',
   '最後にPOTENO-RETURNだけを、コピーしやすいコードブロックで出力する。',
 ];
@@ -254,9 +254,6 @@ export function buildStrategyRequestData({
         day,
         date,
         doneItems,
-        ...(record?.yesterdayEvaluation === 'BREATH' && doneItems.length > 0
-          ? { circumstance: doneItems }
-          : {}),
         ...(record?.wasHard ? { wasHard: true } : {}),
       };
     })

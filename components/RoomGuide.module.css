@@ -1,0 +1,5 @@
+.guide { position:absolute; z-index:35; left:50%; bottom:84px; transform:translateX(-50%); width:min(430px,calc(100% - 32px)); padding:14px 18px; border:2px solid #b79668; border-radius:18px; background:#fff6df; color:#624a32; box-shadow:0 5px 12px #35251744; }
+.guide header,.guide footer { display:flex; align-items:center; justify-content:space-between; gap:10px; }.guide header b { font-size:16px; }.guide small { font-size:12px; color:#8c7558; }.guide p { margin:8px 0; font-size:15px; line-height:1.55; }
+.guide button { min-height:44px; padding:7px 13px; border:1px solid #bb9b70; border-radius:12px; background:#fffaf0; color:inherit; font:inherit; font-size:14px; cursor:pointer; }.guide button:last-child { background:#f3dfad; font-weight:800; }.guide button:focus-visible { outline:3px solid #6b907e; outline-offset:2px; }
+@media(max-height:500px) and (orientation:landscape) { .guide { left:36%; bottom:82px; width:min(400px,calc(72% - 32px)); padding:9px 14px; }.guide p { font-size:14px; line-height:1.4; margin:5px 0; }.guide header b { font-size:15px; } }
+@media(prefers-reduced-motion:reduce) { .guide { scroll-behavior:auto; } }
