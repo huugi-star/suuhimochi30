@@ -39,7 +39,11 @@ import {
   TYPE_ACCENTS,
   type MochiState,
 } from '@/lib/characterData';
-import { INTRO_LINES, pickRoomMonologue, pickRoomInterest } from '@/lib/dialogueData';
+import {
+  INTRO_LINES,
+  pickRoomMonologue,
+  pickRoomInterest,
+} from '@/lib/dialogueData';
 import { pickSleepDialogue } from '@/lib/sleepDialogueData';
 import { CATEGORY_LABELS, subcategoryLabel } from '@/lib/conversationData';
 import {
@@ -49,9 +53,7 @@ import {
   storeSave,
   type GameSave,
 } from '@/lib/storage';
-import {
-  getActivityDateKey,
-} from '@/lib/dailyProgress';
+import { getActivityDateKey } from '@/lib/dailyProgress';
 import type { StrategyRecord } from '@/lib/potenoLink';
 import type { SixDivinationRecord } from '@/lib/potenoSixDivination';
 import {
@@ -98,27 +100,81 @@ import {
 import { closetScare } from '@/lib/miniDialogueScripts';
 import { PERSON_DIALOGUE_SCRIPTS } from '@/lib/miniDialogueAdditionalScripts';
 import { awardWordComboAnswer } from '@/lib/personWordCombo';
-import { getExternalInfoState, loadExternalTopics, subscribeExternalTopics } from '@/lib/externalInfoClient';
+import {
+  getExternalInfoState,
+  loadExternalTopics,
+  subscribeExternalTopics,
+} from '@/lib/externalInfoClient';
 import { ExternalTopicMonitor } from '@/components/ExternalTopicMonitor';
-import { SharedKnowledgeNotice, SharedKnowledgeSettings } from '@/components/SharedKnowledgeSettings';
-import { WeatherRoomPanel, WeatherSettings } from '@/components/WeatherForecast';
+import {
+  SharedKnowledgeNotice,
+  SharedKnowledgeSettings,
+} from '@/components/SharedKnowledgeSettings';
+import {
+  WeatherRoomPanel,
+  WeatherSettings,
+} from '@/components/WeatherForecast';
 import { useWeatherForecast } from '@/components/useWeatherForecast';
 import { useExternalMonologues } from '@/components/useExternalMonologues';
 import { useHomeAutonomy } from '@/components/useHomeAutonomy';
 import { ExternalSourceBubble } from '@/components/ExternalSourceCaption';
-import { DailyMissionBoard, MissionPostPreview } from '@/components/DailyMissionBoard';
-import { RoomGuide, ROOM_GUIDE_KEY, ROOM_GUIDE_TARGETS } from '@/components/RoomGuide';
+import {
+  DailyMissionBoard,
+  MissionPostPreview,
+} from '@/components/DailyMissionBoard';
+import {
+  RoomGuide,
+  ROOM_GUIDE_KEY,
+  ROOM_GUIDE_TARGETS,
+} from '@/components/RoomGuide';
+import { useCentralKeyboardLayout } from '@/components/useCentralKeyboardLayout';
+import { HOME_INTEREST_FALLBACKS } from '@/lib/homeAutonomy';
+import { ItemCatalog } from '@/components/ItemCatalog';
 import { useDailyMissions } from '@/components/useDailyMissions';
 import { usePictureDiary } from '@/components/usePictureDiary';
-import { PictureDiaryCard, PictureDiarySettings } from '@/components/PictureDiary';
-import { addTaskPlans, canPlanFor, getDailyMissionSummary, markMissionCoinPresented, markMissionsCelebrated, updateTaskPlan, type DailyMissionId } from '@/lib/dailyMissions';
-import { missionDestination, type JournalMissionEntry } from '@/lib/missionNavigation';
+import {
+  PictureDiaryCard,
+  PictureDiarySettings,
+} from '@/components/PictureDiary';
+import {
+  addTaskPlans,
+  canPlanFor,
+  getDailyMissionSummary,
+  markMissionCoinPresented,
+  markMissionsCelebrated,
+  updateTaskPlan,
+  type DailyMissionId,
+} from '@/lib/dailyMissions';
+import {
+  missionDestination,
+  type JournalMissionEntry,
+} from '@/lib/missionNavigation';
 import type { ExternalCitation } from '@/lib/externalSourceCitation';
-import { getSharedKnowledgeCache, loadSharedKnowledge } from '@/lib/sharedKnowledgeClient';
-import { readSharedPreference, writeSharedPreference, safeWikipediaUrl, sharedCandidateSurfaces, type SharedPreference, type SharedDialogue } from '@/lib/sharedKnowledge';
+import {
+  getSharedKnowledgeCache,
+  loadSharedKnowledge,
+} from '@/lib/sharedKnowledgeClient';
+import {
+  readSharedPreference,
+  writeSharedPreference,
+  safeWikipediaUrl,
+  sharedCandidateSurfaces,
+  type SharedPreference,
+  type SharedDialogue,
+} from '@/lib/sharedKnowledge';
 import { EXTERNAL_CHECK_INTERVAL } from '@/lib/startupExperience';
-import { saveJournalChecklistItem, removeJournalItem } from '@/lib/journalProgress';
-import { applyGachaDraw, drawGacha, GACHA_FURNITURE_IDS, GACHA_REWARDS, type GachaReward, type GachaRarity } from '@/lib/gacha';
+import {
+  saveJournalChecklistItem,
+  removeJournalItem,
+} from '@/lib/journalProgress';
+import {
+  applyGachaDraw,
+  drawGacha,
+  GACHA_FURNITURE_IDS,
+  GACHA_REWARDS,
+  type GachaReward,
+  type GachaRarity,
+} from '@/lib/gacha';
 import {
   getWordComboConfirmedDanceFrames,
   getWordComboDanceCycleMs,
@@ -632,8 +688,10 @@ function dictionaryFeelingLabel(entry: WordEntry) {
 
 function dictionaryEntryNote(entry: WordEntry) {
   if (entry.description) return entry.description;
-  return subcategoryLabel(entry.category, entry.subcategory)
-    ?? 'すうひもちが覚えたことば';
+  return (
+    subcategoryLabel(entry.category, entry.subcategory) ??
+    'すうひもちが覚えたことば'
+  );
 }
 
 function splitReadableText(
@@ -678,56 +736,101 @@ function splitRoomMonologuePages(text: string): string[] {
 }
 
 /** Split each scripted page using the actual bubble's rendered text area. */
-function fitTalkPages(pages: DialoguePage[], uiOnLeft: boolean, review = false): DialoguePage[] {
+function fitTalkPages(
+  pages: DialoguePage[],
+  uiOnLeft: boolean,
+  review = false,
+): DialoguePage[] {
   const root = document.querySelector('.game-shell');
   if (!root) return pages;
   const probe = document.createElement('section');
   probe.className = 'face-talk' + (uiOnLeft ? ' face-talk-ui-left' : '');
-  probe.style.cssText = 'visibility:hidden;pointer-events:none;position:fixed;inset:0;z-index:-1';
-  const bubble = document.createElement('button'); bubble.className = 'face-talk-bubble';
-  const line = document.createElement('span'); line.className = 'face-talk-line';
+  probe.style.cssText =
+    'visibility:hidden;pointer-events:none;position:fixed;inset:0;z-index:-1';
+  const bubble = document.createElement('button');
+  bubble.className = 'face-talk-bubble';
+  const line = document.createElement('span');
+  line.className = 'face-talk-line';
   if (review) {
-    line.style.top = '24px'; line.style.bottom = '80px';
+    line.style.top = '24px';
+    line.style.bottom = '80px';
     const landscape = root.classList.contains('mobile-landscape');
-    bubble.style.width = `${landscape ? Math.min(window.innerWidth * .47, 440) : Math.min(window.innerWidth - 28, 390)}px`;
+    bubble.style.width = `${landscape ? Math.min(window.innerWidth * 0.47, 440) : Math.min(window.innerWidth - 28, 390)}px`;
   }
-  bubble.appendChild(line); probe.appendChild(bubble); root.appendChild(probe);
-  const fits = (text: string) => { line.textContent = text; return line.scrollHeight <= line.clientHeight && line.scrollWidth <= line.clientWidth; };
+  bubble.appendChild(line);
+  probe.appendChild(bubble);
+  root.appendChild(probe);
+  const fits = (text: string) => {
+    line.textContent = text;
+    return (
+      line.scrollHeight <= line.clientHeight &&
+      line.scrollWidth <= line.clientWidth
+    );
+  };
   const result: DialoguePage[] = [];
   try {
     for (const page of pages) {
       const chars = Array.from(page.lines.join('\n'));
-      if (fits(chars.join(''))) { result.push(page); continue; }
+      if (fits(chars.join(''))) {
+        result.push(page);
+        continue;
+      }
       const pauses = new Map<number, number>();
-      let position = 0; page.lines.slice(0, -1).forEach((text, index) => {
-        position += Array.from(text).length; pauses.set(position, page.linePauseAfterMs?.[index] ?? 0); position++;
+      let position = 0;
+      page.lines.slice(0, -1).forEach((text, index) => {
+        position += Array.from(text).length;
+        pauses.set(position, page.linePauseAfterMs?.[index] ?? 0);
+        position++;
       });
-      let offset = 0; const chunks: string[] = [];
+      let offset = 0;
+      const chunks: string[] = [];
       while (offset < chars.length) {
-        let low = 1, high = chars.length - offset, best = 0;
+        let low = 1,
+          high = chars.length - offset,
+          best = 0;
         while (low <= high) {
           const mid = Math.floor((low + high) / 2);
-          if (fits(chars.slice(offset, offset + mid).join(''))) { best = mid; low = mid + 1; }
-          else high = mid - 1;
+          if (fits(chars.slice(offset, offset + mid).join(''))) {
+            best = mid;
+            low = mid + 1;
+          } else high = mid - 1;
         }
         best = Math.max(1, best);
         if (offset + best < chars.length) {
-          const min = Math.floor(best * .55);
-          for (let i = best; i >= min; i--) if ('。！？!?\n'.includes(chars[offset + i - 1])) { best = i; break; }
+          const min = Math.floor(best * 0.55);
+          for (let i = best; i >= min; i--)
+            if ('。！？!?\n'.includes(chars[offset + i - 1])) {
+              best = i;
+              break;
+            }
         }
-        chunks.push(chars.slice(offset, offset + best).join('')); offset += best;
+        chunks.push(chars.slice(offset, offset + best).join(''));
+        offset += best;
       }
       let start = 0;
       chunks.forEach((chunk, index) => {
-        const lines = chunk.split('\n'); const after: number[] = []; let cursor = start;
-        lines.slice(0, -1).forEach((text) => { cursor += Array.from(text).length; after.push(pauses.get(cursor) ?? 0); cursor++; });
-        result.push({ ...page, lines, linePauseAfterMs: after, pauseBeforeMs: index === 0 ? page.pauseBeforeMs : 0,
-          pauseAfterMs: index === chunks.length - 1 ? page.pauseAfterMs : 0 });
+        const lines = chunk.split('\n');
+        const after: number[] = [];
+        let cursor = start;
+        lines.slice(0, -1).forEach((text) => {
+          cursor += Array.from(text).length;
+          after.push(pauses.get(cursor) ?? 0);
+          cursor++;
+        });
+        result.push({
+          ...page,
+          lines,
+          linePauseAfterMs: after,
+          pauseBeforeMs: index === 0 ? page.pauseBeforeMs : 0,
+          pauseAfterMs: index === chunks.length - 1 ? page.pauseAfterMs : 0,
+        });
         start += Array.from(chunk).length;
       });
     }
     return result.length ? result : pages;
-  } finally { probe.remove(); }
+  } finally {
+    probe.remove();
+  }
 }
 
 function buildTalkPagesFromLines(lines: readonly string[]): DialoguePage[] {
@@ -823,9 +926,21 @@ const ROOM_ITEMS = [
   },
   { id: 'plant', src: '/assets/items/potted-plant.png', alt: '鉢植え' },
   { id: 'vase', src: '/assets/items/blue-ceramic-vase.png', alt: '青い花瓶' },
-  { id: 'gacha-cushion', src: '/assets/items/flower-cushion.png', alt: 'おそろいの花クッション' },
-  { id: 'gacha-vase', src: '/assets/items/blue-ceramic-vase.png', alt: 'おそろいの青い花瓶' },
-  { id: 'gacha-plant', src: '/assets/items/potted-plant.png', alt: 'おそろいの鉢植え' },
+  {
+    id: 'gacha-cushion',
+    src: '/assets/items/flower-cushion.png',
+    alt: 'おそろいの花クッション',
+  },
+  {
+    id: 'gacha-vase',
+    src: '/assets/items/blue-ceramic-vase.png',
+    alt: 'おそろいの青い花瓶',
+  },
+  {
+    id: 'gacha-plant',
+    src: '/assets/items/potted-plant.png',
+    alt: 'おそろいの鉢植え',
+  },
   {
     id: 'wall-clock',
     src: '/assets/items/wall-clock-analog-thin.png',
@@ -871,7 +986,12 @@ const ROOM_LAYOUT_STORAGE_KEY = 'suuhimochi_room_layout_v1';
 const RECENT_CATEGORY_STORAGE_KEY = 'suuhimochi_recent_categories_v1';
 // A brand-new room starts empty. Every furnishing, including the clocks,
 // remains available from the item drawer until the player places it.
-const INITIAL_STORED_ITEM_IDS = ['clock', ...ROOM_ITEMS.filter((item) => !GACHA_FURNITURE_IDS.includes(item.id)).map((item) => item.id)];
+const INITIAL_STORED_ITEM_IDS = [
+  'clock',
+  ...ROOM_ITEMS.filter((item) => !GACHA_FURNITURE_IDS.includes(item.id)).map(
+    (item) => item.id,
+  ),
+];
 // Preserve rooms saved before all three bed variants existed. This is kept
 // separate from the blank-room defaults so existing layouts stay untouched.
 const LEGACY_BED_STORED_ITEM_IDS = ['bed-flower-red', 'bed-leaf-green'];
@@ -965,9 +1085,27 @@ const ROOM_ITEM_COLLIDERS: Record<string, RoomItemCollider> = {
     widthFactor: 0.38,
     heightFactor: 0.55,
   },
-  'gacha-cushion': { width: 18, left: 0.15, top: 0.4, widthFactor: 0.7, heightFactor: 0.3 },
-  'gacha-vase': { width: 8, left: 0.3, top: 0.25, widthFactor: 0.38, heightFactor: 0.55 },
-  'gacha-plant': { width: 15, left: 0.25, top: 0.12, widthFactor: 0.5, heightFactor: 0.72 },
+  'gacha-cushion': {
+    width: 18,
+    left: 0.15,
+    top: 0.4,
+    widthFactor: 0.7,
+    heightFactor: 0.3,
+  },
+  'gacha-vase': {
+    width: 8,
+    left: 0.3,
+    top: 0.25,
+    widthFactor: 0.38,
+    heightFactor: 0.55,
+  },
+  'gacha-plant': {
+    width: 15,
+    left: 0.25,
+    top: 0.12,
+    widthFactor: 0.5,
+    heightFactor: 0.72,
+  },
   // Wall decor and the rug are shown in debug mode but intentionally do not
   // block walking (the rug is a walkable floor surface).
   'hanging-shelf': {
@@ -1093,47 +1231,93 @@ function WordComboWonderBackdrop() {
       <div className="word-combo-wonder-neon" />
       <div className="word-combo-wonder-surge" />
       <div className="word-combo-wonder-geometry">
-        <svg className="word-combo-wonder-glyph is-hex" viewBox="0 0 160 160" fill="none">
+        <svg
+          className="word-combo-wonder-glyph is-hex"
+          viewBox="0 0 160 160"
+          fill="none"
+        >
           <path d="M80 10 141 45v70l-61 35-61-35V45Z" />
           <path d="M80 30 124 55v50l-44 25-44-25V55Z" opacity=".58" />
-          <path d="M80 10v20m61 15-17 10m17 60-17-10m-44 45v-20m-61-15 17-10m-17-60 17 10" opacity=".75" />
-          <circle cx="80" cy="80" r="7" /><path d="M52 80h17m22 0h17M80 52v17m0 22v17" opacity=".6" />
+          <path
+            d="M80 10v20m61 15-17 10m17 60-17-10m-44 45v-20m-61-15 17-10m-17-60 17 10"
+            opacity=".75"
+          />
+          <circle cx="80" cy="80" r="7" />
+          <path d="M52 80h17m22 0h17M80 52v17m0 22v17" opacity=".6" />
         </svg>
-        <svg className="word-combo-wonder-glyph is-orbit" viewBox="0 0 160 160" fill="none">
+        <svg
+          className="word-combo-wonder-glyph is-orbit"
+          viewBox="0 0 160 160"
+          fill="none"
+        >
           <circle cx="80" cy="80" r="63" strokeDasharray="136 45 75 140" />
-          <circle cx="80" cy="80" r="45" strokeDasharray="54 18 98 112" opacity=".7" />
+          <circle
+            cx="80"
+            cy="80"
+            r="45"
+            strokeDasharray="54 18 98 112"
+            opacity=".7"
+          />
           <circle cx="80" cy="80" r="23" opacity=".45" />
-          <path d="M80 2v23m0 110v23M2 80h23m110 0h23" /><path d="m33 33 12 12m70 70 12 12m0-94-12 12m-70 70-12 12" opacity=".6" />
+          <path d="M80 2v23m0 110v23M2 80h23m110 0h23" />
+          <path
+            d="m33 33 12 12m70 70 12 12m0-94-12 12m-70 70-12 12"
+            opacity=".6"
+          />
           <circle cx="80" cy="17" r="4" fill="currentColor" stroke="none" />
         </svg>
-        <svg className="word-combo-wonder-glyph is-diamond" viewBox="0 0 160 160" fill="none">
+        <svg
+          className="word-combo-wonder-glyph is-diamond"
+          viewBox="0 0 160 160"
+          fill="none"
+        >
           <path d="m80 10 68 70-68 70L12 80Z" />
           <path d="m80 31 48 49-48 49-48-49Z" opacity=".65" />
-          <path d="M80 31v98M32 80h96M80 10v21M12 80h20M148 80h-20M80 150v-21" opacity=".48" />
+          <path
+            d="M80 31v98M32 80h96M80 10v21M12 80h20M148 80h-20M80 150v-21"
+            opacity=".48"
+          />
           <path d="m80 61 19 19-19 19-19-19Z" />
         </svg>
-        <svg className="word-combo-wonder-glyph is-cube" viewBox="0 0 160 160" fill="none">
+        <svg
+          className="word-combo-wonder-glyph is-cube"
+          viewBox="0 0 160 160"
+          fill="none"
+        >
           <path d="m80 15 60 33v64l-60 33-60-33V48Z" />
           <path d="m20 48 60 34 60-34M80 82v63" />
           <path d="m49 64 31-17 31 17M49 96l31 17 31-17" opacity=".5" />
           <circle cx="80" cy="82" r="5" fill="currentColor" stroke="none" />
         </svg>
-        <svg className="word-combo-wonder-glyph is-triangle" viewBox="0 0 160 160" fill="none">
+        <svg
+          className="word-combo-wonder-glyph is-triangle"
+          viewBox="0 0 160 160"
+          fill="none"
+        >
           <path d="M80 12 150 138H10Z" />
           <path d="m80 43 43 77H37Z" opacity=".7" />
           <path d="m80 43-43 77m86 0L80 43M36 88h88" opacity=".48" />
-          <circle cx="80" cy="88" r="8" /><path d="M80 12v30M10 138l25-15m115 15-25-15" opacity=".68" />
+          <circle cx="80" cy="88" r="8" />
+          <path d="M80 12v30M10 138l25-15m115 15-25-15" opacity=".68" />
         </svg>
-        <svg className="word-combo-wonder-glyph is-circuit" viewBox="0 0 160 160" fill="none">
+        <svg
+          className="word-combo-wonder-glyph is-circuit"
+          viewBox="0 0 160 160"
+          fill="none"
+        >
           <path d="M30 30h48l22 22v32l30 30v20h-28l-29-29H38V75L18 55V30h12Z" />
-          <path d="m78 30-13 24v24l33 33h32M38 75h27M18 55h20m35 50V78" opacity=".6" />
-          <circle cx="78" cy="30" r="5" /><circle cx="130" cy="134" r="6" /><circle cx="38" cy="75" r="4" />
+          <path
+            d="m78 30-13 24v24l33 33h32M38 75h27M18 55h20m35 50V78"
+            opacity=".6"
+          />
+          <circle cx="78" cy="30" r="5" />
+          <circle cx="130" cy="134" r="6" />
+          <circle cx="38" cy="75" r="4" />
         </svg>
       </div>
     </div>
   );
 }
-
 
 export function SuuhimochiGame() {
   const [save, setSave] = useState<GameSave>(EMPTY_SAVE);
@@ -1150,7 +1334,10 @@ export function SuuhimochiGame() {
   const [isInitialDialogueTyping, setIsInitialDialogueTyping] = useState(false);
   const [roomGuidePending, setRoomGuidePending] = useState(false);
   const [roomGuideStep, setRoomGuideStep] = useState(0);
-  const initialDialogueRevealRef = useRef<{ text: string; reveal: () => void } | null>(null);
+  const initialDialogueRevealRef = useRef<{
+    text: string;
+    reveal: () => void;
+  } | null>(null);
   const [initialCallName, setInitialCallName] = useState('');
   const [initialGoalText, setInitialGoalText] = useState('');
   const [isInitialPreview, setIsInitialPreview] = useState(false);
@@ -1168,14 +1355,23 @@ export function SuuhimochiGame() {
   const isScheduledSleepTimeNow = isScheduledSleepTime(clockTime);
   const [lightsOut, setLightsOut] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
-  const [missionJournalEntry, setMissionJournalEntry] = useState<JournalMissionEntry | undefined>();
+  const [missionJournalEntry, setMissionJournalEntry] = useState<
+    JournalMissionEntry | undefined
+  >();
   const [missionOpenRequest, setMissionOpenRequest] = useState(0);
   const missionTeachingRef = useRef(false);
-  useEffect(() => { if (!memoryOpen) setMissionJournalEntry(undefined); }, [memoryOpen]);
+  useEffect(() => {
+    if (!memoryOpen) setMissionJournalEntry(undefined);
+  }, [memoryOpen]);
   const [dailyMissionDetailsOpen, setDailyMissionDetailsOpen] = useState(false);
   const [dictionaryOpen, setDictionaryOpen] = useState(false);
   const [foodOpen, setFoodOpen] = useState(false);
-  const [gachaSession, setGachaSession] = useState<{ reward: GachaReward; serial: number; preview: boolean; instant?: boolean } | null>(null);
+  const [gachaSession, setGachaSession] = useState<{
+    reward: GachaReward;
+    serial: number;
+    preview: boolean;
+    instant?: boolean;
+  } | null>(null);
   const [gachaError, setGachaError] = useState('');
   const [gachaTestProgress, setGachaTestProgress] = useState('');
   const gachaBusyRef = useRef(false);
@@ -1249,10 +1445,16 @@ export function SuuhimochiGame() {
   const [itemPanelCollapsed, setItemPanelCollapsed] = useState(false);
   const [itemPanelX, setItemPanelX] = useState(3);
   const [showCollisionDebug, setShowCollisionDebug] = useState(false);
-  const [developerTab, setDeveloperTab] = useState<'general' | 'external'>('general');
+  const [developerTab, setDeveloperTab] = useState<'general' | 'external'>(
+    'general',
+  );
   const [maskGrowthAnimating, setMaskGrowthAnimating] = useState(false);
   const [talkOpen, setTalkOpen] = useState(false);
-  const [homeAutonomyZoom, setHomeAutonomyZoom] = useState<'invite' | 'interest' | null>(null);
+  const [homeAutonomyZoom, setHomeAutonomyZoom] = useState<
+    'invite' | 'interest' | null
+  >(null);
+  const [homeAutonomyInviteCategory, setHomeAutonomyInviteCategory] =
+    useState<'SELF' | 'CURIOUS' | null>(null);
   const [homeDanceActive, setHomeDanceActive] = useState(false);
   const [talkCommandOpen, setTalkCommandOpen] = useState(false);
   const [personWordComboOpen, setPersonWordComboOpen] = useState(false);
@@ -1298,7 +1500,15 @@ export function SuuhimochiGame() {
     setWordComboBeat(null);
     setWordComboDance((current) =>
       current.active
-        ? { ...current, active: false, loop: false, sequence: null, holdLastFrame: false, motion: 'legacy', runId: current.runId + 1 }
+        ? {
+            ...current,
+            active: false,
+            loop: false,
+            sequence: null,
+            holdLastFrame: false,
+            motion: 'legacy',
+            runId: current.runId + 1,
+          }
         : current,
     );
   }, []);
@@ -1309,7 +1519,9 @@ export function SuuhimochiGame() {
       cycles = 1,
       sequence: readonly WordComboDanceFrame[] | null = null,
       holdLastFrame = false,
-      motion: WordComboDancePlayback['motion'] = sequence ? 'sequence' : 'legacy',
+      motion: WordComboDancePlayback['motion'] = sequence
+        ? 'sequence'
+        : 'legacy',
     ) => {
       setWordComboDanceReady(false);
       setWordComboDance((current) => ({
@@ -1337,18 +1549,29 @@ export function SuuhimochiGame() {
     setWordComboHeldInputFrame(null);
     setWordComboDance((current) =>
       current.active
-        ? { ...current, active: false, loop: false, sequence: null, holdLastFrame: false, motion: 'legacy', runId: current.runId + 1 }
+        ? {
+            ...current,
+            active: false,
+            loop: false,
+            sequence: null,
+            holdLastFrame: false,
+            motion: 'legacy',
+            runId: current.runId + 1,
+          }
         : current,
     );
   }, []);
-  useEffect(() => () => {
-    if (wordComboBoostTimerRef.current !== null) {
-      window.clearTimeout(wordComboBoostTimerRef.current);
-    }
-    if (wordComboInputIdleTimerRef.current !== null) {
-      window.clearTimeout(wordComboInputIdleTimerRef.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (wordComboBoostTimerRef.current !== null) {
+        window.clearTimeout(wordComboBoostTimerRef.current);
+      }
+      if (wordComboInputIdleTimerRef.current !== null) {
+        window.clearTimeout(wordComboInputIdleTimerRef.current);
+      }
+    },
+    [],
+  );
   const [personComboInviteOpen, setPersonComboInviteOpen] = useState(false);
   const [talkReturning, setTalkReturning] = useState(false);
   const talkSleepPresentationRef = useRef<{
@@ -1358,6 +1581,7 @@ export function SuuhimochiGame() {
   const [talkPresentation, setTalkPresentation] = useState<{
     origin: { x: number; y: number };
     uiOnLeft: boolean;
+    centered: boolean;
   } | null>(null);
   const [talkStage, setTalkStage] = useState<ConversationStage>('topic');
   const [talkText, setTalkText] = useState('');
@@ -1370,7 +1594,10 @@ export function SuuhimochiGame() {
   const [talkPageCount, setTalkPageCount] = useState(0);
   const [talkPageReady, setTalkPageReady] = useState(false);
   const [isMochiSpeaking, setIsMochiSpeaking] = useState(false);
-  const [faceTalkTailPlacement, setFaceTalkTailPlacement] = useState({ top: '18%', up: false });
+  const [faceTalkTailPlacement, setFaceTalkTailPlacement] = useState({
+    top: '18%',
+    up: false,
+  });
   const [categoryPage, setCategoryPage] = useState(0);
   const [recentCategories, setRecentCategories] = useState<string[]>([]);
   const [categoryChoices, setCategoryChoices] = useState<CategoryChoice[]>([]);
@@ -1443,21 +1670,36 @@ export function SuuhimochiGame() {
   const talkReturnTimer = useRef<number | null>(null);
   const shouldAutoCloseTalk = useRef(false);
   const startupTriggerRef = useRef<'startup' | 'update' | null>(null);
-  const externalStartupPendingRef = useRef(false);
   const startupUseIdRef = useRef<string | null>(null);
   const [startupTalkActive, setStartupTalkActive] = useState(false);
   const [startupFastReturn, setStartupFastReturn] = useState(false);
   const startupTalkActiveRef = useRef(false);
   const startupBlockedRef = useRef(true);
-  const [sharedPreference, setSharedPreference] = useState<SharedPreference>({ version: 1, enabled: false, decided: false });
+  const [sharedPreference, setSharedPreference] = useState<SharedPreference>({
+    version: 1,
+    enabled: false,
+    decided: false,
+  });
   const [sharedStatus, setSharedStatus] = useState('');
   const weather = useWeatherForecast(hydrated && !isInitialPreview);
   const [weatherOpen, setWeatherOpen] = useState(false);
-  const weatherRefreshRef = useRef<(force?: boolean) => Promise<void>>(async () => {});
+  const weatherRefreshRef = useRef<(force?: boolean) => Promise<void>>(
+    async () => {},
+  );
   weatherRefreshRef.current = weather.refresh;
-  const [sharedCitation, setSharedCitation] = useState<Pick<SharedDialogue, 'id' | 'sourceUrl' | 'attribution'> | null>(null);
-  const [externalSpeechSource, setExternalSpeechSource] = useState<{ citation: ExternalCitation; presentation: 'zoom' | 'bubble'; text: string } | null>(null);
-  const externalSpeechRef = useRef<{ presentation: 'zoom' | 'bubble'; text: string } | null>(null);
+  const [sharedCitation, setSharedCitation] = useState<Pick<
+    SharedDialogue,
+    'id' | 'sourceUrl' | 'attribution'
+  > | null>(null);
+  const [externalSpeechSource, setExternalSpeechSource] = useState<{
+    citation: ExternalCitation;
+    presentation: 'zoom' | 'bubble';
+    text: string;
+  } | null>(null);
+  const externalSpeechRef = useRef<{
+    presentation: 'zoom' | 'bubble';
+    text: string;
+  } | null>(null);
   const sharedAbortRef = useRef<AbortController | null>(null);
   const [developerPanelOpen, setDeveloperPanelOpen] = useState(false);
   const clockDragRef = useRef<{
@@ -1517,7 +1759,11 @@ export function SuuhimochiGame() {
 
   const maskGrowthStage: MaskGrowthStage =
     save.personaStage ?? getPersonaStage(save.personaExp ?? 0);
-  const availableRoomItems = ROOM_ITEMS.filter((item) => !GACHA_FURNITURE_IDS.includes(item.id) || (save.gachaFurnitureInventory[item.id] ?? 0) > 0);
+  const availableRoomItems = ROOM_ITEMS.filter(
+    (item) =>
+      !GACHA_FURNITURE_IDS.includes(item.id) ||
+      (save.gachaFurnitureInventory[item.id] ?? 0) > 0,
+  );
 
   useEffect(() => {
     if (!hydrated || !appReady) return;
@@ -1722,7 +1968,11 @@ export function SuuhimochiGame() {
       }
       for (const [id, collider] of Object.entries(ROOM_ITEM_COLLIDERS)) {
         if (id === 'low-table' || collider.blocks === false) continue;
-        if (GACHA_FURNITURE_IDS.includes(id) && !(gachaFurnitureInventoryRef.current[id] > 0)) continue;
+        if (
+          GACHA_FURNITURE_IDS.includes(id) &&
+          !(gachaFurnitureInventoryRef.current[id] > 0)
+        )
+          continue;
         if (storedItemIdsRef.current.includes(id)) continue;
         const position = itemPositionsRef.current[id];
         if (!position) continue;
@@ -1897,7 +2147,6 @@ export function SuuhimochiGame() {
       setBedPromptId((current) => (current === bedId ? null : bedId));
     },
     [
-
       foodOpen,
       itemOpen,
       minigameOpen,
@@ -2078,7 +2327,6 @@ export function SuuhimochiGame() {
       );
     },
     [
-
       foodOpen,
       isScheduledSleepTimeNow,
       itemOpen,
@@ -2412,14 +2660,19 @@ export function SuuhimochiGame() {
   }
 
   function placeRoomItem(id: string) {
-    if (GACHA_FURNITURE_IDS.includes(id) && !(save.gachaFurnitureInventory[id] > 0)) return;
+    if (
+      GACHA_FURNITURE_IDS.includes(id) &&
+      !(save.gachaFurnitureInventory[id] > 0)
+    )
+      return;
     setStoredItemIds((current) => current.filter((itemId) => itemId !== id));
     setSelectedItemId(id);
     setItemTab('placed');
   }
 
   function closeGacha() {
-    if (gachaTestTimerRef.current !== null) window.clearTimeout(gachaTestTimerRef.current);
+    if (gachaTestTimerRef.current !== null)
+      window.clearTimeout(gachaTestTimerRef.current);
     gachaTestTimerRef.current = null;
     gachaTestQueueRef.current = [];
     gachaBusyRef.current = false;
@@ -2431,9 +2684,16 @@ export function SuuhimochiGame() {
     if (gachaBusyRef.current || save.gachaCoins < 1) return;
     gachaBusyRef.current = true;
     const reward = drawGacha(Math.random, save.gachaFurnitureInventory);
-    const draw = { id: `gacha-${Date.now()}-${Math.random().toString(36).slice(2)}`, rewardId: reward.id, drawnAt: new Date().toISOString() };
+    const draw = {
+      id: `gacha-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      rewardId: reward.id,
+      drawnAt: new Date().toISOString(),
+    };
     const next = applyGachaDraw(save, draw);
-    if (!next) { gachaBusyRef.current = false; return; }
+    if (!next) {
+      gachaBusyRef.current = false;
+      return;
+    }
     try {
       // Commit the coin and reward together, before the first animation frame.
       storeSave(next);
@@ -2442,22 +2702,39 @@ export function SuuhimochiGame() {
       gachaBusyRef.current = false;
       return;
     }
-    if (reward.kind === 'furniture' && !storedItemIdsRef.current.includes(reward.id)) {
+    if (
+      reward.kind === 'furniture' &&
+      !storedItemIdsRef.current.includes(reward.id)
+    ) {
       const nextStored = [...storedItemIdsRef.current, reward.id];
       storedItemIdsRef.current = nextStored;
       setStoredItemIds(nextStored);
       try {
-        localStorage.setItem(ROOM_LAYOUT_STORAGE_KEY, JSON.stringify({ positions: itemPositionsRef.current, clock: clockPositionRef.current, stored: nextStored }));
-      } catch { /* Ownership is already safe in the main save. */ }
+        localStorage.setItem(
+          ROOM_LAYOUT_STORAGE_KEY,
+          JSON.stringify({
+            positions: itemPositionsRef.current,
+            clock: clockPositionRef.current,
+            stored: nextStored,
+          }),
+        );
+      } catch {
+        /* Ownership is already safe in the main save. */
+      }
     }
     setSave(next);
     setGachaError('');
     setItemOpen(false);
     walkRun.current += 1;
-    if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
+    if (walkStepTimer.current !== null)
+      window.clearTimeout(walkStepTimer.current);
     walkStepTimer.current = null;
     if (mochiState === 'walk') setMochiState('idle');
-    setGachaSession((current) => ({ reward, serial: (current?.serial ?? 0) + 1, preview: false }));
+    setGachaSession((current) => ({
+      reward,
+      serial: (current?.serial ?? 0) + 1,
+      preview: false,
+    }));
   }
 
   function previewGacha(rarity: GachaRarity) {
@@ -2465,13 +2742,22 @@ export function SuuhimochiGame() {
     const reward = pool[Math.floor(Math.random() * pool.length)];
     gachaBusyRef.current = true;
     setGachaError('');
-    setGachaSession((current) => ({ reward, serial: (current?.serial ?? 0) + 1, preview: true }));
+    setGachaSession((current) => ({
+      reward,
+      serial: (current?.serial ?? 0) + 1,
+      preview: true,
+    }));
   }
 
   function previewGachaResult() {
     const reward = drawGacha();
     gachaBusyRef.current = true;
-    setGachaSession((current) => ({ reward, serial: (current?.serial ?? 0) + 1, preview: true, instant: true }));
+    setGachaSession((current) => ({
+      reward,
+      serial: (current?.serial ?? 0) + 1,
+      preview: true,
+      instant: true,
+    }));
   }
 
   function previewTenGacha() {
@@ -2479,7 +2765,11 @@ export function SuuhimochiGame() {
     gachaTestQueueRef.current = rewards.slice(1);
     gachaBusyRef.current = true;
     setGachaTestProgress('テスト 1 / 10');
-    setGachaSession((current) => ({ reward: rewards[0], serial: (current?.serial ?? 0) + 1, preview: true }));
+    setGachaSession((current) => ({
+      reward: rewards[0],
+      serial: (current?.serial ?? 0) + 1,
+      preview: true,
+    }));
   }
 
   function gachaRevealed() {
@@ -2490,23 +2780,29 @@ export function SuuhimochiGame() {
     gachaTestTimerRef.current = window.setTimeout(() => {
       gachaBusyRef.current = true;
       setGachaTestProgress(`テスト ${index} / 10`);
-      setGachaSession((current) => ({ reward, serial: (current?.serial ?? 0) + 1, preview: true }));
+      setGachaSession((current) => ({
+        reward,
+        serial: (current?.serial ?? 0) + 1,
+        preview: true,
+      }));
     }, 550);
   }
 
   function eatGachaSnack(id: string): string | null {
     const count = save.gachaSnackInventory[id] ?? 0;
     if (count < 1) return null;
-    const next = { ...save, gachaSnackInventory: { ...save.gachaSnackInventory, [id]: count - 1 } };
+    const next = {
+      ...save,
+      gachaSnackInventory: { ...save.gachaSnackInventory, [id]: count - 1 },
+    };
     setSave(next);
     if (!isInitialPreview) storeSave(next);
     return 'もぐもぐ……おやつ、おいしいの。';
   }
 
   function beginItemPanelDrag(event: React.PointerEvent<HTMLElement>) {
-    if (
-      (event.target as HTMLElement).closest('button, input, textarea, select')
-    )
+    // Keep the inventory scroll gesture available; drag the panel by its title only.
+    if (!(event.target as HTMLElement).closest('.item-note-drag-handle'))
       return;
     itemPanelDragRef.current = {
       pointerId: event.pointerId,
@@ -2528,14 +2824,26 @@ export function SuuhimochiGame() {
 
   useEffect(() => {
     const found = loadSave();
-    try { setRoomGuidePending(localStorage.getItem(ROOM_GUIDE_KEY) !== '1'); } catch { setRoomGuidePending(true); }
+    try {
+      setRoomGuidePending(localStorage.getItem(ROOM_GUIDE_KEY) !== '1');
+    } catch {
+      setRoomGuidePending(true);
+    }
     const talk = new SuuhimochiConversation();
     conversation.current = talk;
     const sharedChoice = readSharedPreference(localStorage);
     setSharedPreference(sharedChoice);
-    talk.setSharedKnowledge(getSharedKnowledgeCache(localStorage), sharedChoice.enabled, [found.userName, found.callName]);
+    talk.setSharedKnowledge(
+      getSharedKnowledgeCache(localStorage),
+      sharedChoice.enabled,
+      [found.userName, found.callName],
+    );
     // A legacy-cache migration is background work: even its cached YouTube topics can be used immediately.
-    try { talk.setExternalTopics(getExternalInfoState(localStorage).snapshot, true); } catch { /* Cache is optional. */ }
+    try {
+      talk.setExternalTopics(getExternalInfoState(localStorage).snapshot, true);
+    } catch {
+      /* Cache is optional. */
+    }
     // Startup and conversation rendering never await the public feed.
     let disposed = false;
     let refreshing = false;
@@ -2550,15 +2858,26 @@ export function SuuhimochiGame() {
       if (refreshing) return;
       refreshing = true;
       try {
-        const snapshot = await loadExternalTopics(localStorage, fetch, new Date(), { checkUpdates: true });
+        const snapshot = await loadExternalTopics(
+          localStorage,
+          fetch,
+          new Date(),
+          { checkUpdates: true },
+        );
         if (!disposed) conversation.current?.setExternalTopics(snapshot);
       } catch {
         if (!disposed) conversation.current?.setExternalTopics(null);
-      } finally { refreshing = false; }
+      } finally {
+        refreshing = false;
+      }
     };
     void refreshTopics();
-    const topicRefreshTimer = window.setInterval(() => { if (!document.hidden) void refreshTopics(); }, EXTERNAL_CHECK_INTERVAL);
-    const onTopicsVisible = () => { if (document.visibilityState === 'visible') void refreshTopics(); };
+    const topicRefreshTimer = window.setInterval(() => {
+      if (!document.hidden) void refreshTopics();
+    }, EXTERNAL_CHECK_INTERVAL);
+    const onTopicsVisible = () => {
+      if (document.visibilityState === 'visible') void refreshTopics();
+    };
     document.addEventListener('visibilitychange', onTopicsVisible);
     let savedLayout: {
       positions?: Record<string, RoomItemPosition>;
@@ -2612,7 +2931,13 @@ export function SuuhimochiGame() {
         for (const item of [...ROOM_ITEMS, { id: MISSION_POST_ITEM_ID }]) {
           const position = savedLayout.positions?.[item.id];
           // Move the former default away from the phone's clipped right edge.
-          if (item.id === MISSION_POST_ITEM_ID && validPosition(position) && (position.x === 91 && position.y === 22 || position.x === 84 && position.y === 24)) continue;
+          if (
+            item.id === MISSION_POST_ITEM_ID &&
+            validPosition(position) &&
+            ((position.x === 91 && position.y === 22) ||
+              (position.x === 84 && position.y === 24))
+          )
+            continue;
           if (validPosition(position))
             positions[item.id] = {
               x: Math.max(0, Math.min(92, position.x)),
@@ -2628,7 +2953,11 @@ export function SuuhimochiGame() {
         if (Array.isArray(savedLayout.stored)) {
           const knownIds = new Set<string>([
             'clock',
-            ...ROOM_ITEMS.filter((item) => !GACHA_FURNITURE_IDS.includes(item.id) || (found.gachaFurnitureInventory[item.id] ?? 0) > 0).map((item) => item.id),
+            ...ROOM_ITEMS.filter(
+              (item) =>
+                !GACHA_FURNITURE_IDS.includes(item.id) ||
+                (found.gachaFurnitureInventory[item.id] ?? 0) > 0,
+            ).map((item) => item.id),
           ]);
           const stored = [
             ...new Set(
@@ -2654,7 +2983,15 @@ export function SuuhimochiGame() {
           )
             stored.push(MASK_CASE_ITEM_ID);
           for (const id of GACHA_FURNITURE_IDS) {
-            if ((found.gachaFurnitureInventory[id] ?? 0) > 0 && !stored.includes(id) && !Object.prototype.hasOwnProperty.call(savedLayout.positions ?? {}, id)) stored.push(id);
+            if (
+              (found.gachaFurnitureInventory[id] ?? 0) > 0 &&
+              !stored.includes(id) &&
+              !Object.prototype.hasOwnProperty.call(
+                savedLayout.positions ?? {},
+                id,
+              )
+            )
+              stored.push(id);
           }
           setStoredItemIds(stored);
         }
@@ -2663,8 +3000,18 @@ export function SuuhimochiGame() {
         // historical room. Only a genuinely new room begins with no items.
         setStoredItemIds(
           found.introComplete
-            ? [...LEGACY_BED_STORED_ITEM_IDS, ...GACHA_FURNITURE_IDS.filter((id) => (found.gachaFurnitureInventory[id] ?? 0) > 0)]
-            : [...INITIAL_STORED_ITEM_IDS, ...GACHA_FURNITURE_IDS.filter((id) => (found.gachaFurnitureInventory[id] ?? 0) > 0)],
+            ? [
+                ...LEGACY_BED_STORED_ITEM_IDS,
+                ...GACHA_FURNITURE_IDS.filter(
+                  (id) => (found.gachaFurnitureInventory[id] ?? 0) > 0,
+                ),
+              ]
+            : [
+                ...INITIAL_STORED_ITEM_IDS,
+                ...GACHA_FURNITURE_IDS.filter(
+                  (id) => (found.gachaFurnitureInventory[id] ?? 0) > 0,
+                ),
+              ],
         );
       }
       if (found.introComplete) setPhase('home');
@@ -2762,21 +3109,25 @@ export function SuuhimochiGame() {
         bedRect && bedRect.width > 0 && bedRect.height > 0
           ? {
               left:
-                ((bedRect.left - room.left + bedRect.width * 0.55) / room.width) *
+                ((bedRect.left - room.left + bedRect.width * 0.55) /
+                  room.width) *
                 100,
               top:
-                ((bedRect.top - room.top + bedRect.height * 0.4) / room.height) *
+                ((bedRect.top - room.top + bedRect.height * 0.4) /
+                  room.height) *
                 100,
             }
           : {
               left: bedPosition.x + collider.width * 0.55,
               top:
                 bedPosition.y +
-                collider.width *
-                  (room.width / room.height) *
-                  0.4,
+                collider.width * (room.width / room.height) * 0.4,
             };
-      setSleepPose((previous) => previous?.left === pose.left && previous.top === pose.top ? previous : pose);
+      setSleepPose((previous) =>
+        previous?.left === pose.left && previous.top === pose.top
+          ? previous
+          : pose,
+      );
       setSleepingBedId(bedId);
     };
     updatePose();
@@ -2786,10 +3137,26 @@ export function SuuhimochiGame() {
     observer.observe(world);
     if (bed) observer.observe(bed);
     return () => observer.disconnect();
-  }, [appReady, hydrated, isMobilePortrait, itemPositions, memoryOpen, mobileRoomFit.ready, mochiState, phase, storedItemIds, wakingUp]);
+  }, [
+    appReady,
+    hydrated,
+    isMobilePortrait,
+    itemPositions,
+    memoryOpen,
+    mobileRoomFit.ready,
+    mochiState,
+    phase,
+    storedItemIds,
+    wakingUp,
+  ]);
 
   useLayoutEffect(() => {
-    if (!hydrated || !appReady || !roomRef.current || (mobileRoomMode && !mobileRoomFit.ready)) {
+    if (
+      !hydrated ||
+      !appReady ||
+      !roomRef.current ||
+      (mobileRoomMode && !mobileRoomFit.ready)
+    ) {
       setRoomPlacementReady(false);
       return;
     }
@@ -2799,7 +3166,15 @@ export function SuuhimochiGame() {
       frame = window.requestAnimationFrame(() => setRoomPlacementReady(true));
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [appReady, hydrated, isMobilePortrait, memoryOpen, mobileRoomMode, mobileRoomFit.ready, phase]);
+  }, [
+    appReady,
+    hydrated,
+    isMobilePortrait,
+    memoryOpen,
+    mobileRoomMode,
+    mobileRoomFit.ready,
+    phase,
+  ]);
 
   // From midnight until 06:00 Suuhimochi uses the same bed animation as
   // the manual "横になる" action.  The real local clock, not the background
@@ -2816,7 +3191,8 @@ export function SuuhimochiGame() {
       if (lightsOut) setLightsOut(false);
       if (bedSleepTargetRef.current) {
         walkRun.current += 1;
-        if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
+        if (walkStepTimer.current !== null)
+          window.clearTimeout(walkStepTimer.current);
         walkStepTimer.current = null;
         bedSleepTargetRef.current = null;
         setMochiState('idle');
@@ -2856,12 +3232,7 @@ export function SuuhimochiGame() {
     const bedId = ROOM_ITEMS.find(
       (item) => BED_ITEM_IDS.has(item.id) && !storedItemIds.includes(item.id),
     )?.id;
-    if (
-      !bedId ||
-      mochiState === 'sleep' ||
-      bedSleepTargetRef.current
-    )
-      return;
+    if (!bedId || mochiState === 'sleep' || bedSleepTargetRef.current) return;
     startBedSleep(bedId);
   }, [
     appReady,
@@ -2892,7 +3263,12 @@ export function SuuhimochiGame() {
   // themself. When one needs a second line/page, let it continue on its own
   // after a short reading pause; clicking can still advance it sooner.
   useEffect(() => {
-    if (!bubble || bubble !== roomMonologueBubbleRef.current || externalSpeechRef.current?.text === bubble) return;
+    if (
+      !bubble ||
+      bubble !== roomMonologueBubbleRef.current ||
+      externalSpeechRef.current?.text === bubble
+    )
+      return;
     const pages = splitRoomMonologuePages(bubble);
     if (pages.length <= 1) return;
     const page = pages[bubblePageIndex] ?? '';
@@ -2933,13 +3309,16 @@ export function SuuhimochiGame() {
     }
     if (!beat.delay || revealBeat === REVEAL_BEATS.length - 1) return;
     const next = window.setTimeout(
-      () => setRevealBeat((value) => value === revealBeat ? Math.min(value + 1, REVEAL_BEATS.length - 1) : value),
+      () =>
+        setRevealBeat((value) =>
+          value === revealBeat
+            ? Math.min(value + 1, REVEAL_BEATS.length - 1)
+            : value,
+        ),
       beat.delay,
     );
     return () => window.clearTimeout(next);
   }, [beginWalk, phase, revealBeat]);
-
-
 
   // 食べた時刻を基準にするため、日付が変わっても朝昼晩には紐付けない。
   // 06:00を越えた別の食事用活動日は food.ts 側で自動的に1食目へ戻す。
@@ -2976,10 +3355,14 @@ export function SuuhimochiGame() {
   );
 
   // Use this render's camera/room state when an interest line opens a zoom.
-  function saySomething(mode: 'room' | 'interest' = 'room', recent: readonly string[] = []): string | null {
+  function saySomething(
+    mode: 'room' | 'interest' = 'room',
+    recent: readonly string[] = [],
+  ): string | null {
     if (
-      externalStartupPendingRef.current || startupTalkActiveRef.current ||
-      !sharedPreference.decided || roomGuidePending ||
+      startupTalkActiveRef.current ||
+      !sharedPreference.decided ||
+      roomGuidePending ||
       twoDayReviewTalkOpen ||
       foodOpen ||
       (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) ||
@@ -2990,7 +3373,9 @@ export function SuuhimochiGame() {
     )
       return null;
     const showBubble = (line: string, duration: number) => {
-      setTalkChoices([]); setCategoryChoices([]); setSubCategoryChoices([]);
+      setTalkChoices([]);
+      setCategoryChoices([]);
+      setSubCategoryChoices([]);
       setTwoDayReviewOffer(false);
       setWordComboBubbleOffer(false);
       walkRun.current += 1;
@@ -3012,13 +3397,15 @@ export function SuuhimochiGame() {
       }, duration);
     };
     if (
-      mode === 'room' && foodMealStatus.state === 'hungry' &&
+      mode === 'room' &&
+      foodMealStatus.state === 'hungry' &&
       foodMealStatus.mealsEaten > 0 &&
       hasFreshExperienceFruit &&
       Math.random() < 0.18
     ) {
       const candidates = MEAL_READY_MONOLOGUES.filter(
-        (candidate) => candidate !== lastLine.current && !recent.includes(candidate),
+        (candidate) =>
+          candidate !== lastLine.current && !recent.includes(candidate),
       );
       const line = candidates[Math.floor(Math.random() * candidates.length)];
       if (!line) return null;
@@ -3028,12 +3415,48 @@ export function SuuhimochiGame() {
     }
     let line = '';
     for (let attempt = 0; attempt < 24; attempt++) {
-      const candidate = mode === 'interest'
-        ? pickRoomInterest(save.mochiType, conversation.current?.getLearnedWords() ?? [], Math.random, [...recent, lastLine.current], conversation.current?.getCurrentDay())
-        : pickRoomMonologue(save.mochiType, conversation.current?.getLearnedWords() ?? [], Math.random, lastLine.current, conversation.current?.getCurrentDay());
-      if (!candidate || recent.includes(candidate) || candidate === lastLine.current) continue;
-      if (mode === 'interest' && !/[?？]|かな|だろ|気にな|不思議|考え/.test(candidate)) continue;
-      line = candidate; break;
+      const candidate =
+        mode === 'interest'
+          ? pickRoomInterest(
+              save.mochiType,
+              conversation.current?.getLearnedWords() ?? [],
+              Math.random,
+              [...recent, lastLine.current],
+              conversation.current?.getCurrentDay(),
+            )
+          : pickRoomMonologue(
+              save.mochiType,
+              conversation.current?.getLearnedWords() ?? [],
+              Math.random,
+              lastLine.current,
+              conversation.current?.getCurrentDay(),
+            );
+      if (
+        !candidate ||
+        recent.includes(candidate) ||
+        candidate === lastLine.current
+      )
+        continue;
+      if (
+        mode === 'interest' &&
+        !/[?？]|かな|だろ|気にな|不思議|考え/.test(candidate)
+      )
+        continue;
+      line = candidate;
+      break;
+    }
+    if (!line && mode === 'interest') {
+      line =
+        HOME_INTEREST_FALLBACKS.find(
+          (candidate) =>
+            !recent.includes(candidate) && candidate !== lastLine.current,
+        ) ??
+        HOME_INTEREST_FALLBACKS.find(
+          (candidate) =>
+            !recent.slice(-2).includes(candidate) &&
+            candidate !== lastLine.current,
+        ) ??
+        '';
     }
     if (!line) return null;
     if (mode === 'interest') {
@@ -3139,7 +3562,9 @@ export function SuuhimochiGame() {
       foodOpen ||
       minigameOpen ||
       potenoOpen ||
-      twoDayReviewTalkOpen || homeDanceActive || wordComboDance.active ||
+      twoDayReviewTalkOpen ||
+      homeDanceActive ||
+      wordComboDance.active ||
       (isScheduledSleepTimeNow && !nightWakeOverrideRef.current)
     )
       return;
@@ -3358,12 +3783,15 @@ export function SuuhimochiGame() {
   ]);
 
   const currentTime = timeMode === 'auto' ? getAutoTime() : timeMode;
-  const displayedBedPose = mochiState === 'sleep' ? sleepPose : talkOpen ? talkSleepPresentationRef.current?.pose : null;
-  const roomIsLightsOut = isScheduledSleepTimeNow && (lightsOut || mochiState === 'sleep');
-  const roomBackground = getRoomBackground(
-    currentTime,
-    roomIsLightsOut,
-  );
+  const displayedBedPose =
+    mochiState === 'sleep'
+      ? sleepPose
+      : talkOpen
+        ? talkSleepPresentationRef.current?.pose
+        : null;
+  const roomIsLightsOut =
+    isScheduledSleepTimeNow && (lightsOut || mochiState === 'sleep');
+  const roomBackground = getRoomBackground(currentTime, roomIsLightsOut);
   const startupCriticalAssets = useMemo(() => {
     return uniqueImageSources([
       roomBackground,
@@ -3440,9 +3868,12 @@ export function SuuhimochiGame() {
   const isSleepBubble =
     mochiState === 'sleep' && bubble === sleepBubbleLineRef.current;
   const isPotenoWelcomeBubble = bubble === 'ポテノが来たよ。';
-  const sleepBubbleWidthPercent = roomViewport.width > 0
-    ? Math.min(mobileRoomMode ? 76 : 33, (350 / roomViewport.width) * 100)
-    : mobileRoomMode ? 42 : 30;
+  const sleepBubbleWidthPercent =
+    roomViewport.width > 0
+      ? Math.min(mobileRoomMode ? 76 : 33, (350 / roomViewport.width) * 100)
+      : mobileRoomMode
+        ? 42
+        : 30;
   const sleepBubbleStyle = (() => {
     if (!isSleepBubble || !sleepPose) return undefined;
     // sleepPose is measured inside the interactive world, while the bubble is
@@ -3450,12 +3881,22 @@ export function SuuhimochiGame() {
     // so the bubble stays beside them on both desktop and the narrower mobile world.
     const roomBounds = roomRef.current?.getBoundingClientRect();
     const worldBounds = worldRef.current?.getBoundingClientRect();
-    const speakerX = roomBounds && worldBounds && roomBounds.width > 0
-      ? ((worldBounds.left - roomBounds.left + worldBounds.width * sleepPose.left / 100) / roomBounds.width) * 100
-      : sleepPose.left;
-    const speakerY = roomBounds && worldBounds && roomBounds.height > 0
-      ? ((worldBounds.top - roomBounds.top + worldBounds.height * sleepPose.top / 100) / roomBounds.height) * 100
-      : sleepPose.top;
+    const speakerX =
+      roomBounds && worldBounds && roomBounds.width > 0
+        ? ((worldBounds.left -
+            roomBounds.left +
+            (worldBounds.width * sleepPose.left) / 100) /
+            roomBounds.width) *
+          100
+        : sleepPose.left;
+    const speakerY =
+      roomBounds && worldBounds && roomBounds.height > 0
+        ? ((worldBounds.top -
+            roomBounds.top +
+            (worldBounds.height * sleepPose.top) / 100) /
+            roomBounds.height) *
+          100
+        : sleepPose.top;
     const speakerOnLeft = speakerX < 50;
     const left = speakerOnLeft
       ? speakerX + 3
@@ -3606,7 +4047,10 @@ export function SuuhimochiGame() {
       return;
     }
     const wasPotenoWelcome = potenoOpen && bubble === 'ポテノが来たよ。';
-    if (externalSpeechRef.current?.text === bubble) { externalSpeechRef.current = null; setExternalSpeechSource(null); }
+    if (externalSpeechRef.current?.text === bubble) {
+      externalSpeechRef.current = null;
+      setExternalSpeechSource(null);
+    }
     if (bubble === roomMonologueBubbleRef.current)
       roomMonologueBubbleRef.current = null;
     bubbleRef.current = null;
@@ -3692,7 +4136,8 @@ export function SuuhimochiGame() {
     return () => {
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
-      if (initialDialogueRevealRef.current?.reveal === reveal) initialDialogueRevealRef.current = null;
+      if (initialDialogueRevealRef.current?.reveal === reveal)
+        initialDialogueRevealRef.current = null;
     };
   }, [currentDialogue, isInitialDialoguePhase]);
 
@@ -3836,7 +4281,8 @@ export function SuuhimochiGame() {
 
   function advanceInitialDialogue() {
     if (!initialDialogueReady) {
-      if (initialDialogueRevealRef.current?.text === currentDialogue) initialDialogueRevealRef.current.reveal();
+      if (initialDialogueRevealRef.current?.text === currentDialogue)
+        initialDialogueRevealRef.current.reveal();
       return;
     }
     if (phase === 'intro') advanceIntro();
@@ -3981,9 +4427,6 @@ export function SuuhimochiGame() {
     setPotenoOpen(false);
     setSettingsOpen(false);
 
-
-
-
     setConversationDay(1);
     setConversationPhase('であい');
     setLearnedWords([]);
@@ -4055,9 +4498,6 @@ export function SuuhimochiGame() {
     setMinigameOpen(false);
     setPotenoOpen(false);
     setSettingsOpen(false);
-
-
-
 
     initialPreviewSnapshotRef.current = null;
     isInitialPreviewRef.current = false;
@@ -4158,7 +4598,6 @@ export function SuuhimochiGame() {
         if (speechRun.current !== run) return;
         talkPageReadyRef.current = true;
         setTalkPageReady(true);
-
       };
       const pauseAfterMs = Math.min(1200, Math.max(0, page?.pauseAfterMs ?? 0));
       if (pauseAfterMs > 0) scheduleSpeech(finishPage, pauseAfterMs);
@@ -4275,7 +4714,9 @@ export function SuuhimochiGame() {
     }
 
     const miniRuntime = miniDialogueRef.current;
-    const shouldReturnToRoom = startupTalkActiveRef.current || shouldAutoCloseTalk.current && !miniRuntime;
+    const shouldReturnToRoom =
+      startupTalkActiveRef.current ||
+      (shouldAutoCloseTalk.current && !miniRuntime);
     const miniScript = miniRuntime
       ? getMiniDialogueScript(miniRuntime.scriptId)
       : null;
@@ -4289,7 +4730,8 @@ export function SuuhimochiGame() {
       setMiniDialogue(nextRuntime);
     }
     pendingTalkInteractionRef.current = false;
-    if (talkStage === 'complete') conversation.current?.completeDayConversation();
+    if (talkStage === 'complete')
+      conversation.current?.completeDayConversation();
     talkChoiceLockedRef.current = false;
     stopTalkSpeech();
     if (shouldReturnToRoom) {
@@ -4350,8 +4792,15 @@ export function SuuhimochiGame() {
     externalSpeechRef.current = null;
     setExternalSpeechSource(null); // SELF/LEARN/ordinary responses never inherit an autonomous source caption.
     const sharedUrl = response.debug.attributes.sharedSourceUrl;
-    setSharedCitation(sharedUrl && safeWikipediaUrl(sharedUrl) ? { id: response.debug.attributes.sharedDialogueUseId,
-      sourceUrl: sharedUrl, attribution: response.debug.attributes.sharedAttribution } : null);
+    setSharedCitation(
+      sharedUrl && safeWikipediaUrl(sharedUrl)
+        ? {
+            id: response.debug.attributes.sharedDialogueUseId,
+            sourceUrl: sharedUrl,
+            attribution: response.debug.attributes.sharedAttribution,
+          }
+        : null,
+    );
     if (response.stage === 'complete') {
       const conversationId = response.debug.attributes.dayConversationId;
       if (response.debug.startType === 'CHAT' && conversationId) {
@@ -4399,11 +4848,17 @@ export function SuuhimochiGame() {
       ...page,
       lines: page.lines.map((line) => replaceCallName(line, preferredCallName)),
     }));
-    const answerPages =
-      response.inputMode === 'none' ? [] : responsePages;
+    const answerPages = response.inputMode === 'none' ? [] : responsePages;
     const promptText = answerPages.at(-1)?.lines.join('\n') ?? '';
-    const promptSentences = promptText.match(/[^。！？!?\n]+[。！？!?]?/gu)?.filter(text => text.replace(/[\s。！？!?…]/gu, '')) ?? [];
-    setTalkInputPrompt(response.inputMode === 'choice' ? (promptSentences.at(-1)?.trim() ?? promptText) : promptText);
+    const promptSentences =
+      promptText
+        .match(/[^。！？!?\n]+[。！？!?]?/gu)
+        ?.filter((text) => text.replace(/[\s。！？!?…]/gu, '')) ?? [];
+    setTalkInputPrompt(
+      response.inputMode === 'choice'
+        ? (promptSentences.at(-1)?.trim() ?? promptText)
+        : promptText,
+    );
     setTalkReviewPages(answerPages.map((page) => page.lines.join('\n')));
     setTalkReviewOpen(false);
     if (
@@ -4425,15 +4880,21 @@ export function SuuhimochiGame() {
       setFarewellLetter(talk.getLetter());
     }
     const earlyComboWordId = response.debug.attributes.startComboWordId;
-    if (response.stage === 'complete' && earlyComboWordId && startPersonWordCombo('arc', false, earlyComboWordId)) return;
+    if (
+      response.stage === 'complete' &&
+      earlyComboWordId &&
+      startPersonWordCombo('arc', false, earlyComboWordId)
+    )
+      return;
     playTalkPages(responsePages, replace, response.inputMode !== 'none');
   }
 
   function captureTalkPresentation() {
     if (!talkOpen) {
-      talkSleepPresentationRef.current = mochiState === 'sleep' && sleepingBedId && sleepPose
-        ? { bedId: sleepingBedId, pose: sleepPose }
-        : null;
+      talkSleepPresentationRef.current =
+        mochiState === 'sleep' && sleepingBedId && sleepPose
+          ? { bedId: sleepingBedId, pose: sleepPose }
+          : null;
     }
     const world = worldRef.current?.getBoundingClientRect();
     const mochi = worldRef.current
@@ -4451,28 +4912,58 @@ export function SuuhimochiGame() {
         ? ((mochi.top + mochi.height / 2 - world.top) / world.height) * 100
         : fallbackY;
 
+    const visible = roomRef.current?.getBoundingClientRect();
+    const visibleLeft = Math.max(
+      visible?.left ?? 0,
+      window.visualViewport?.offsetLeft ?? 0,
+    );
+    const visibleRight = Math.min(
+      visible?.right ?? innerWidth,
+      (window.visualViewport?.offsetLeft ?? 0) +
+        (window.visualViewport?.width ?? innerWidth),
+    );
     setTalkPresentation({
       origin: {
         x: Math.max(2, Math.min(98, x)),
         y: Math.max(4, Math.min(96, y)),
       },
       uiOnLeft: x >= 50,
+      centered: Boolean(
+        mochi &&
+        Math.abs(
+          mochi.left + mochi.width / 2 - (visibleLeft + visibleRight) / 2,
+        ) <= Math.max(mochi.width * 0.65, (visibleRight - visibleLeft) * 0.1),
+      ),
     });
   }
 
   function closeTalk() {
-    if (missionTeachingRef.current) { missionTeachingRef.current = false; setMissionOpenRequest(value => value + 1); }
+    if (missionTeachingRef.current) {
+      missionTeachingRef.current = false;
+      setMissionOpenRequest((value) => value + 1);
+    }
     talkChoiceLockedRef.current = false;
     externalSpeechRef.current = null;
     setExternalSpeechSource(null);
-    if (sharedCitation?.id) conversation.current?.finishSharedKnowledgeTalk(sharedCitation.id, 'FINISHED');
+    if (sharedCitation?.id)
+      conversation.current?.finishSharedKnowledgeTalk(
+        sharedCitation.id,
+        'FINISHED',
+      );
     setSharedCitation(null);
     setHomeAutonomyZoom(null);
+    setHomeAutonomyInviteCategory(null);
     const wasStartupTalk = startupTalkActiveRef.current;
     if (wasStartupTalk) {
       if (startupUseIdRef.current) {
-        conversation.current?.finishSharedKnowledgeTalk(startupUseIdRef.current, 'FINISHED');
-        conversation.current?.finishStartupExternalTalk(startupUseIdRef.current, 'FINISHED');
+        conversation.current?.finishSharedKnowledgeTalk(
+          startupUseIdRef.current,
+          'FINISHED',
+        );
+        conversation.current?.finishStartupExternalTalk(
+          startupUseIdRef.current,
+          'FINISHED',
+        );
       }
       startupTalkActiveRef.current = false;
       startupUseIdRef.current = null;
@@ -4509,7 +5000,10 @@ export function SuuhimochiGame() {
       setStartupFastReturn(true);
       setTalkPresentation(null);
       setTalkReturning(false);
-      talkReturnTimer.current = window.setTimeout(() => { setStartupFastReturn(false); talkReturnTimer.current = null; }, 100);
+      talkReturnTimer.current = window.setTimeout(() => {
+        setStartupFastReturn(false);
+        talkReturnTimer.current = null;
+      }, 100);
       return;
     }
     // Only release the camera zoom. Suuhimochi keeps the exact walkOffset it
@@ -4522,8 +5016,16 @@ export function SuuhimochiGame() {
   }
 
   function skipStartupTalk() {
-    if (startupUseIdRef.current) conversation.current?.finishSharedKnowledgeTalk(startupUseIdRef.current, 'SKIPPED');
-    if (startupUseIdRef.current) conversation.current?.finishStartupExternalTalk(startupUseIdRef.current, 'SKIPPED');
+    if (startupUseIdRef.current)
+      conversation.current?.finishSharedKnowledgeTalk(
+        startupUseIdRef.current,
+        'SKIPPED',
+      );
+    if (startupUseIdRef.current)
+      conversation.current?.finishStartupExternalTalk(
+        startupUseIdRef.current,
+        'SKIPPED',
+      );
     closeTalk();
   }
 
@@ -4587,24 +5089,44 @@ export function SuuhimochiGame() {
     setSubCategoryChoices([]);
   }
 
-  function openHomeAutonomyZoom(text: string, kind: 'invite' | 'interest') {
+  function openHomeAutonomyZoom(
+    text: string,
+    kind: 'invite' | 'interest',
+    inviteCategory?: 'SELF' | 'CURIOUS',
+  ) {
     if (startupBlockedRef.current || bubbleRef.current) return false;
     externalSpeechRef.current = null;
-    setExternalSpeechSource(null); setSharedCitation(null);
+    setExternalSpeechSource(null);
+    setSharedCitation(null);
     openTalk();
     setHomeAutonomyZoom(kind);
-    setTalkCommandOpen(false); setTalkStage('complete'); setTalkInputMode('none');
-    setTalkChoices([]); setCategoryChoices([]); setSubCategoryChoices([]); setTalkDebug(null);
+    setHomeAutonomyInviteCategory(inviteCategory ?? null);
+    setTalkCommandOpen(false);
+    setTalkStage('complete');
+    setTalkInputMode('none');
+    setTalkChoices([]);
+    setCategoryChoices([]);
+    setSubCategoryChoices([]);
+    setTalkDebug(null);
     shouldAutoCloseTalk.current = kind === 'interest';
-    playTalkPages(buildTalkPagesFromLines([replaceCallName(text, getPreferredCallName(save))]), true, kind === 'invite');
+    playTalkPages(
+      buildTalkPagesFromLines([
+        replaceCallName(text, getPreferredCallName(save)),
+      ]),
+      true,
+      kind === 'invite',
+    );
     return true;
   }
 
   function acceptHomeConversationInvite() {
     if (talkChoiceLockedRef.current) return;
     talkChoiceLockedRef.current = true;
-    const response = conversation.current?.startDayConversation();
+    const response = conversation.current?.startDayConversation(
+      homeAutonomyInviteCategory ?? undefined,
+    );
     setHomeAutonomyZoom(null);
+    setHomeAutonomyInviteCategory(null);
     if (response) applyTalkResponse(response, true);
     else closeTalk();
   }
@@ -4714,9 +5236,10 @@ export function SuuhimochiGame() {
     setDictionaryEntries(talk.getWordEntries());
     setDictionaryEditNotice({
       wordId: entry.id,
-      text: status === 'CURRENT'
-        ? 'いま一緒に暮らしてる子として覚え直したの。'
-        : '前に一緒に暮らしてた子として覚え直したの。',
+      text:
+        status === 'CURRENT'
+          ? 'いま一緒に暮らしてる子として覚え直したの。'
+          : '前に一緒に暮らしてた子として覚え直したの。',
     });
   }
 
@@ -4827,14 +5350,11 @@ export function SuuhimochiGame() {
       if (wordComboBoostTimerRef.current !== null) {
         window.clearTimeout(wordComboBoostTimerRef.current);
       }
-      wordComboBoostTimerRef.current = window.setTimeout(
-        () => {
-          setWordComboDanceBoosted(false);
-          setWordComboBeat(null);
-          wordComboBoostTimerRef.current = null;
-        },
-        2200,
-      );
+      wordComboBoostTimerRef.current = window.setTimeout(() => {
+        setWordComboDanceBoosted(false);
+        setWordComboBeat(null);
+        wordComboBoostTimerRef.current = null;
+      }, 2200);
     },
     [startWordComboDance],
   );
@@ -4858,10 +5378,13 @@ export function SuuhimochiGame() {
     [startWordComboDance],
   );
 
-  const handlePersonWordComboEnd = useCallback((_reason: 'perfect' | 'timeout' | 'complete') => {
-    // The performer keeps dancing on the result screen. Closing the combo
-    // already runs closeTalk(), which performs the single cleanup point.
-  }, []);
+  const handlePersonWordComboEnd = useCallback(
+    (_reason: 'perfect' | 'timeout' | 'complete') => {
+      // The performer keeps dancing on the result screen. Closing the combo
+      // already runs closeTalk(), which performs the single cleanup point.
+    },
+    [],
+  );
 
   function openPersonWordComboBubbleOffer() {
     bubbleRef.current = null;
@@ -4981,10 +5504,13 @@ export function SuuhimochiGame() {
   }
 
   function saveJournalChecklist(date: string, change: JournalChecklistChange) {
-    setSave(current => saveJournalChecklistItem(current, date, change, {
-      currentDay: conversation.current?.getCurrentDay() ?? conversationDay,
-      memories: conversationMemories, words: dictionaryEntries,
-    }));
+    setSave((current) =>
+      saveJournalChecklistItem(current, date, change, {
+        currentDay: conversation.current?.getCurrentDay() ?? conversationDay,
+        memories: conversationMemories,
+        words: dictionaryEntries,
+      }),
+    );
   }
 
   function saveJournalTaskPlans(date: string, items: string[]) {
@@ -4994,14 +5520,19 @@ export function SuuhimochiGame() {
     return true;
   }
   function editJournalTaskPlan(date: string, id: string, text: string) {
-    const now=new Date();
-    if(updateTaskPlan(save,date,id,text,now)===save)return false;
-    setSave(previous=>updateTaskPlan(previous,date,id,text,now));
+    const now = new Date();
+    if (updateTaskPlan(save, date, id, text, now) === save) return false;
+    setSave((previous) => updateTaskPlan(previous, date, id, text, now));
     return true;
   }
-  function deleteJournalItem(date:string,item:{taskId?:string;text:string}) {
-    const now=new Date();if(removeJournalItem(save,date,item,now)===save)return false;
-    setSave(previous=>removeJournalItem(previous,date,item,now));return true;
+  function deleteJournalItem(
+    date: string,
+    item: { taskId?: string; text: string },
+  ) {
+    const now = new Date();
+    if (removeJournalItem(save, date, item, now) === save) return false;
+    setSave((previous) => removeJournalItem(previous, date, item, now));
+    return true;
   }
 
   function eatExperienceFruit(fruitId: string) {
@@ -5371,14 +5902,16 @@ export function SuuhimochiGame() {
   }
 
   function chooseTalkChoice(choice: ConversationChoice) {
-    if (!conversation.current || isMochiSpeaking || talkChoiceLockedRef.current) return;
+    if (!conversation.current || isMochiSpeaking || talkChoiceLockedRef.current)
+      return;
     talkChoiceLockedRef.current = true;
     setCurrentTalkLine('');
     applyTalkResponse(conversation.current.choose(choice.id));
   }
 
   function chooseTalkCategory(choice: CategoryChoice) {
-    if (!conversation.current || isMochiSpeaking || talkChoiceLockedRef.current) return;
+    if (!conversation.current || isMochiSpeaking || talkChoiceLockedRef.current)
+      return;
     talkChoiceLockedRef.current = true;
     if (choice.category !== 'OTHER') {
       setRecentCategories((current) =>
@@ -5393,7 +5926,8 @@ export function SuuhimochiGame() {
   }
 
   function chooseTalkSubCategory(choice: SubCategoryChoice) {
-    if (!conversation.current || isMochiSpeaking || talkChoiceLockedRef.current) return;
+    if (!conversation.current || isMochiSpeaking || talkChoiceLockedRef.current)
+      return;
     talkChoiceLockedRef.current = true;
     setCurrentTalkLine('');
     applyTalkResponse(conversation.current.chooseSubCategory(choice.id));
@@ -5480,9 +6014,6 @@ export function SuuhimochiGame() {
     setIntroLine(0);
     pendingComboInviteCommandRef.current = null;
 
-
-
-
     setGraduationOpen(false);
     setGraduationPreview(false);
     setTwoDayReviewOffer(false);
@@ -5534,27 +6065,82 @@ export function SuuhimochiGame() {
         <header>
           <strong>質問：</strong>
           {talkReviewPages.length > 0 && (
-            <button type="button" onClick={() => { setTalkReviewPages(fitTalkPages(talkReviewPages.map(text => ({ lines: [text] })), talkUiOnLeft, true).map(page => page.lines.join('\n'))); setTalkReviewIndex(0); setTalkReviewOpen(true); }}>
+            <button
+              type="button"
+              onClick={() => {
+                setTalkReviewPages(
+                  fitTalkPages(
+                    talkReviewPages.map((text) => ({ lines: [text] })),
+                    talkUiOnLeft,
+                    true,
+                  ).map((page) => page.lines.join('\n')),
+                );
+                setTalkReviewIndex(0);
+                setTalkReviewOpen(true);
+              }}
+            >
               読み返す
             </button>
           )}
         </header>
         <p>{talkInputPrompt}</p>
         {talkDebug?.attributes.externalSourceUrl && (
-          <a href={talkDebug.attributes.externalSourceUrl} target="_blank" rel="noopener noreferrer">
-            出典：{talkDebug.attributes.externalSource === 'youtube' ? 'YouTube' : talkDebug.attributes.externalSource === 'wikipedia' ? 'Wikipedia' : 'Googleトレンド'}
+          <a
+            href={talkDebug.attributes.externalSourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            出典：
+            {talkDebug.attributes.externalSource === 'youtube'
+              ? 'YouTube'
+              : talkDebug.attributes.externalSource === 'wikipedia'
+                ? 'Wikipedia'
+                : 'Googleトレンド'}
           </a>
         )}
       </section>
     ) : null;
   const renderTalkReview = () => (
     <section className="face-talk-review" aria-label="直前の会話を読み返す">
-      <header><strong>さっきのおはなし</strong><small>{talkReviewIndex + 1} / {talkReviewPages.length}</small></header>
-      <div className="face-talk-review-pages"><article><p>{talkReviewPages[talkReviewIndex] ?? ''}</p></article></div>
+      <header>
+        <strong>さっきのおはなし</strong>
+        <small>
+          {talkReviewIndex + 1} / {talkReviewPages.length}
+        </small>
+      </header>
+      <div className="face-talk-review-pages">
+        <article>
+          <p>{talkReviewPages[talkReviewIndex] ?? ''}</p>
+        </article>
+      </div>
       <div className="face-talk-review-controls">
-        <button className="face-talk-action face-talk-secondary" type="button" onClick={() => setTalkReviewOpen(false)}>回答に戻る</button>
-        <button className="face-talk-action face-talk-secondary" type="button" disabled={talkReviewIndex === 0} onClick={() => setTalkReviewIndex(i => Math.max(0, i - 1))}>前へ</button>
-        <button className="face-talk-action" type="button" disabled={talkReviewIndex >= talkReviewPages.length - 1} onClick={() => setTalkReviewIndex(i => Math.min(talkReviewPages.length - 1, i + 1))}>次へ</button>
+        <button
+          className="face-talk-action face-talk-secondary"
+          type="button"
+          onClick={() => setTalkReviewOpen(false)}
+        >
+          回答に戻る
+        </button>
+        <button
+          className="face-talk-action face-talk-secondary"
+          type="button"
+          disabled={talkReviewIndex === 0}
+          onClick={() => setTalkReviewIndex((i) => Math.max(0, i - 1))}
+        >
+          前へ
+        </button>
+        <button
+          className="face-talk-action"
+          type="button"
+          disabled={talkReviewIndex >= talkReviewPages.length - 1}
+          onClick={() =>
+            setTalkReviewIndex((i) =>
+              Math.min(talkReviewPages.length - 1, i + 1),
+            )
+          }
+        >
+          次へ
+        </button>
       </div>
     </section>
   );
@@ -5707,14 +6293,21 @@ export function SuuhimochiGame() {
           const faceY = characterRect.top + characterRect.height * 0.42;
           const up = faceY < bubbleRect.top + bubbleRect.height / 2;
           const pointOffset = up ? 8 : 34;
-          const topPx = Math.max(-38, Math.min(bubbleRect.height - 14, faceY - bubbleRect.top - pointOffset));
+          const topPx = Math.max(
+            -38,
+            Math.min(
+              bubbleRect.height - 14,
+              faceY - bubbleRect.top - pointOffset,
+            ),
+          );
           const top = `${((topPx / bubbleRect.height) * 100).toFixed(1)}%`;
           setFaceTalkTailPlacement((current) =>
             current.top === top && current.up === up ? current : { top, up },
           );
         }
       }
-      if (performance.now() - startedAt < 1200) frame = requestAnimationFrame(measure);
+      if (performance.now() - startedAt < 1200)
+        frame = requestAnimationFrame(measure);
     };
     const onResize = () => measure();
     window.addEventListener('resize', onResize);
@@ -5793,6 +6386,18 @@ export function SuuhimochiGame() {
     mobileInitialKeyboardOpen || mobileTalkKeyboardOpen;
   const mobileKeyboardVisible =
     mobileKeyboardOpen || embeddedMobileKeyboardOpen;
+  const centralKeyboardActive =
+    mobileRoomMode &&
+    embeddedMobileKeyboardOpen &&
+    (talkOpen || isInitialDialoguePhase) &&
+    !personWordComboOpen;
+  const centralKeyboardLayout = useCentralKeyboardLayout(
+    centralKeyboardActive,
+    talkOpen ? talkPresentation?.centered : undefined,
+    roomRef,
+    worldRef,
+    ROOM_WORLD_WIDTH,
+  );
 
   useLayoutEffect(() => {
     if (!mobileRoomMode || !appReady || isMobilePortrait) return;
@@ -5899,31 +6504,68 @@ export function SuuhimochiGame() {
     // are never left waiting for a resize event.
   }, [appReady, isMobilePortrait, mobileRoomMode, phase]);
 
-  const sharedSurfaceKey = JSON.stringify(sharedCandidateSurfaces(dictionaryEntries, [save.userName, save.callName]));
+  const sharedSurfaceKey = JSON.stringify(
+    sharedCandidateSurfaces(dictionaryEntries, [save.userName, save.callName]),
+  );
   useEffect(() => {
     const talk = conversation.current;
     if (!hydrated || !talk) return;
-    if (!sharedPreference.enabled) { talk.setSharedKnowledge(null, false); return; }
-    const controller = new AbortController(); sharedAbortRef.current = controller;
-    talk.setSharedKnowledge(getSharedKnowledgeCache(localStorage), true, [save.userName, save.callName]);
+    if (!sharedPreference.enabled) {
+      talk.setSharedKnowledge(null, false);
+      return;
+    }
+    const controller = new AbortController();
+    sharedAbortRef.current = controller;
+    talk.setSharedKnowledge(getSharedKnowledgeCache(localStorage), true, [
+      save.userName,
+      save.callName,
+    ]);
     const refresh = async () => {
-      const result = await loadSharedKnowledge(localStorage, JSON.parse(sharedSurfaceKey) as string[], fetch, new Date(), controller.signal);
+      const result = await loadSharedKnowledge(
+        localStorage,
+        JSON.parse(sharedSurfaceKey) as string[],
+        fetch,
+        new Date(),
+        controller.signal,
+      );
       if (controller.signal.aborted) return;
       const enabled = readSharedPreference(localStorage).enabled;
       talk.setSharedKnowledge(result, enabled, [save.userName, save.callName]);
-      setSharedStatus(result.error ? '共有知識を取得できませんでした。通常の会話はそのまま利用できます。' : `共有辞書 ${result.dictionary?.keywords.length ?? 0}語／取得済みセリフ ${result.caches.reduce((count, cache) => count + cache.items.length, 0)}件`);
+      setSharedStatus(
+        result.error
+          ? '共有知識を取得できませんでした。通常の会話はそのまま利用できます。'
+          : `共有辞書 ${result.dictionary?.keywords.length ?? 0}語／取得済みセリフ ${result.caches.reduce((count, cache) => count + cache.items.length, 0)}件`,
+      );
     };
     void refresh();
-    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 60 * 60000);
-    const visible = () => { if (!document.hidden) void refresh(); };
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void refresh();
+    }, 60 * 60000);
+    const visible = () => {
+      if (!document.hidden) void refresh();
+    };
     document.addEventListener('visibilitychange', visible);
-    return () => { controller.abort(); window.clearInterval(timer); document.removeEventListener('visibilitychange', visible); };
-  }, [hydrated, sharedPreference.enabled, sharedSurfaceKey, save.userName, save.callName]);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, [
+    hydrated,
+    sharedPreference.enabled,
+    sharedSurfaceKey,
+    save.userName,
+    save.callName,
+  ]);
 
   function changeSharedPreference(enabled: boolean) {
     sharedAbortRef.current?.abort();
     const choice = writeSharedPreference(localStorage, enabled);
-    conversation.current?.setSharedKnowledge(getSharedKnowledgeCache(localStorage), choice.enabled, [save.userName, save.callName]);
+    conversation.current?.setSharedKnowledge(
+      getSharedKnowledgeCache(localStorage),
+      choice.enabled,
+      [save.userName, save.callName],
+    );
     setSharedPreference(choice);
     if (!choice.enabled) setSharedStatus('');
   }
@@ -5932,148 +6574,386 @@ export function SuuhimochiGame() {
     if (!roomGuidePending) return;
     setRoomGuidePending(false);
     setMobileNavOpen(false);
-    if (!isInitialPreview) try { localStorage.setItem(ROOM_GUIDE_KEY, '1'); } catch { /* Guidance remains usable without storage. */ }
+    if (!isInitialPreview)
+      try {
+        localStorage.setItem(ROOM_GUIDE_KEY, '1');
+      } catch {
+        /* Guidance remains usable without storage. */
+      }
   }
-  const roomGuideVisible = roomGuidePending && phase === 'home' && save.introComplete && sharedPreference.decided && !isInitialPreview
-    && !talkOpen && !talkReturning && !bubble && !memoryOpen && !dictionaryOpen && !foodOpen && !gachaSession && !itemOpen
-    && !minigameOpen && !potenoOpen && !settingsOpen && !weatherOpen && !dailyMissionDetailsOpen && !graduationOpen
-    && !twoDayReviewTalkOpen && !personWordComboOpen && !developerPanelOpen;
+  const roomGuideVisible =
+    roomGuidePending &&
+    phase === 'home' &&
+    save.introComplete &&
+    sharedPreference.decided &&
+    !isInitialPreview &&
+    !talkOpen &&
+    !talkReturning &&
+    !bubble &&
+    !memoryOpen &&
+    !dictionaryOpen &&
+    !foodOpen &&
+    !gachaSession &&
+    !itemOpen &&
+    !minigameOpen &&
+    !potenoOpen &&
+    !settingsOpen &&
+    !weatherOpen &&
+    !dailyMissionDetailsOpen &&
+    !graduationOpen &&
+    !twoDayReviewTalkOpen &&
+    !personWordComboOpen &&
+    !developerPanelOpen;
   useEffect(() => {
     if (dailyMissionDetailsOpen && roomGuidePending) finishRoomGuide();
   }, [dailyMissionDetailsOpen, roomGuidePending, isInitialPreview]);
 
-  const startupEnvironmentBlocked = Boolean(roomGuidePending || isInitialPreview || (typeof document !== 'undefined' && document.hidden) || talkOpen || talkReturning || memoryOpen
-    || dictionaryOpen || foodOpen || gachaSession || itemOpen || minigameOpen || potenoOpen || settingsOpen || weatherOpen || dailyMissionDetailsOpen
-    || twoDayReviewTalkOpen
-    || graduationOpen || personWordComboOpen || personComboInviteOpen || isMochiSpeaking
-    || talkStage === 'farewell' || talkStage === 'farewell_final' || talkStage === 'ended'
-    || mochiState === 'sleep' || (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) || sleepingBedId || bedSleepTargetRef.current
-    || wakePromptOpen || wakingUp || bedHandoff || selectedItemId || mobileNavOpen || isRoomPanning || developerPanelOpen);
-  startupBlockedRef.current = !sharedPreference.decided || startupEnvironmentBlocked || Boolean(bubble);
+  const startupEnvironmentBlocked = Boolean(
+    roomGuidePending ||
+    isInitialPreview ||
+    (typeof document !== 'undefined' && document.hidden) ||
+    talkOpen ||
+    talkReturning ||
+    memoryOpen ||
+    dictionaryOpen ||
+    foodOpen ||
+    gachaSession ||
+    itemOpen ||
+    minigameOpen ||
+    potenoOpen ||
+    settingsOpen ||
+    weatherOpen ||
+    dailyMissionDetailsOpen ||
+    twoDayReviewTalkOpen ||
+    graduationOpen ||
+    personWordComboOpen ||
+    personComboInviteOpen ||
+    isMochiSpeaking ||
+    talkStage === 'farewell' ||
+    talkStage === 'farewell_final' ||
+    talkStage === 'ended' ||
+    mochiState === 'sleep' ||
+    (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) ||
+    sleepingBedId ||
+    bedSleepTargetRef.current ||
+    wakePromptOpen ||
+    wakingUp ||
+    bedHandoff ||
+    selectedItemId ||
+    mobileNavOpen ||
+    isRoomPanning ||
+    developerPanelOpen,
+  );
+  startupBlockedRef.current =
+    !sharedPreference.decided || startupEnvironmentBlocked || Boolean(bubble);
 
   useEffect(() => {
-    if (talkOpen || memoryOpen || dictionaryOpen || foodOpen || itemOpen || minigameOpen || potenoOpen || settingsOpen || graduationOpen || personWordComboOpen) queueMicrotask(() => setWeatherOpen(false));
-  }, [talkOpen, memoryOpen, dictionaryOpen, foodOpen, itemOpen, minigameOpen, potenoOpen, settingsOpen, graduationOpen, personWordComboOpen]);
+    if (
+      talkOpen ||
+      memoryOpen ||
+      dictionaryOpen ||
+      foodOpen ||
+      itemOpen ||
+      minigameOpen ||
+      potenoOpen ||
+      settingsOpen ||
+      graduationOpen ||
+      personWordComboOpen
+    )
+      queueMicrotask(() => setWeatherOpen(false));
+  }, [
+    talkOpen,
+    memoryOpen,
+    dictionaryOpen,
+    foodOpen,
+    itemOpen,
+    minigameOpen,
+    potenoOpen,
+    settingsOpen,
+    graduationOpen,
+    personWordComboOpen,
+  ]);
 
-  const missionDate = useDailyMissions(hydrated && !isInitialPreview && Boolean(save.birthday || save.introComplete), save, setSave, dictionaryEntries);
+  const missionDate = useDailyMissions(
+    hydrated &&
+      !isInitialPreview &&
+      Boolean(save.birthday || save.introComplete),
+    save,
+    setSave,
+    dictionaryEntries,
+  );
   const dailyMissionSummary = getDailyMissionSummary(save, missionDate);
-  const presentMissionCoin = () => setSave(previous => markMissionCoinPresented(previous, missionDate));
-  const celebrateMissions = (ids: DailyMissionId[]) => setSave(previous => markMissionsCelebrated(previous, missionDate, ids));
-  const missionTeachBlocked = !sharedPreference.decided || ((isScheduledSleepTimeNow && !nightWakeOverrideRef.current) || mochiState === 'sleep');
-  const missionDisabled = !sharedPreference.decided ? { teach: '先に共有知識の利用設定を選んでください。' }
-    : missionTeachBlocked ? { teach: 'すうひもちは就寝中です。朝6時からことばを教えられます。' } : undefined;
+  const presentMissionCoin = () =>
+    setSave((previous) => markMissionCoinPresented(previous, missionDate));
+  const celebrateMissions = (ids: DailyMissionId[]) =>
+    setSave((previous) => markMissionsCelebrated(previous, missionDate, ids));
+  const missionTeachBlocked =
+    !sharedPreference.decided ||
+    (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) ||
+    mochiState === 'sleep';
+  const missionDisabled = !sharedPreference.decided
+    ? { teach: '先に共有知識の利用設定を選んでください。' }
+    : missionTeachBlocked
+      ? { teach: 'すうひもちは就寝中です。朝6時からことばを教えられます。' }
+      : undefined;
   function activateMission(id: DailyMissionId) {
     const destination = missionDestination(id, save.taskPlans ?? {});
     if (destination.kind === 'teach') {
       if (missionTeachBlocked) return;
       missionTeachingRef.current = true;
-      openTalk(); chooseTalkCommand('teach', true);
+      openTalk();
+      chooseTalkCommand('teach', true);
     } else if (destination.kind === 'journal') {
-      setMissionJournalEntry(destination.entry); setMemoryOpen(true);
+      setMissionJournalEntry(destination.entry);
+      setMemoryOpen(true);
     }
   }
   function closeMissionJournal() {
     setMemoryOpen(false);
-    if (missionJournalEntry) { setMissionJournalEntry(undefined); setMissionOpenRequest(value => value + 1); }
+    if (missionJournalEntry) {
+      setMissionJournalEntry(undefined);
+      setMissionOpenRequest((value) => value + 1);
+    }
   }
-  const pictureDiary = usePictureDiary({ ready: hydrated && appReady && save.introComplete && !isInitialPreview,
-    talk: conversation.current, individual: save.currentMochiId, words: dictionaryEntries, profileNames: [save.userName, save.callName] });
+  const pictureDiary = usePictureDiary({
+    ready: hydrated && appReady && save.introComplete && !isInitialPreview,
+    talk: conversation.current,
+    individual: save.currentMochiId,
+    words: dictionaryEntries,
+    profileNames: [save.userName, save.callName],
+  });
 
   const scheduledExternal = useExternalMonologues({
     managed: true,
-    ready: hydrated && appReady && phase === 'home' && save.introComplete && !isInitialPreview
-      && !isMobilePortrait && (!mobileRoomMode || mobileRoomFit.ready),
-    visible: Boolean(bubble || startupTalkActive && talkOpen), individual: save.currentMochiId, talk: conversation.current, profileNames: [save.userName, save.callName],
+    ready:
+      hydrated &&
+      appReady &&
+      phase === 'home' &&
+      save.introComplete &&
+      !isInitialPreview &&
+      !isMobilePortrait &&
+      (!mobileRoomMode || mobileRoomFit.ready),
+    visible: Boolean(bubble || (startupTalkActive && talkOpen)),
+    individual: save.currentMochiId,
+    talk: conversation.current,
+    profileNames: [save.userName, save.callName],
     blocked: () => startupBlockedRef.current || startupTalkActiveRef.current,
-    blockReason: () => !sharedPreference.decided ? '共有知識の初回選択を待っています'
-      : developerPanelOpen ? '開発者画面を閉じるまで待っています'
-      : settingsOpen || weatherOpen ? '設定・天気画面を閉じるまで待っています'
-      : memoryOpen || dictionaryOpen ? '日誌・記憶・辞書画面を閉じるまで待っています'
-      : mochiState === 'sleep' || sleepingBedId || (isScheduledSleepTimeNow && !nightWakeOverrideRef.current) ? '睡眠中です'
-      : bubble ? '先に表示中のひとり言が終わるまで待っています'
-      : 'ほかの会話・モーダル・部屋の操作が終わるまで待っています',
-    startupPending: (pending) => { externalStartupPendingRef.current = pending; },
-    committed: (id) => { if (startupTalkActiveRef.current) startupUseIdRef.current = id; },
-    weatherChanged: () => { void weatherRefreshRef.current(); },
+    blockReason: () =>
+      !sharedPreference.decided
+        ? '共有知識の初回選択を待っています'
+        : developerPanelOpen
+          ? '開発者画面を閉じるまで待っています'
+          : settingsOpen || weatherOpen
+            ? '設定・天気画面を閉じるまで待っています'
+            : memoryOpen || dictionaryOpen
+              ? '日誌・記憶・辞書画面を閉じるまで待っています'
+              : mochiState === 'sleep' ||
+                  sleepingBedId ||
+                  (isScheduledSleepTimeNow && !nightWakeOverrideRef.current)
+                ? '睡眠中です'
+                : bubble
+                  ? '先に表示中のひとり言が終わるまで待っています'
+                  : 'ほかの会話・モーダル・部屋の操作が終わるまで待っています',
+    committed: (id) => {
+      if (startupTalkActiveRef.current) startupUseIdRef.current = id;
+    },
+    weatherChanged: () => {
+      void weatherRefreshRef.current();
+    },
     show: (raw, card, event) => {
       if (startupBlockedRef.current || bubbleRef.current) return false;
       const line = replaceCallName(raw, getPreferredCallName(save));
       externalSpeechRef.current = { presentation: 'zoom', text: line };
-      setExternalSpeechSource(card.citation ? { citation: card.citation, presentation: 'zoom', text: line } : null);
+      setExternalSpeechSource(
+        card.citation
+          ? { citation: card.citation, presentation: 'zoom', text: line }
+          : null,
+      );
       setSharedCitation(card.shared?.item ?? null);
-      setTwoDayReviewOffer(false); setWordComboBubbleOffer(false);
+      setTwoDayReviewOffer(false);
+      setWordComboBubbleOffer(false);
       walkRun.current += 1;
-      if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
+      if (walkStepTimer.current !== null)
+        window.clearTimeout(walkStepTimer.current);
       walkStepTimer.current = null;
       {
         setHomeAutonomyZoom(null);
         // The home scheduler owns both startup and later external zooms.
-        startupTalkActiveRef.current = true; startupTriggerRef.current = event.trigger; startupUseIdRef.current = null;
-        setStartupTalkActive(true); setStartupFastReturn(false);
+        startupTalkActiveRef.current = true;
+        startupTriggerRef.current = event.trigger;
+        startupUseIdRef.current = null;
+        setStartupTalkActive(true);
+        setStartupFastReturn(false);
         captureTalkPresentation();
-        setTalkOpen(true); setTalkCommandOpen(false); setTalkStage('complete'); setTalkInputMode('none');
-        setTalkChoices([]); setCategoryChoices([]); setSubCategoryChoices([]); setTalkInputPrompt('');
-        setTalkReviewPages([]); setTalkReviewOpen(false); setTalkDebug(null); setMochiState('idle');
+        setTalkOpen(true);
+        setTalkCommandOpen(false);
+        setTalkStage('complete');
+        setTalkInputMode('none');
+        setTalkChoices([]);
+        setCategoryChoices([]);
+        setSubCategoryChoices([]);
+        setTalkInputPrompt('');
+        setTalkReviewPages([]);
+        setTalkReviewOpen(false);
+        setTalkDebug(null);
+        setMochiState('idle');
         shouldAutoCloseTalk.current = false;
-        playTalkPages(splitRoomMonologuePages(line).map((page) => ({ lines: [page] })), true);
+        playTalkPages(
+          splitRoomMonologuePages(line).map((page) => ({ lines: [page] })),
+          true,
+        );
         return true;
       }
     },
   });
 
-  const homeAutonomyReady = scheduledExternal.prepared && hydrated && appReady && phase === 'home' && save.introComplete && sharedPreference.decided
-    && !isInitialPreview && !isMobilePortrait && (!mobileRoomMode || mobileRoomFit.ready);
-  const homeAutonomyBusy = startupEnvironmentBlocked || Boolean(bubble) || homeDanceActive || wordComboDance.active || startupFastReturn;
+  const homeAutonomyReady =
+    hydrated &&
+    appReady &&
+    phase === 'home' &&
+    save.introComplete &&
+    sharedPreference.decided &&
+    !isInitialPreview &&
+    !isMobilePortrait &&
+    (!mobileRoomMode || mobileRoomFit.ready);
+  const homeAutonomyBusy =
+    startupEnvironmentBlocked ||
+    Boolean(bubble) ||
+    homeDanceActive ||
+    wordComboDance.active ||
+    startupFastReturn;
   useEffect(() => {
     if (homeDanceActive && startupEnvironmentBlocked) stopWordComboDance();
   }, [homeDanceActive, startupEnvironmentBlocked, stopWordComboDance]);
   useHomeAutonomy({
-    individual: save.currentMochiId, ready: homeAutonomyReady, busy: homeAutonomyBusy,
-    blocked: () => startupBlockedRef.current || startupTalkActiveRef.current || Boolean(bedSleepTargetRef.current)
-      || Date.now() < manualWalkUntil.current,
+    individual: save.currentMochiId,
+    ready: homeAutonomyReady,
+    busy: homeAutonomyBusy,
+    blocked: () =>
+      startupBlockedRef.current ||
+      startupTalkActiveRef.current ||
+      Boolean(bedSleepTargetRef.current) ||
+      Date.now() < manualWalkUntil.current,
     perform: (kind, recent) => {
       if (kind === 'external') return scheduledExternal.play();
       if (kind === 'monologue') return saySomething('room', recent);
       if (kind === 'interest') return saySomething('interest', recent);
       if (kind === 'invite') {
         if (!conversation.current?.hasPendingDayConversation()) return null;
-        const lines = ['ねえ、人間さん！ ちょっと聞いてほしいことがあるの！', '人間さん、ぼくと少しお話ししない？', '人間さんに話したいことを思いついたの！'];
-        const text = lines.find((line) => !recent.includes(line));
+        const lines = [
+          'ねえ、人間さん！ ちょっと聞いてほしいことがあるの！',
+          '人間さん、ぼくと少しお話ししない？',
+          '人間さんに話したいことを思いついたの！',
+        ];
+        const text =
+          lines.find((line) => !recent.includes(line)) ??
+          lines.find((line) => !recent.slice(-2).includes(line));
         return text && openHomeAutonomyZoom(text, 'invite') ? text : null;
+      }
+      if (kind === 'self-invite' || kind === 'curious-invite') {
+        const category = kind === 'self-invite' ? 'SELF' : 'CURIOUS';
+        if (!conversation.current?.hasPendingDayConversation(category))
+          return null;
+        const lines = category === 'SELF'
+          ? [
+              '人間さん、ぼくのことを少し聞いてほしいの！',
+              'ねえ、ぼくが考えていること、聞いてくれる？',
+            ]
+          : [
+              '人間さんに聞きたいことがあるの！',
+              '人間さんのこと、もう少し教えてほしいの。',
+            ];
+        const text = lines.find((line) => !recent.includes(line)) ?? lines[0];
+        return text && openHomeAutonomyZoom(text, 'invite', category)
+          ? `${kind}:${text}`
+          : null;
       }
       if (save.mochiType !== 1) return null;
       const patterns = ['あかさたなは', 'なはあかさた', 'はたさかなあ'];
-      const fresh = patterns.filter((pattern) => !recent.includes('dance:' + pattern));
-      const pattern = fresh[Math.floor(Math.random() * fresh.length)] ?? patterns[Math.floor(Math.random() * patterns.length)];
+      const fresh = patterns.filter(
+        (pattern) => !recent.includes('dance:' + pattern),
+      );
+      const pattern =
+        fresh[Math.floor(Math.random() * fresh.length)] ??
+        patterns[Math.floor(Math.random() * patterns.length)];
       walkRun.current += 1;
-      if (walkStepTimer.current !== null) window.clearTimeout(walkStepTimer.current);
+      if (walkStepTimer.current !== null)
+        window.clearTimeout(walkStepTimer.current);
       walkStepTimer.current = null;
-      setMochiState('idle'); setHomeDanceActive(true);
-      startWordComboDance('arc', false, 1, getWordComboInputDanceFrames(pattern));
+      setMochiState('idle');
+      setHomeDanceActive(true);
+      startWordComboDance(
+        'arc',
+        false,
+        1,
+        getWordComboInputDanceFrames(pattern),
+      );
       return 'dance:' + pattern;
     },
   });
 
   useEffect(() => {
-    if (!bubble && !talkOpen) queueMicrotask(() => { externalSpeechRef.current = null; setSharedCitation(null); setExternalSpeechSource(null); });
+    if (!bubble && !talkOpen)
+      queueMicrotask(() => {
+        externalSpeechRef.current = null;
+        setSharedCitation(null);
+        setExternalSpeechSource(null);
+      });
   }, [bubble, talkOpen]);
 
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && startupTalkActiveRef.current) skipStartupTalk();
+      if (event.key === 'Escape' && startupTalkActiveRef.current)
+        skipStartupTalk();
     };
     window.addEventListener('keydown', key, true);
-    return () => { window.removeEventListener('keydown', key, true); };
+    return () => {
+      window.removeEventListener('keydown', key, true);
+    };
   }, []);
 
   if (!hydrated || !appReady)
     return <StartupLoadingScreen progress={startupProgress} />;
-  if (isMobileDevice && isMobilePortrait && !memoryOpen && !twoDayReviewTalkOpen && !talkOpen) return <RotateDeviceScreen
-    homeBackground={roomBackground}
-    onOpenJournal={phase === 'home' && save.introComplete ? () => setMemoryOpen(true) : undefined}
-    homeNotice={phase === 'home' && save.introComplete ? <DailyMissionBoard summary={dailyMissionSummary} portrait onCoinPresented={presentMissionCoin} onCelebrated={celebrateMissions} onMission={activateMission} openRequest={missionOpenRequest} onOpenRequestHandled={() => setMissionOpenRequest(0)} disabledMissions={missionDisabled} onOpenChange={setDailyMissionDetailsOpen} onOpenJournal={() => setMemoryOpen(true)} /> : undefined} />;
+  if (
+    isMobileDevice &&
+    isMobilePortrait &&
+    !memoryOpen &&
+    !twoDayReviewTalkOpen &&
+    !talkOpen
+  )
+    return (
+      <RotateDeviceScreen
+        homeBackground={roomBackground}
+        onOpenJournal={
+          phase === 'home' && save.introComplete
+            ? () => setMemoryOpen(true)
+            : undefined
+        }
+        homeNotice={
+          phase === 'home' && save.introComplete ? (
+            <DailyMissionBoard
+              summary={dailyMissionSummary}
+              portrait
+              onCoinPresented={presentMissionCoin}
+              onCelebrated={celebrateMissions}
+              onMission={activateMission}
+              openRequest={missionOpenRequest}
+              onOpenRequestHandled={() => setMissionOpenRequest(0)}
+              disabledMissions={missionDisabled}
+              onOpenChange={setDailyMissionDetailsOpen}
+              onOpenJournal={() => setMemoryOpen(true)}
+            />
+          ) : undefined
+        }
+      />
+    );
 
-  const mobileLandscapeClass = isMobileDevice && !isMobilePortrait ? ' mobile-landscape' : isMobileDevice ? ' journal-portrait' : '';
+  const mobileLandscapeClass =
+    isMobileDevice && !isMobilePortrait
+      ? ' mobile-landscape'
+      : isMobileDevice
+        ? ' journal-portrait'
+        : '';
 
   if (phase === 'title')
     return (
@@ -6222,11 +7102,35 @@ export function SuuhimochiGame() {
   return (
     <main
       className={`game-shell startup-content-ready${startupFastReturn ? ' startup-fast-return' : ''}${mobileLandscapeClass}${mobileKeyboardVisible ? ' mobile-keyboard-open' : ''}${talkOpen && talkUiOnLeft ? ' talk-input-ui-left' : ''}${personWordComboOpen ? ` person-word-combo-open person-word-combo-level-${Math.max(0, Math.min(6, personWordComboCount))} person-word-combo-tier-${personWordComboCount >= 5 ? '5' : personWordComboCount >= 3 ? '3' : '1'}${wordComboDanceBoosted ? ' word-combo-beat' : ''}${wordComboBeat?.perfect && wordComboDanceBoosted ? ' word-combo-perfect-beat' : ''}` : ''} time-${currentTime} ${phase === 'reveal' && revealBeat < 0 ? 'blackout' : ''}`}
-      data-home-action={homeDanceActive ? 'dance' : homeAutonomyZoom ?? undefined}
+      data-home-action={
+        homeDanceActive ? 'dance' : (homeAutonomyZoom ?? undefined)
+      }
       data-home-fixed={phase === 'home' && isMobileDevice ? 'true' : undefined}
-      data-room-guide={roomGuideVisible ? ROOM_GUIDE_TARGETS[roomGuideStep] : undefined}
+      data-room-guide={
+        roomGuideVisible ? ROOM_GUIDE_TARGETS[roomGuideStep] : undefined
+      }
+      data-central-keyboard={
+        centralKeyboardLayout
+          ? centralKeyboardActive
+            ? 'true'
+            : 'returning'
+          : undefined
+      }
+      style={
+        centralKeyboardLayout
+          ? ({
+              '--central-keyboard-x': `${centralKeyboardActive ? centralKeyboardLayout.x : 0}px`,
+              '--central-keyboard-y': `${centralKeyboardActive ? centralKeyboardLayout.y : 0}px`,
+              '--central-prompt-left': `${centralKeyboardLayout.left}px`,
+              '--central-prompt-top': `${centralKeyboardLayout.top}px`,
+              '--central-prompt-width': `${centralKeyboardLayout.width}px`,
+            } as React.CSSProperties)
+          : undefined
+      }
       data-startup-talk={startupTalkActive ? 'active' : undefined}
-      data-external-trigger={startupTalkActive ? startupTriggerRef.current : undefined}
+      data-external-trigger={
+        startupTalkActive ? startupTriggerRef.current : undefined
+      }
       onPointerDown={
         isInitialDialoguePhase || (phase === 'reveal' && revealBeat >= 0)
           ? (event) => {
@@ -7387,11 +8291,30 @@ export function SuuhimochiGame() {
           <div className="word-combo-stage-rays" />
           <WordComboWonderBackdrop />
           <div className="word-combo-particles">
-            {Array.from({ length: 10 }, (_, index) => <i key={index} style={{ left: `${(index * 37) % 100}%`, top: `${12 + ((index * 29) % 76)}%`, animationDelay: `-${(index % 7) * 0.37}s` }} />)}
+            {Array.from({ length: 10 }, (_, index) => (
+              <i
+                key={index}
+                style={{
+                  left: `${(index * 37) % 100}%`,
+                  top: `${12 + ((index * 29) % 76)}%`,
+                  animationDelay: `-${(index % 7) * 0.37}s`,
+                }}
+              />
+            ))}
           </div>
           <div className="word-combo-stage-shards">
             {Array.from({ length: 6 }, (_, index) => (
-              <i className={index < personWordComboCount ? 'is-lit' : ''} key={index} style={{ '--shard-shift': `${(2.5 - index) * 18}px` } as React.CSSProperties}>✦</i>
+              <i
+                className={index < personWordComboCount ? 'is-lit' : ''}
+                key={index}
+                style={
+                  {
+                    '--shard-shift': `${(2.5 - index) * 18}px`,
+                  } as React.CSSProperties
+                }
+              >
+                ✦
+              </i>
             ))}
           </div>
           {wordComboDanceBoosted && wordComboBeat && (
@@ -7410,16 +8333,22 @@ export function SuuhimochiGame() {
           {(!wordComboDance.active || !wordComboDanceReady) && (
             <img
               className="word-combo-idle-mochi"
-              src={wordComboDance.active && wordComboDance.sequence
-                ? (wordComboHeldInputFrame?.src ?? wordComboDance.sequence[0]?.src ?? WORD_COMBO_DANCE_IDLE_SRC)
-                : WORD_COMBO_DANCE_IDLE_SRC}
+              src={
+                wordComboDance.active && wordComboDance.sequence
+                  ? (wordComboHeldInputFrame?.src ??
+                    wordComboDance.sequence[0]?.src ??
+                    WORD_COMBO_DANCE_IDLE_SRC)
+                  : WORD_COMBO_DANCE_IDLE_SRC
+              }
               alt=""
               draggable={false}
-              style={wordComboDance.active && wordComboDance.sequence
-                ? {
-                    transform: `translate(${wordComboHeldInputFrame?.offsetX ?? wordComboDance.sequence[0]?.offsetX ?? 0}%, ${wordComboHeldInputFrame?.offsetY ?? wordComboDance.sequence[0]?.offsetY ?? 0}%) scale(${wordComboHeldInputFrame?.scale ?? wordComboDance.sequence[0]?.scale ?? 1})`,
-                  }
-                : undefined}
+              style={
+                wordComboDance.active && wordComboDance.sequence
+                  ? {
+                      transform: `translate(${wordComboHeldInputFrame?.offsetX ?? wordComboDance.sequence[0]?.offsetX ?? 0}%, ${wordComboHeldInputFrame?.offsetY ?? wordComboDance.sequence[0]?.offsetY ?? 0}%) scale(${wordComboHeldInputFrame?.scale ?? wordComboDance.sequence[0]?.scale ?? 1})`,
+                    }
+                  : undefined
+              }
             />
           )}
           {wordComboDance.active ? (
@@ -7430,11 +8359,15 @@ export function SuuhimochiGame() {
               startFrameIndex={0}
               loop={wordComboDance.loop}
               cycles={wordComboDance.cycles}
-              cycleMs={wordComboDance.sequence ? undefined : getWordComboDanceCycleMs(
-                  personWordComboCount,
-                  wordComboDanceBoosted,
-                  Boolean(wordComboBeat?.perfect),
-                )}
+              cycleMs={
+                wordComboDance.sequence
+                  ? undefined
+                  : getWordComboDanceCycleMs(
+                      personWordComboCount,
+                      wordComboDanceBoosted,
+                      Boolean(wordComboBeat?.perfect),
+                    )
+              }
               sequence={wordComboDance.sequence ?? undefined}
               holdLastFrame={wordComboDance.holdLastFrame}
               motion={wordComboDance.motion}
@@ -7446,40 +8379,75 @@ export function SuuhimochiGame() {
           ) : null}
         </div>
       )}
-      <SharedKnowledgeNotice ready={phase === 'home' && save.introComplete} preference={sharedPreference} onChoose={changeSharedPreference} />
-      {(talkOpen || bubble && bubble === roomMonologueBubbleRef.current && !startupEnvironmentBlocked) && sharedCitation && <aside data-shared-source style={{ position: 'fixed', bottom: 12, left: 12, zIndex: 230, maxWidth: 'min(420px, 88vw)', background: '#fff7e9', color: '#433226', borderRadius: 10, padding: 10, fontSize: 12 }} aria-label="共有知識の出典">
-        <span>{sharedCitation.attribution} </span><a data-shared-source href={sharedCitation.sourceUrl} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">Wikipediaの記事を開く</a>
-      </aside>}
-      {/* Combo overlay is a direct game-shell child, outside the room camera/zoom. */}
-      {!isMochiSpeaking &&
-        personWordComboOpen &&
-        conversation.current && (
-          <div className="face-talk-right person-combo-shell">
-            <PersonWordCombo
-              conversation={conversation.current}
-              parentWordId={personWordComboParentId}
-              mobile={mobileRoomMode}
-              fragments={save.wordFragments}
-              coins={save.gachaCoins}
-              onWordCreated={awardPersonComboWord}
-              onAnswerSaved={awardPersonComboAnswer}
-              onMemoryChanged={syncPersonComboMemory}
-              onComboChange={setPersonWordComboCount}
-              onKanaCommitted={handlePersonWordComboKanaCommitted}
-              onComboSuccess={handlePersonWordComboSuccess}
-              onComboEnd={handlePersonWordComboEnd}
-              onClose={() => {
-                const discovery = conversation.current?.openExternalDiscovery('combo', personWordComboParentId);
-                stopWordComboDance();
-                setPersonWordComboOpen(false);
-                setPersonWordComboParentId('');
-                setPersonWordComboCount(0);
-                if (discovery) applyTalkResponse(discovery, true);
-                else closeTalk();
-              }}
-            />
-          </div>
+      <SharedKnowledgeNotice
+        ready={phase === 'home' && save.introComplete}
+        preference={sharedPreference}
+        onChoose={changeSharedPreference}
+      />
+      {(talkOpen ||
+        (bubble &&
+          bubble === roomMonologueBubbleRef.current &&
+          !startupEnvironmentBlocked)) &&
+        sharedCitation && (
+          <aside
+            data-shared-source
+            style={{
+              position: 'fixed',
+              bottom: 12,
+              left: 12,
+              zIndex: 230,
+              maxWidth: 'min(420px, 88vw)',
+              background: '#fff7e9',
+              color: '#433226',
+              borderRadius: 10,
+              padding: 10,
+              fontSize: 12,
+            }}
+            aria-label="共有知識の出典"
+          >
+            <span>{sharedCitation.attribution} </span>
+            <a
+              data-shared-source
+              href={sharedCitation.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              referrerPolicy="no-referrer"
+            >
+              Wikipediaの記事を開く
+            </a>
+          </aside>
         )}
+      {/* Combo overlay is a direct game-shell child, outside the room camera/zoom. */}
+      {!isMochiSpeaking && personWordComboOpen && conversation.current && (
+        <div className="face-talk-right person-combo-shell">
+          <PersonWordCombo
+            conversation={conversation.current}
+            parentWordId={personWordComboParentId}
+            mobile={mobileRoomMode}
+            fragments={save.wordFragments}
+            coins={save.gachaCoins}
+            onWordCreated={awardPersonComboWord}
+            onAnswerSaved={awardPersonComboAnswer}
+            onMemoryChanged={syncPersonComboMemory}
+            onComboChange={setPersonWordComboCount}
+            onKanaCommitted={handlePersonWordComboKanaCommitted}
+            onComboSuccess={handlePersonWordComboSuccess}
+            onComboEnd={handlePersonWordComboEnd}
+            onClose={() => {
+              const discovery = conversation.current?.openExternalDiscovery(
+                'combo',
+                personWordComboParentId,
+              );
+              stopWordComboDance();
+              setPersonWordComboOpen(false);
+              setPersonWordComboParentId('');
+              setPersonWordComboCount(0);
+              if (discovery) applyTalkResponse(discovery, true);
+              else closeTalk();
+            }}
+          />
+        </div>
+      )}
 
       <div className="room-stage">
         <div
@@ -7566,128 +8534,136 @@ export function SuuhimochiGame() {
               </svg>
             )}
             <div className="room-items">
-              {availableRoomItems.filter(
-                (item) =>
-                  !['wall-clock', 'wall-clock-digital'].includes(item.id) &&
-                  !storedItemIds.includes(item.id),
-              ).map((item) =>
-                item.id === MASK_CASE_ITEM_ID ? (
-                  <div
-                    key={item.id}
-                    data-room-item-id={item.id}
-                    className={`room-item room-item-${item.id}${itemOpen ? ' room-item-editable' : ''}${selectedItemId === item.id ? ' room-item-selected' : ''}`}
-                    role="img"
-                    aria-label={`${item.alt}。仮面の成長段階${maskGrowthStage}`}
-                    title={
-                      itemOpen
-                        ? `${item.alt}：ドラッグで移動、ダブルクリックで収納`
-                        : undefined
-                    }
-                    style={{
-                      left: `${itemPositions[item.id]?.x ?? 0}%`,
-                      top: `${itemPositions[item.id]?.y ?? 0}%`,
-                      pointerEvents: itemOpen ? 'auto' : 'none',
-                    }}
-                    onPointerDown={(event) => {
-                      if (!itemOpen) return;
-                      event.stopPropagation();
-                      setSelectedItemId(item.id);
-                      const position =
-                        itemPositions[item.id] ??
-                        INITIAL_ITEM_POSITIONS[item.id];
-                      itemDragRef.current = {
-                        id: item.id,
-                        pointerId: event.pointerId,
-                        x: position.x,
-                        y: position.y,
-                        clientX: event.clientX,
-                        clientY: event.clientY,
-                      };
-                      event.currentTarget.setPointerCapture?.(event.pointerId);
-                    }}
-                    onPointerUp={(event) => {
-                      if (itemDragRef.current?.pointerId === event.pointerId)
-                        itemDragRef.current = null;
-                    }}
-                    onPointerCancel={() => {
-                      itemDragRef.current = null;
-                    }}
-                    onDoubleClick={(event) => {
-                      if (itemOpen) {
-                        event.stopPropagation();
-                        storeRoomItem(item.id);
+              {availableRoomItems
+                .filter(
+                  (item) =>
+                    !['wall-clock', 'wall-clock-digital'].includes(item.id) &&
+                    !storedItemIds.includes(item.id),
+                )
+                .map((item) =>
+                  item.id === MASK_CASE_ITEM_ID ? (
+                    <div
+                      key={item.id}
+                      data-room-item-id={item.id}
+                      className={`room-item room-item-${item.id}${itemOpen ? ' room-item-editable' : ''}${selectedItemId === item.id ? ' room-item-selected' : ''}`}
+                      role="img"
+                      aria-label={`${item.alt}。仮面の成長段階${maskGrowthStage}`}
+                      title={
+                        itemOpen
+                          ? `${item.alt}：ドラッグで移動、ダブルクリックで収納`
+                          : undefined
                       }
-                    }}
-                  >
-                    <MaskDisplay
-                      stage={maskGrowthStage}
-                      growing={maskGrowthAnimating}
+                      style={{
+                        left: `${itemPositions[item.id]?.x ?? 0}%`,
+                        top: `${itemPositions[item.id]?.y ?? 0}%`,
+                        pointerEvents: itemOpen ? 'auto' : 'none',
+                      }}
+                      onPointerDown={(event) => {
+                        if (!itemOpen) return;
+                        event.stopPropagation();
+                        setSelectedItemId(item.id);
+                        const position =
+                          itemPositions[item.id] ??
+                          INITIAL_ITEM_POSITIONS[item.id];
+                        itemDragRef.current = {
+                          id: item.id,
+                          pointerId: event.pointerId,
+                          x: position.x,
+                          y: position.y,
+                          clientX: event.clientX,
+                          clientY: event.clientY,
+                        };
+                        event.currentTarget.setPointerCapture?.(
+                          event.pointerId,
+                        );
+                      }}
+                      onPointerUp={(event) => {
+                        if (itemDragRef.current?.pointerId === event.pointerId)
+                          itemDragRef.current = null;
+                      }}
+                      onPointerCancel={() => {
+                        itemDragRef.current = null;
+                      }}
+                      onDoubleClick={(event) => {
+                        if (itemOpen) {
+                          event.stopPropagation();
+                          storeRoomItem(item.id);
+                        }
+                      }}
+                    >
+                      <MaskDisplay
+                        stage={maskGrowthStage}
+                        growing={maskGrowthAnimating}
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      key={item.id}
+                      data-room-item-id={item.id}
+                      className={`room-item room-item-${item.id}${itemOpen ? ' room-item-editable' : ''}${selectedItemId === item.id ? ' room-item-selected' : ''}`}
+                      src={item.src}
+                      alt={item.alt}
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
+                      draggable={false}
+                      title={
+                        itemOpen
+                          ? `${item.alt}：ドラッグで移動、ダブルクリックで収納`
+                          : undefined
+                      }
+                      style={{
+                        left: `${itemPositions[item.id]?.x ?? 0}%`,
+                        top: `${itemPositions[item.id]?.y ?? 0}%`,
+                        pointerEvents:
+                          itemOpen || BED_ITEM_IDS.has(item.id)
+                            ? 'auto'
+                            : 'none',
+                        zIndex:
+                          item.id === 'low-table' && tableShouldOverlayMochi
+                            ? 5
+                            : undefined,
+                      }}
+                      onPointerDown={(event) => {
+                        if (!itemOpen && BED_ITEM_IDS.has(item.id)) {
+                          event.stopPropagation();
+                          requestBedSleep(item.id);
+                          return;
+                        }
+                        if (!itemOpen) return;
+                        event.stopPropagation();
+                        setSelectedItemId(item.id);
+                        const position =
+                          itemPositions[item.id] ??
+                          INITIAL_ITEM_POSITIONS[item.id];
+                        itemDragRef.current = {
+                          id: item.id,
+                          pointerId: event.pointerId,
+                          x: position.x,
+                          y: position.y,
+                          clientX: event.clientX,
+                          clientY: event.clientY,
+                        };
+                        event.currentTarget.setPointerCapture?.(
+                          event.pointerId,
+                        );
+                      }}
+                      onPointerUp={(event) => {
+                        if (itemDragRef.current?.pointerId === event.pointerId)
+                          itemDragRef.current = null;
+                      }}
+                      onPointerCancel={() => {
+                        itemDragRef.current = null;
+                      }}
+                      onDoubleClick={(event) => {
+                        if (itemOpen) {
+                          event.stopPropagation();
+                          storeRoomItem(item.id);
+                        }
+                      }}
                     />
-                  </div>
-                ) : (
-                  <img
-                    key={item.id}
-                    data-room-item-id={item.id}
-                    className={`room-item room-item-${item.id}${itemOpen ? ' room-item-editable' : ''}${selectedItemId === item.id ? ' room-item-selected' : ''}`}
-                    src={item.src}
-                    alt={item.alt}
-                    loading="lazy"
-                    decoding="async"
-                    fetchPriority="low"
-                    draggable={false}
-                    title={
-                      itemOpen
-                        ? `${item.alt}：ドラッグで移動、ダブルクリックで収納`
-                        : undefined
-                    }
-                    style={{
-                      left: `${itemPositions[item.id]?.x ?? 0}%`,
-                      top: `${itemPositions[item.id]?.y ?? 0}%`,
-                      pointerEvents:
-                        itemOpen || BED_ITEM_IDS.has(item.id) ? 'auto' : 'none',
-                      zIndex:
-                        item.id === 'low-table' && tableShouldOverlayMochi
-                          ? 5
-                          : undefined,
-                    }}
-                    onPointerDown={(event) => {
-                      if (!itemOpen && BED_ITEM_IDS.has(item.id)) {
-                        event.stopPropagation();
-                        requestBedSleep(item.id);
-                        return;
-                      }
-                      if (!itemOpen) return;
-                      event.stopPropagation();
-                      setSelectedItemId(item.id);
-                      const position =
-                        itemPositions[item.id] ??
-                        INITIAL_ITEM_POSITIONS[item.id];
-                      itemDragRef.current = {
-                        id: item.id,
-                        pointerId: event.pointerId,
-                        x: position.x,
-                        y: position.y,
-                        clientX: event.clientX,
-                        clientY: event.clientY,
-                      };
-                      event.currentTarget.setPointerCapture?.(event.pointerId);
-                    }}
-                    onPointerUp={(event) => {
-                      if (itemDragRef.current?.pointerId === event.pointerId)
-                        itemDragRef.current = null;
-                    }}
-                    onPointerCancel={() => {
-                      itemDragRef.current = null;
-                    }}
-                    onDoubleClick={(event) => {
-                      if (itemOpen) {
-                        event.stopPropagation();
-                        storeRoomItem(item.id);
-                      }
-                    }}
-                  />
-                ),
-              )}
+                  ),
+                )}
               {showCollisionDebug && !storedItemIds.includes('low-table') && (
                 <div
                   className="room-collider-debug room-collider-debug-low-table"
@@ -7701,27 +8677,33 @@ export function SuuhimochiGame() {
                 />
               )}
               {showCollisionDebug &&
-                Object.entries(ROOM_ITEM_COLLIDERS).filter(([id]) => !GACHA_FURNITURE_IDS.includes(id) || (save.gachaFurnitureInventory[id] ?? 0) > 0).map(([id, collider]) => {
-                  if (storedItemIds.includes(id)) return null;
-                  const position =
-                    itemPositions[id] ?? INITIAL_ITEM_POSITIONS[id];
-                  if (!position) return null;
-                  const renderedHeight = collider.width * roomRatio;
-                  return (
-                    <div
-                      className={`room-collider-debug${collider.blocks === false ? ' room-collider-debug-nonblocking' : ''}`}
-                      key={`collider-${id}`}
-                      style={{
-                        left: `${position.x + collider.width * collider.left}%`,
-                        top: `${position.y + renderedHeight * collider.top}%`,
-                        width: `${collider.width * collider.widthFactor}%`,
-                        height: `${renderedHeight * collider.heightFactor}%`,
-                        borderRadius: id === 'rug' ? '50%' : '10px',
-                      }}
-                      aria-label={`${id}の当たり判定`}
-                    />
-                  );
-                })}
+                Object.entries(ROOM_ITEM_COLLIDERS)
+                  .filter(
+                    ([id]) =>
+                      !GACHA_FURNITURE_IDS.includes(id) ||
+                      (save.gachaFurnitureInventory[id] ?? 0) > 0,
+                  )
+                  .map(([id, collider]) => {
+                    if (storedItemIds.includes(id)) return null;
+                    const position =
+                      itemPositions[id] ?? INITIAL_ITEM_POSITIONS[id];
+                    if (!position) return null;
+                    const renderedHeight = collider.width * roomRatio;
+                    return (
+                      <div
+                        className={`room-collider-debug${collider.blocks === false ? ' room-collider-debug-nonblocking' : ''}`}
+                        key={`collider-${id}`}
+                        style={{
+                          left: `${position.x + collider.width * collider.left}%`,
+                          top: `${position.y + renderedHeight * collider.top}%`,
+                          width: `${collider.width * collider.widthFactor}%`,
+                          height: `${renderedHeight * collider.heightFactor}%`,
+                          borderRadius: id === 'rug' ? '50%' : '10px',
+                        }}
+                        aria-label={`${id}の当たり判定`}
+                      />
+                    );
+                  })}
               {showCollisionDebug && !storedItemIds.includes('clock') && (
                 <div
                   className="room-collider-debug room-collider-debug-clock"
@@ -7917,7 +8899,7 @@ export function SuuhimochiGame() {
             )}
             {(phase !== 'reveal' || revealBeat >= 0) && (
               <div
-                className={`mochi mochi-type-${save.mochiType} mochi-${mochiState}${talkOpen ? ' mochi-conversation' : ''}${talkReturning ? ' mochi-returning' : ''}${wakingUp ? ' mochi-waking' : ''}${bedHandoff ? ' mochi-bed-handoff' : ''}`}
+                className={`mochi mochi-type-${save.mochiType} mochi-${mochiState}${talkOpen ? ' mochi-conversation' : ''}${centralKeyboardLayout ? ' mochi-keyboard-center' : ''}${talkReturning ? ' mochi-returning' : ''}${wakingUp ? ' mochi-waking' : ''}${bedHandoff ? ' mochi-bed-handoff' : ''}`}
                 style={
                   {
                     '--accent': accent,
@@ -7931,8 +8913,8 @@ export function SuuhimochiGame() {
                           transform: talkOpen
                             ? 'translate(-50%, -50%)'
                             : wakingUp
-                            ? 'translate(-50%, -58%) rotate(0deg) scale(1.04)'
-                            : 'translate(-50%, -50%) rotate(10deg) scale(1.12)',
+                              ? 'translate(-50%, -58%) rotate(0deg) scale(1.04)'
+                              : 'translate(-50%, -50%) rotate(10deg) scale(1.12)',
                           transition: wakingUp
                             ? 'transform 430ms ease-out'
                             : undefined,
@@ -7942,12 +8924,20 @@ export function SuuhimochiGame() {
                 }
                 aria-label={`すうひもち。${MOCHI_STATES.find((item) => item.id === mochiState)?.label}`}
               >
-                {homeDanceActive && wordComboDance.active && <div className="sprite" data-home-dance><WordComboDance
-                  expression={wordComboDance.expression} sequence={wordComboDance.sequence ?? undefined}
-                  runId={wordComboDance.runId} onReady={markWordComboDanceReady}
-                  onFinished={finishWordComboDancePlayback} onLoadFailed={finishWordComboDancePlayback}
-                /></div>}
-                {!homeDanceActive && !wordComboDanceReady &&
+                {homeDanceActive && wordComboDance.active && (
+                  <div className="sprite" data-home-dance>
+                    <WordComboDance
+                      expression={wordComboDance.expression}
+                      sequence={wordComboDance.sequence ?? undefined}
+                      runId={wordComboDance.runId}
+                      onReady={markWordComboDanceReady}
+                      onFinished={finishWordComboDancePlayback}
+                      onLoadFailed={finishWordComboDancePlayback}
+                    />
+                  </div>
+                )}
+                {!homeDanceActive &&
+                  !wordComboDanceReady &&
                   (save.mochiType === 1 && (talkOpen || isMonologueZoom) ? (
                     <div className="zoom-mochi" aria-hidden="true">
                       <img
@@ -8102,62 +9092,73 @@ export function SuuhimochiGame() {
             )}
           </div>
           {bubble && phase === 'home' && !talkOpen && !twoDayReviewTalkOpen && (
-            <ExternalSourceBubble citation={externalSpeechSource?.presentation === 'bubble' && externalSpeechSource.text === bubble && !startupEnvironmentBlocked ? externalSpeechSource.citation : null}>
-            <button
-              className={`thought-bubble${isSleepBubble ? ' sleep-thought-bubble' : ''}${isPotenoWelcomeBubble ? ' poteno-welcome-bubble' : ''}${twoDayReviewOffer || wordComboBubbleOffer ? ' prompted-question-offer' : ''}`}
-              style={
-                isPotenoWelcomeBubble
-                  ? potenoWelcomeBubbleStyle
-                  : sleepBubbleStyle
-              }
-              type="button"
-              onClick={
-                twoDayReviewOffer
-                  ? openTwoDayReviewTalk
-                  : wordComboBubbleOffer
-                    ? openPersonWordComboBubbleOffer
-                    : advanceBubblePage
-              }
-              aria-live="polite"
-              aria-label={
-                twoDayReviewOffer
-                  ? 'すうひもちの質問にこたえる'
-                  : wordComboBubbleOffer
-                    ? 'ことばコンボの誘いにこたえる'
-                    : undefined
+            <ExternalSourceBubble
+              citation={
+                externalSpeechSource?.presentation === 'bubble' &&
+                externalSpeechSource.text === bubble &&
+                !startupEnvironmentBlocked
+                  ? externalSpeechSource.citation
+                  : null
               }
             >
-              <span className="thought-bubble-text" key={bubblePageIndex}>
-                {currentBubblePage}
-              </span>
-              <svg
-                className="thought-bubble-tail"
-                viewBox="0 0 64 48"
-                aria-hidden="true"
+              <button
+                className={`thought-bubble${isSleepBubble ? ' sleep-thought-bubble' : ''}${isPotenoWelcomeBubble ? ' poteno-welcome-bubble' : ''}${twoDayReviewOffer || wordComboBubbleOffer ? ' prompted-question-offer' : ''}`}
+                style={
+                  isPotenoWelcomeBubble
+                    ? potenoWelcomeBubbleStyle
+                    : sleepBubbleStyle
+                }
+                type="button"
+                onClick={
+                  twoDayReviewOffer
+                    ? openTwoDayReviewTalk
+                    : wordComboBubbleOffer
+                      ? openPersonWordComboBubbleOffer
+                      : advanceBubblePage
+                }
+                aria-live="polite"
+                aria-label={
+                  twoDayReviewOffer
+                    ? 'すうひもちの質問にこたえる'
+                    : wordComboBubbleOffer
+                      ? 'ことばコンボの誘いにこたえる'
+                      : undefined
+                }
               >
-                <path
-                  className="thought-bubble-tail-fill"
-                  d="M37 4 C31 12 22 22 12 31 C24 29 38 22 50 9 L37 4 Z"
-                />
-                <path
-                  className="thought-bubble-tail-stroke"
-                  d="M37 4 C31 12 22 22 12 31 C24 29 38 22 50 9"
-                />
-              </svg>
-              {bubblePages.length > 1 && (
-                <span className="thought-bubble-page" aria-hidden="true">
-                  {bubblePageIndex + 1}/{bubblePages.length}
+                <span className="thought-bubble-text" key={bubblePageIndex}>
+                  {currentBubblePage}
                 </span>
-              )}
-              <span className="thought-bubble-next" aria-hidden="true">
-                {externalSpeechSource?.presentation === 'bubble' && externalSpeechSource.text === bubble ? '▼ クリックして進む' : twoDayReviewOffer || wordComboBubbleOffer
-                  ? 'クリックでお話する ▼'
-                  : '▼'}
-              </span>
-              <span className="sr-only">
-                {bubbleHasNextPage ? '次の文へ' : '吹き出しを閉じる'}
-              </span>
-            </button>
+                <svg
+                  className="thought-bubble-tail"
+                  viewBox="0 0 64 48"
+                  aria-hidden="true"
+                >
+                  <path
+                    className="thought-bubble-tail-fill"
+                    d="M37 4 C31 12 22 22 12 31 C24 29 38 22 50 9 L37 4 Z"
+                  />
+                  <path
+                    className="thought-bubble-tail-stroke"
+                    d="M37 4 C31 12 22 22 12 31 C24 29 38 22 50 9"
+                  />
+                </svg>
+                {bubblePages.length > 1 && (
+                  <span className="thought-bubble-page" aria-hidden="true">
+                    {bubblePageIndex + 1}/{bubblePages.length}
+                  </span>
+                )}
+                <span className="thought-bubble-next" aria-hidden="true">
+                  {externalSpeechSource?.presentation === 'bubble' &&
+                  externalSpeechSource.text === bubble
+                    ? '▼ クリックして進む'
+                    : twoDayReviewOffer || wordComboBubbleOffer
+                      ? 'クリックでお話する ▼'
+                      : '▼'}
+                </span>
+                <span className="sr-only">
+                  {bubbleHasNextPage ? '次の文へ' : '吹き出しを閉じる'}
+                </span>
+              </button>
             </ExternalSourceBubble>
           )}
 
@@ -8202,17 +9203,15 @@ export function SuuhimochiGame() {
                   getPreferredCallName(save),
                 )}
               </p>
-              {['intro', 'welcome', 'persona', 'goalIntro'].includes(
-                  phase,
-                ) && (
-                  <button
-                    className="dialogue-next"
-                    onClick={advanceInitialDialogue}
-                    aria-label="次の言葉へ"
-                  >
-                    ▼
-                  </button>
-                )}
+              {['intro', 'welcome', 'persona', 'goalIntro'].includes(phase) && (
+                <button
+                  className="dialogue-next"
+                  onClick={advanceInitialDialogue}
+                  aria-label="次の言葉へ"
+                >
+                  ▼
+                </button>
+              )}
               {initialDialogueReady &&
                 phase === 'permission' &&
                 permissionStep === 0 && (
@@ -8348,7 +9347,15 @@ export function SuuhimochiGame() {
             />
           )}
 
-          {(isInitialDialoguePhase || phase === 'reveal' && revealBeat >= 0) && <div className="initial-mission-post" aria-label="ミッションのポスト"><MissionPostPreview /></div>}
+          {(isInitialDialoguePhase ||
+            (phase === 'reveal' && revealBeat >= 0)) && (
+            <div
+              className="initial-mission-post"
+              aria-label="ミッションのポスト"
+            >
+              <MissionPostPreview />
+            </div>
+          )}
           {phase === 'home' && (
             <>
               <header className="game-status">
@@ -8358,45 +9365,146 @@ export function SuuhimochiGame() {
                     {getFriendshipTitle(save.friendship)}
                   </span>
                 </div>
-                {conversation.current?.getGoal() && <button className="room-current-goal" type="button"
-                  onClick={() => setMemoryOpen(true)} title={conversation.current.getGoal() ?? ''}>
-                  目標：{conversation.current.getGoal()}
-                </button>}
+                {conversation.current?.getGoal() && (
+                  <button
+                    className="room-current-goal"
+                    type="button"
+                    onClick={() => setMemoryOpen(true)}
+                    title={conversation.current.getGoal() ?? ''}
+                  >
+                    目標：{conversation.current.getGoal()}
+                  </button>
+                )}
                 <div className="game-status-actions">
-                  <button type="button" className="room-light-toggle" aria-label={weather.selection ? '天気予報を開く' : '天気の都道府県を選ぶ'} aria-expanded={weatherOpen}
-                    onClick={() => weather.selection ? setWeatherOpen((open) => !open) : openSettings()}>
+                  <button
+                    type="button"
+                    className="room-light-toggle"
+                    aria-label={
+                      weather.selection
+                        ? '天気予報を開く'
+                        : '天気の都道府県を選ぶ'
+                    }
+                    aria-expanded={weatherOpen}
+                    onClick={() =>
+                      weather.selection
+                        ? setWeatherOpen((open) => !open)
+                        : openSettings()
+                    }
+                  >
                     {weather.selection ? '天気予報' : '天気設定'}
                   </button>
                   <button
                     className="room-light-toggle"
                     type="button"
                     onClick={() => setLightsOut((value) => !value)}
-                    disabled={!isScheduledSleepTimeNow || mochiState === 'sleep'}
+                    disabled={
+                      !isScheduledSleepTimeNow || mochiState === 'sleep'
+                    }
                     aria-pressed={roomIsLightsOut}
                   >
-                    {mochiState === 'sleep' ? '消灯中' : isScheduledSleepTimeNow && lightsOut ? '点灯' : '消灯'}
+                    {mochiState === 'sleep'
+                      ? '消灯中'
+                      : isScheduledSleepTimeNow && lightsOut
+                        ? '点灯'
+                        : '消灯'}
                   </button>
                   <span className="time-label">{TIME_LABELS[currentTime]}</span>
                 </div>
               </header>
-              <DailyMissionBoard summary={dailyMissionSummary} onCoinPresented={presentMissionCoin} onCelebrated={celebrateMissions} onMission={activateMission} openRequest={missionOpenRequest} onOpenRequestHandled={() => setMissionOpenRequest(0)} disabledMissions={missionDisabled} onOpenChange={setDailyMissionDetailsOpen} onOpenJournal={() => setMemoryOpen(true)}
-                position={itemPositions[MISSION_POST_ITEM_ID]} editing={itemOpen} selected={selectedItemId === MISSION_POST_ITEM_ID}
-                onEditPointerDown={event => {
-                  event.stopPropagation(); setSelectedItemId(MISSION_POST_ITEM_ID);
-                  const position = itemPositions[MISSION_POST_ITEM_ID] ?? INITIAL_ITEM_POSITIONS[MISSION_POST_ITEM_ID];
-                  itemDragRef.current = { id: MISSION_POST_ITEM_ID, pointerId: event.pointerId, x: position.x, y: position.y, clientX: event.clientX, clientY: event.clientY };
+              <DailyMissionBoard
+                summary={dailyMissionSummary}
+                onCoinPresented={presentMissionCoin}
+                onCelebrated={celebrateMissions}
+                onMission={activateMission}
+                openRequest={missionOpenRequest}
+                onOpenRequestHandled={() => setMissionOpenRequest(0)}
+                disabledMissions={missionDisabled}
+                onOpenChange={setDailyMissionDetailsOpen}
+                onOpenJournal={() => setMemoryOpen(true)}
+                position={itemPositions[MISSION_POST_ITEM_ID]}
+                editing={itemOpen}
+                selected={selectedItemId === MISSION_POST_ITEM_ID}
+                onEditPointerDown={(event) => {
+                  event.stopPropagation();
+                  setSelectedItemId(MISSION_POST_ITEM_ID);
+                  const position =
+                    itemPositions[MISSION_POST_ITEM_ID] ??
+                    INITIAL_ITEM_POSITIONS[MISSION_POST_ITEM_ID];
+                  itemDragRef.current = {
+                    id: MISSION_POST_ITEM_ID,
+                    pointerId: event.pointerId,
+                    x: position.x,
+                    y: position.y,
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                  };
                   event.currentTarget.setPointerCapture(event.pointerId);
                 }}
-                onEditPointerMove={event => updateItemPosition(event, roomRef.current?.getBoundingClientRect())}
-                onEditPointerEnd={() => { itemDragRef.current = null; }}
-                visible={sharedPreference.decided && !talkOpen && !talkReturning && !bubble && !memoryOpen && !dictionaryOpen && !foodOpen && !gachaSession && !minigameOpen && !potenoOpen && !settingsOpen && !weatherOpen && !graduationOpen && !twoDayReviewTalkOpen && !personWordComboOpen && !developerPanelOpen} />
-              {roomGuideVisible && <RoomGuide step={roomGuideStep} onClose={finishRoomGuide} onNext={() => {
-                if (roomGuideStep === ROOM_GUIDE_TARGETS.length - 1) finishRoomGuide();
-                else { setRoomGuideStep(step => step + 1); if (mobileRoomMode) setMobileNavOpen(true); }
-              }} />}
-              {weatherOpen && <WeatherRoomPanel state={weather.state} loading={weather.loading} onRefresh={() => { void weather.refresh(true); }}
-                onClose={() => setWeatherOpen(false)} onSettings={() => { setWeatherOpen(false); openSettings(); }} />}
-              {startupTalkActive && <button type="button" className="startup-story-skip" onClick={skipStartupTalk}>部屋にもどる（スキップ）</button>}
+                onEditPointerMove={(event) =>
+                  updateItemPosition(
+                    event,
+                    roomRef.current?.getBoundingClientRect(),
+                  )
+                }
+                onEditPointerEnd={() => {
+                  itemDragRef.current = null;
+                }}
+                visible={
+                  sharedPreference.decided &&
+                  !talkOpen &&
+                  !talkReturning &&
+                  !bubble &&
+                  !memoryOpen &&
+                  !dictionaryOpen &&
+                  !foodOpen &&
+                  !gachaSession &&
+                  !minigameOpen &&
+                  !potenoOpen &&
+                  !settingsOpen &&
+                  !weatherOpen &&
+                  !graduationOpen &&
+                  !twoDayReviewTalkOpen &&
+                  !personWordComboOpen &&
+                  !developerPanelOpen
+                }
+              />
+              {roomGuideVisible && (
+                <RoomGuide
+                  step={roomGuideStep}
+                  onClose={finishRoomGuide}
+                  onNext={() => {
+                    if (roomGuideStep === ROOM_GUIDE_TARGETS.length - 1)
+                      finishRoomGuide();
+                    else {
+                      setRoomGuideStep((step) => step + 1);
+                      if (mobileRoomMode) setMobileNavOpen(true);
+                    }
+                  }}
+                />
+              )}
+              {weatherOpen && (
+                <WeatherRoomPanel
+                  state={weather.state}
+                  loading={weather.loading}
+                  onRefresh={() => {
+                    void weather.refresh(true);
+                  }}
+                  onClose={() => setWeatherOpen(false)}
+                  onSettings={() => {
+                    setWeatherOpen(false);
+                    openSettings();
+                  }}
+                />
+              )}
+              {startupTalkActive && (
+                <button
+                  type="button"
+                  className="startup-story-skip"
+                  onClick={skipStartupTalk}
+                >
+                  部屋にもどる（スキップ）
+                </button>
+              )}
               {graduationOpen && (
                 <GraduationFlow
                   preview={graduationPreview}
@@ -8420,74 +9528,144 @@ export function SuuhimochiGame() {
                 <section
                   className={`face-talk${isMochiSpeaking ? ' face-talk-speaking' : ''}${talkUiOnLeft ? ' face-talk-ui-left' : ''}${talkInputEnabled ? ' face-talk-text-input' : ''}`}
                   data-tail-up={faceTalkTailPlacement.up ? 'true' : 'false'}
-                  style={{ '--face-talk-tail-y': faceTalkTailPlacement.top } as React.CSSProperties}
+                  style={
+                    {
+                      '--face-talk-tail-y': faceTalkTailPlacement.top,
+                    } as React.CSSProperties
+                  }
                   aria-busy={isMochiSpeaking}
                   onPointerDown={
                     isMochiSpeaking
                       ? (event) => {
-                          if ((event.target as HTMLElement).closest('button, [data-external-source]'))
+                          if (
+                            (event.target as HTMLElement).closest(
+                              'button, [data-external-source]',
+                            )
+                          )
                             return;
                           advanceTalkSpeech();
                         }
                       : undefined
                   }
                 >
-
                   {isMochiSpeaking && (
-                    <ExternalSourceBubble citation={startupTalkActive && externalSpeechSource?.presentation === 'zoom' ? externalSpeechSource.citation : null}>
-                    <button
-                      className="face-talk-bubble"
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        advanceTalkSpeech();
-                      }}
-                      aria-live="polite"
-                      aria-label={
-                        startupTalkActive ? '外部情報をクリックして進む' : talkPageReady
-                          ? talkPageIndex < talkPageCount - 1
-                            ? '次の言葉へ'
-                            : '返事へ進む'
-                          : '全文を表示'
+                    <ExternalSourceBubble
+                      citation={
+                        startupTalkActive &&
+                        externalSpeechSource?.presentation === 'zoom'
+                          ? externalSpeechSource.citation
+                          : null
                       }
                     >
-                      <svg className="face-talk-tail" viewBox="0 0 56 44" aria-hidden="true">
-                        <path d="M54 0 C45 8 29 23 8 36 C24 34 42 26 55 14 Z" />
-                      </svg>
-                      <span className="face-talk-speaker">すうひもち</span>
-                      <span className="face-talk-line">
-                        {currentTalkLine || '……'}
-                        {!talkPageReady && (
-                          <span className="speech-caret" aria-hidden="true" />
+                      <button
+                        className="face-talk-bubble"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          advanceTalkSpeech();
+                        }}
+                        aria-live="polite"
+                        aria-label={
+                          startupTalkActive
+                            ? '外部情報をクリックして進む'
+                            : talkPageReady
+                              ? talkPageIndex < talkPageCount - 1
+                                ? '次の言葉へ'
+                                : '返事へ進む'
+                              : '全文を表示'
+                        }
+                      >
+                        <svg
+                          className="face-talk-tail"
+                          viewBox="0 0 56 44"
+                          aria-hidden="true"
+                        >
+                          <path d="M54 0 C45 8 29 23 8 36 C24 34 42 26 55 14 Z" />
+                        </svg>
+                        <span className="face-talk-speaker">すうひもち</span>
+                        <span className="face-talk-line">
+                          {currentTalkLine || '……'}
+                          {!talkPageReady && (
+                            <span className="speech-caret" aria-hidden="true" />
+                          )}
+                        </span>
+                        {talkPageCount > 1 && (
+                          <span className="face-talk-page" aria-hidden="true">
+                            {talkPageIndex + 1}/{talkPageCount}
+                          </span>
                         )}
-                      </span>
-                      {talkPageCount > 1 && (
-                        <span className="face-talk-page" aria-hidden="true">
-                          {talkPageIndex + 1}/{talkPageCount}
-                        </span>
-                      )}
-                      {(talkPageReady || startupTalkActive) && (
-                        <span className="face-talk-continue" aria-hidden="true">
-                          {startupTalkActive ? '▼ クリックして進む' : <>クリックでつづく <b>▼</b></>}
-                        </span>
-                      )}
-                    </button>
+                        {(talkPageReady || startupTalkActive) && (
+                          <span
+                            className="face-talk-continue"
+                            aria-hidden="true"
+                          >
+                            {startupTalkActive ? (
+                              '▼ クリックして進む'
+                            ) : (
+                              <>
+                                クリックでつづく <b>▼</b>
+                              </>
+                            )}
+                          </span>
+                        )}
+                      </button>
                     </ExternalSourceBubble>
                   )}
 
                   {!isMochiSpeaking && homeAutonomyZoom === 'invite' && (
-                    <div className="face-talk-right face-talk-command-menu" data-home-invite>
-                      <strong>聞いてくれる？</strong>
+                    <div
+                      className="face-talk-right face-talk-command-menu"
+                      data-home-invite
+                    >
+                      <strong>
+                        {homeAutonomyInviteCategory === 'SELF'
+                          ? 'ぼくのお話、聞いてくれる？'
+                          : homeAutonomyInviteCategory === 'CURIOUS'
+                            ? '人間さんに聞きたいことがあるの！'
+                            : '聞いてくれる？'}
+                      </strong>
                       <div className="tactile-choice-list">
-                        <button className="tactile-choice-button" type="button" onClick={acceptHomeConversationInvite}><span className="tactile-choice-label">うん、聞かせて！</span></button>
-                        <button className="tactile-choice-button" type="button" onClick={() => { setHomeAutonomyZoom(null); shouldAutoCloseTalk.current = true; playTalkLines(['うん、またあとでお話しするの。'], true); }}><span className="tactile-choice-label">あとで聞くね</span></button>
+                        <button
+                          className="tactile-choice-button"
+                          type="button"
+                          onClick={acceptHomeConversationInvite}
+                        >
+                          <span className="tactile-choice-label">
+                            {homeAutonomyInviteCategory === 'CURIOUS'
+                              ? 'うん、なあに？'
+                              : 'うん、聞かせて！'}
+                          </span>
+                        </button>
+                        <button
+                          className="tactile-choice-button"
+                          type="button"
+                          onClick={() => {
+                            setHomeAutonomyZoom(null);
+                            setHomeAutonomyInviteCategory(null);
+                            shouldAutoCloseTalk.current = true;
+                            playTalkLines(
+                              ['うん、またあとでお話しするの。'],
+                              true,
+                            );
+                          }}
+                        >
+                          <span className="tactile-choice-label">
+                            あとで聞くね
+                          </span>
+                        </button>
                       </div>
                     </div>
                   )}
                   {!isMochiSpeaking && talkCommandOpen && (
                     <div className="face-talk-right face-talk-command-menu">
                       <strong>なにを話す？</strong>
-                      <button type="button" className="face-talk-action face-talk-secondary" onClick={closeTalk}>部屋にもどる</button>
+                      <button
+                        type="button"
+                        className="face-talk-action face-talk-secondary"
+                        onClick={closeTalk}
+                      >
+                        部屋にもどる
+                      </button>
                       <div
                         className="tactile-choice-list"
                         aria-label="会話を選ぶ"
@@ -9076,8 +10254,21 @@ export function SuuhimochiGame() {
               {memoryOpen && (
                 <JournalPanel
                   missionEntry={missionJournalEntry}
-                  pictureDiary={(date, comment) => <PictureDiaryCard records={pictureDiary.records} date={date} comment={comment} enabled={pictureDiary.consent.enabled} individual={save.currentMochiId} onCheck={() => { void pictureDiary.check(); }} />}
-                  pictureDiaryDates={pictureDiary.records.map((record) => record.diaryDate)}
+                  pictureDiary={(date, comment) => (
+                    <PictureDiaryCard
+                      records={pictureDiary.records}
+                      date={date}
+                      comment={comment}
+                      enabled={pictureDiary.consent.enabled}
+                      individual={save.currentMochiId}
+                      onCheck={() => {
+                        void pictureDiary.check();
+                      }}
+                    />
+                  )}
+                  pictureDiaryDates={pictureDiary.records.map(
+                    (record) => record.diaryDate,
+                  )}
                   dailyMissionSummary={dailyMissionSummary}
                   taskPlans={save.taskPlans ?? {}}
                   onAddTaskPlans={saveJournalTaskPlans}
@@ -9115,10 +10306,12 @@ export function SuuhimochiGame() {
                   ]}
                   onClose={closeMissionJournal}
 
-
                   onChangeGoalType={saveGoalType}
 
-                  onReviewGoal={() => { setMemoryOpen(false); openTwoDayReviewTalk(); }}
+                  onReviewGoal={() => {
+                    setMemoryOpen(false);
+                    openTwoDayReviewTalk();
+                  }}
                   useSuuhimochiKeyboard={mobileRoomMode}
                 />
               )}
@@ -9190,10 +10383,11 @@ export function SuuhimochiGame() {
                           const reading = conversation.current?.getWordReading(
                             entry.id,
                           );
-                          const petStatus = entry.category === 'ANIMAL'
-                            && entry.subcategory === 'ANIMAL_PET'
-                            ? conversation.current?.getPetStatus(entry.id)
-                            : null;
+                          const petStatus =
+                            entry.category === 'ANIMAL' &&
+                            entry.subcategory === 'ANIMAL_PET'
+                              ? conversation.current?.getPetStatus(entry.id)
+                              : null;
                           const editing = dictionaryEditWordId === entry.id;
                           return (
                             <article
@@ -9258,33 +10452,50 @@ export function SuuhimochiGame() {
                                 {CATEGORY_LABELS[entry.category]}
                               </span>
                               <p>{dictionaryEntryNote(entry)}</p>
-                              {entry.category === 'ANIMAL' && entry.subcategory === 'ANIMAL_PET' && (
-                                <div className="dictionary-pet-status">
-                                  <small>
-                                    {petStatus === 'CURRENT'
-                                      ? 'いま一緒に暮らしている子'
-                                      : petStatus === 'FORMER'
-                                        ? '前に一緒に暮らしていた子'
-                                        : '一緒に暮らした時期は、まだ決まっていないの。'}
-                                  </small>
-                                  <div>
-                                    <button
-                                      type="button"
-                                      className={petStatus === 'CURRENT' ? 'active' : ''}
-                                      onClick={() => setDictionaryPetStatus(entry, 'CURRENT')}
-                                    >
-                                      いま一緒
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={petStatus === 'FORMER' ? 'active' : ''}
-                                      onClick={() => setDictionaryPetStatus(entry, 'FORMER')}
-                                    >
-                                      前に一緒
-                                    </button>
+                              {entry.category === 'ANIMAL' &&
+                                entry.subcategory === 'ANIMAL_PET' && (
+                                  <div className="dictionary-pet-status">
+                                    <small>
+                                      {petStatus === 'CURRENT'
+                                        ? 'いま一緒に暮らしている子'
+                                        : petStatus === 'FORMER'
+                                          ? '前に一緒に暮らしていた子'
+                                          : '一緒に暮らした時期は、まだ決まっていないの。'}
+                                    </small>
+                                    <div>
+                                      <button
+                                        type="button"
+                                        className={
+                                          petStatus === 'CURRENT'
+                                            ? 'active'
+                                            : ''
+                                        }
+                                        onClick={() =>
+                                          setDictionaryPetStatus(
+                                            entry,
+                                            'CURRENT',
+                                          )
+                                        }
+                                      >
+                                        いま一緒
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={
+                                          petStatus === 'FORMER' ? 'active' : ''
+                                        }
+                                        onClick={() =>
+                                          setDictionaryPetStatus(
+                                            entry,
+                                            'FORMER',
+                                          )
+                                        }
+                                      >
+                                        前に一緒
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
                               {feeling && (
                                 <small>
                                   {getPreferredCallName(save)}は「{feeling}
@@ -9327,169 +10538,76 @@ export function SuuhimochiGame() {
               )}
               {itemOpen && itemPanelCollapsed && (
                 <div className="item-mini-toolbar">
-                  <span>アイテムを移動中</span>
+                  <span>配置位置を調整中</span>
                   <button
                     type="button"
-                    onClick={() => setItemPanelCollapsed(false)}
+                    onClick={() => {
+                      setItemOpen(false);
+                      setItemPanelCollapsed(false);
+                      setSelectedItemId(null);
+                      itemDragRef.current = null;
+                    }}
                   >
-                    一覧を開く
+                    配置を終える
                   </button>
                 </div>
               )}
               {itemOpen && !itemPanelCollapsed && (
-                <section
-                  className="item-note"
-                  aria-label="アイテム"
-                  style={{ left: `${itemPanelX}%` }}
+                <ItemCatalog
+                  left={itemPanelX}
+                  tab={itemTab}
+                  selected={selectedItemId}
+                  onTab={setItemTab}
+                  onSelect={setSelectedItemId}
+                  onPlace={placeRoomItem}
+                  onStore={storeRoomItem}
+                  onClose={() => {
+                    setItemOpen(false);
+                    setItemPanelCollapsed(false);
+                    setSelectedItemId(null);
+                  }}
+                  onMoveInRoom={() => setItemPanelCollapsed(true)}
                   onPointerDown={beginItemPanelDrag}
                   onPointerMove={moveItemPanel}
-                  onPointerUp={() => {
+                  onPointerEnd={() => {
                     itemPanelDragRef.current = null;
                   }}
-                  onPointerCancel={() => {
-                    itemPanelDragRef.current = null;
-                  }}
-                >
-                  <button
-                    className="item-note-close"
-                    aria-label="アイテムを閉じる"
-                    onClick={() => {
-                      setItemOpen(false);
-                      setSelectedItemId(null);
-                    }}
-                  >
-                    <X size={18} />
-                  </button>
-                  <button
-                    className="item-note-collapse"
-                    type="button"
-                    onClick={() => setItemPanelCollapsed(true)}
-                  >
-                    たたむ
-                  </button>
-                  <strong>アイテム</strong>
-                  <button className="item-gacha-open" type="button" onClick={startGacha} disabled={save.gachaCoins < 1}>◉ すうひもちガチャ　{save.gachaCoins} コイン</button>
-                  {gachaError && <small className="item-gacha-error">{gachaError}</small>}
-                  <p className="item-note-guide">
-                    この一覧はドラッグして左右に移動できます。配置中のアイテムは部屋でドラッグ、ダブルクリックで収納。ミッションポストは移動のみできます。
-                  </p>
-                  <div
-                    className="item-tabs"
-                    role="tablist"
-                    aria-label="アイテムの状態"
-                  >
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={itemTab === 'placed'}
-                      className={itemTab === 'placed' ? 'active' : ''}
-                      onClick={() => setItemTab('placed')}
-                    >
-                      配置中{' '}
-                      <span>
-                        {availableRoomItems.length + 2 - storedItemIds.length}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={itemTab === 'stored'}
-                      className={itemTab === 'stored' ? 'active' : ''}
-                      onClick={() => setItemTab('stored')}
-                    >
-                      収納中 <span>{storedItemIds.length}</span>
-                    </button>
-                  </div>
-                  <div
-                    className="item-card-list"
-                    role="tabpanel"
-                    aria-label={
-                      itemTab === 'placed'
-                        ? '配置中のアイテム'
-                        : '収納中のアイテム'
-                    }
-                  >
-                    {(
-                      [
-                        { id: 'clock', src: '', alt: '卓上時計' },
-                        { id: MISSION_POST_ITEM_ID, src: '', alt: 'ミッションポスト' },
-                        ...availableRoomItems,
-                      ] as { id: string; src: string; alt: string }[]
-                    )
-                      .filter(
-                        (item) =>
-                          storedItemIds.includes(item.id) ===
-                          (itemTab === 'stored'),
-                      )
-                      .map((item) => (
-                        <div
-                          className={`item-tile${selectedItemId === item.id ? ' selected' : ''}`}
-                          key={item.id}
-                        >
-                          <button
-                            className="item-tile-main"
-                            type="button"
-                            onClick={() =>
-                              itemTab === 'stored'
-                                ? placeRoomItem(item.id)
-                                : setSelectedItemId(item.id)
-                            }
-                            aria-label={`${item.alt}を${itemTab === 'stored' ? '部屋に置く' : '部屋で確認する'}`}
-                          >
-                            <span className="item-tile-preview">
-                              {item.id === MISSION_POST_ITEM_ID ? <MissionPostPreview /> : item.id === 'clock' ? (
-                                <span className="item-card-mini-clock">
-                                  <PixelClockDigits time={clockTime} />
-                                </span>
-                              ) : item.id === 'wall-clock' ? (
-                                <span className="item-card-wall-clock">
-                                  <WallClockFace time={clockTime} />
-                                </span>
-                              ) : item.id === 'wall-clock-digital' ? (
-                                <span className="item-card-wall-clock">
-                                  <WallClockDigitalFace time={clockTime} />
-                                </span>
-                              ) : item.id === MASK_CASE_ITEM_ID ? (
-                                <MaskDisplay stage={maskGrowthStage} compact />
-                              ) : (
-                                <img src={item.src} alt="" draggable={false} />
-                              )}
-                            </span>
-                            <span className="item-tile-name">{item.alt}</span>
-                            {GACHA_FURNITURE_IDS.includes(item.id) && (save.gachaFurnitureInventory[item.id] ?? 0) > 1 && <small className="item-tile-owned-count">所持 ×{save.gachaFurnitureInventory[item.id]}</small>}
-                          </button>
-                          {item.id === MISSION_POST_ITEM_ID ? <span className="item-tile-fixed">移動のみ・収納不可</span> : itemTab === 'stored' ? (
-                            <button
-                              className="item-tile-action"
-                              type="button"
-                              onClick={() => placeRoomItem(item.id)}
-                            >
-                              配置する
-                            </button>
-                          ) : (
-                            <button
-                              className="item-tile-action"
-                              type="button"
-                              onClick={() => storeRoomItem(item.id)}
-                            >
-                              しまう
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    {itemTab === 'stored' && storedItemIds.length === 0 && (
-                      <p className="item-list-empty">
-                        収納中のアイテムはありません。
-                      </p>
-                    )}
-                    {itemTab === 'placed' &&
-                      storedItemIds.length === availableRoomItems.length + 2 && (
-                        <p className="item-list-empty">
-                          部屋にアイテムはありません。収納中から配置できます。
-                        </p>
-                      )}
-                  </div>
-                </section>
+                  items={[
+                    { id: 'clock', src: '', alt: '卓上時計' },
+                    {
+                      id: MISSION_POST_ITEM_ID,
+                      src: '',
+                      alt: 'ミッションポスト',
+                    },
+                    ...availableRoomItems,
+                  ].map((item) => ({
+                    id: item.id,
+                    name: item.alt,
+                    stored: storedItemIds.includes(item.id),
+                    fixed: item.id === MISSION_POST_ITEM_ID,
+                    count: save.gachaFurnitureInventory[item.id],
+                    preview:
+                      item.id === MISSION_POST_ITEM_ID ? (
+                        <MissionPostPreview catalog />
+                      ) : item.id === 'clock' ? (
+                        <span className="item-card-mini-clock">
+                          <PixelClockDigits time={clockTime} />
+                        </span>
+                      ) : item.id === 'wall-clock' ? (
+                        <span className="item-card-wall-clock">
+                          <WallClockFace time={clockTime} />
+                        </span>
+                      ) : item.id === 'wall-clock-digital' ? (
+                        <span className="item-card-wall-clock">
+                          <WallClockDigitalFace time={clockTime} />
+                        </span>
+                      ) : item.id === MASK_CASE_ITEM_ID ? (
+                        <MaskDisplay stage={maskGrowthStage} compact />
+                      ) : (
+                        <img src={item.src} alt="" draggable={false} />
+                      ),
+                  }))}
+                />
               )}
               {settingsOpen && (
                 <section className="settings-note" aria-label="設定">
@@ -9501,10 +10619,25 @@ export function SuuhimochiGame() {
                     <X size={18} />
                   </button>
                   <strong>設定</strong>
-                  <WeatherSettings selection={weather.selection} state={weather.state} loading={weather.loading} selectionError={weather.selectionError}
-                    onChoose={weather.choose} onRefresh={() => { void weather.refresh(true); }} />
-                  <SharedKnowledgeSettings preference={sharedPreference} onChoose={changeSharedPreference} status={sharedStatus} />
-                  <PictureDiarySettings consent={pictureDiary.consent} onChoose={pictureDiary.choose} />
+                  <WeatherSettings
+                    selection={weather.selection}
+                    state={weather.state}
+                    loading={weather.loading}
+                    selectionError={weather.selectionError}
+                    onChoose={weather.choose}
+                    onRefresh={() => {
+                      void weather.refresh(true);
+                    }}
+                  />
+                  <SharedKnowledgeSettings
+                    preference={sharedPreference}
+                    onChoose={changeSharedPreference}
+                    status={sharedStatus}
+                  />
+                  <PictureDiarySettings
+                    consent={pictureDiary.consent}
+                    onChoose={pictureDiary.choose}
+                  />
                   <form className="settings-form" onSubmit={saveSettings}>
                     <label htmlFor="settings-user-name">ユーザー名</label>
                     <input
@@ -9587,489 +10720,554 @@ export function SuuhimochiGame() {
           )}
 
           {process.env.NODE_ENV !== 'production' && (
-            <details onToggle={(event) => setDeveloperPanelOpen(event.currentTarget.open)} className={`dev-panel${developerTab === 'external' ? ' dev-panel-external' : ''}`}>
+            <details
+              onToggle={(event) =>
+                setDeveloperPanelOpen(event.currentTarget.open)
+              }
+              className={`dev-panel${developerTab === 'external' ? ' dev-panel-external' : ''}`}
+            >
               <summary>DEV</summary>
               <div>
                 <strong>開発用（製作者のみ）</strong>
-                <div role="tablist" aria-label="開発者モード" className="dev-tabs">
-                  <button type="button" role="tab" aria-selected={developerTab === 'general'} onClick={() => setDeveloperTab('general')}>通常</button>
-                  <button type="button" role="tab" aria-selected={developerTab === 'external'} onClick={() => setDeveloperTab('external')}>外部話題</button>
+                <div
+                  role="tablist"
+                  aria-label="開発者モード"
+                  className="dev-tabs"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={developerTab === 'general'}
+                    onClick={() => setDeveloperTab('general')}
+                  >
+                    通常
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={developerTab === 'external'}
+                    onClick={() => setDeveloperTab('external')}
+                  >
+                    外部話題
+                  </button>
                 </div>
                 {developerTab === 'external' ? (
-                  <div role="tabpanel" aria-label="外部話題">{conversation.current && <ExternalTopicMonitor talk={conversation.current} individual={save.currentMochiId} />}</div>
-                ) : <>
-                <section className="dev-initial-preview">
-                  <b>初回起動テスト</b>
-                  {isInitialPreview ? (
-                    <>
-                      <span>現在：初回起動プレビュー</span>
-                      <button type="button" onClick={returnFromInitialPreview}>
-                        現在のデータに戻る
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button type="button" onClick={startInitialPreview}>
-                        初回起動画面を確認
-                      </button>
-                      <span>現在：通常データ</span>
-                    </>
-                  )}
-                </section>
-                <section className="dev-initial-preview">
-                  <b>最終日テスト</b>
-                  <button type="button" onClick={startDevFarewellScene}>
-                    最終日にして、お別れを始める
-                  </button>
-                  {!isInitialPreview && (
-                    <button type="button" onClick={openGraduationPreview}>
-                      卒業・引き継ぎ画面を直接確認
-                    </button>
-                  )}
-                  <span>
-                    {isInitialPreview
-                      ? '初回起動プレビューを終了し、元の記録でDAY 30のお別れを開始します。'
-                      : 'お別れはDAY 30として開始します。卒業・引き継ぎ画面の確認はプレビューのため、保存データを変更しません。'}
-                  </span>
-                </section>
-                {!isInitialPreview && (
+                  <div role="tabpanel" aria-label="外部話題">
+                    {conversation.current && (
+                      <ExternalTopicMonitor
+                        talk={conversation.current}
+                        individual={save.currentMochiId}
+                      />
+                    )}
+                  </div>
+                ) : (
                   <>
-                    <button onClick={resetAll}>
-                      <RotateCcw size={14} /> 初期化
-                    </button>
-                    <button
-                      onClick={() => {
-                        setPhase('birthday');
-                        setBirthday(save.birthday);
-                      }}
-                    >
-                      生年月日変更
-                    </button>
-                    <label>
-                      タイプ
-                      <select
-                        value={save.mochiType}
-                        onChange={(event) =>
-                          setSave((current) => ({
-                            ...current,
-                            mochiType: Number(event.target.value),
-                          }))
-                        }
-                      >
-                        {Array.from({ length: 9 }, (_, index) => index + 1).map(
-                          (type) => (
-                            <option key={type}>{type}</option>
-                          ),
-                        )}
-                      </select>
-                    </label>
-                    <label>
-                      時間帯
-                      <select
-                        value={timeMode}
-                        onChange={(event) =>
-                          setTimeMode(event.target.value as TimeMode)
-                        }
-                      >
-                        <option value="auto">自動</option>
-                        <option value="morning">朝</option>
-                        <option value="day">昼</option>
-                        <option value="evening">夕暮れ</option>
-                        <option value="night">夜</option>
-                        <option value="midnight">深夜</option>
-                      </select>
-                    </label>
-                    <button onClick={() => saySomething()}>
-                      <Sparkles size={14} /> 独り言
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startPersonWordCombo('squint', true)}
-                    >
-                      <Sparkles size={14} /> ことばコンボ開始
-                    </button>
                     <section className="dev-initial-preview">
-                      <b>すうひもちガチャ（コイン・報酬なし）</b>
-                      <button type="button" onClick={() => previewGacha('N')}>N演出・結果表示</button>
-                      <button type="button" onClick={() => previewGacha('R')}>R演出・結果表示</button>
-                      <button type="button" onClick={() => previewGacha('SR')}>SR虹昇格・結果表示</button>
-                      <button type="button" onClick={previewGachaResult}>結果をすぐ表示</button>
-                      <button type="button" onClick={previewTenGacha}>10回連続テスト</button>
+                      <b>初回起動テスト</b>
+                      {isInitialPreview ? (
+                        <>
+                          <span>現在：初回起動プレビュー</span>
+                          <button
+                            type="button"
+                            onClick={returnFromInitialPreview}
+                          >
+                            現在のデータに戻る
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" onClick={startInitialPreview}>
+                            初回起動画面を確認
+                          </button>
+                          <span>現在：通常データ</span>
+                        </>
+                      )}
                     </section>
                     <section className="dev-initial-preview">
-                      <b>ことばコンボ・ダンス</b>
-                      <button
-                        type="button"
-                        onClick={() => startDevPersonWordComboDance('arc')}
-                      >
-                        コンボ＋arcダンス
+                      <b>最終日テスト</b>
+                      <button type="button" onClick={startDevFarewellScene}>
+                        最終日にして、お別れを始める
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => startDevPersonWordComboDance('squint')}
-                      >
-                        コンボ＋squintダンス
-                      </button>
-                      <label>
-                        ループ表情
-                        <select
-                          value={wordComboDanceExpression}
-                          onChange={(event) =>
-                            setWordComboDanceExpression(
-                              event.target.value as WordComboDanceExpression,
-                            )
-                          }
-                        >
-                          <option value="arc">arc</option>
-                          <option value="squint">squint</option>
-                        </select>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={startDevPersonWordComboDanceLoop}
-                      >
-                        ダンスをループ
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!wordComboDance.active}
-                        onClick={stopWordComboDance}
-                      >
-                        ダンス停止
-                      </button>
+                      {!isInitialPreview && (
+                        <button type="button" onClick={openGraduationPreview}>
+                          卒業・引き継ぎ画面を直接確認
+                        </button>
+                      )}
                       <span>
-                        {wordComboDanceReady
-                          ? `${wordComboDance.expression} 再生中`
-                          : '停止後は通常状態へ戻ります'}
+                        {isInitialPreview
+                          ? '初回起動プレビューを終了し、元の記録でDAY 30のお別れを開始します。'
+                          : 'お別れはDAY 30として開始します。卒業・引き継ぎ画面の確認はプレビューのため、保存データを変更しません。'}
                       </span>
                     </section>
-                    <button
-                      onClick={() =>
-                        conversation.current &&
-                        runDevConversation(conversation.current.advanceDay())
-                      }
-                    >
-                      +1日
-                    </button>
-                    <button
-                      onClick={() =>
-                        conversation.current &&
-                        runDevConversation(conversation.current.reopenToday())
-                      }
-                    >
-                      今日を再開
-                    </button>
-                    <button
-                      onClick={() =>
-                        conversation.current &&
-                        runDevConversation(conversation.current.clearOverride())
-                      }
-                    >
-                      現実の日付
-                    </button>
-                    <button
-                      onClick={() =>
-                        setShowCollisionDebug((visible) => !visible)
-                      }
-                    >
-                      当たり判定 {showCollisionDebug ? 'OFF' : 'ON'}
-                    </button>
-                    <div className="dev-expression-preview">
-                      <b>表情プレビュー</b>
-                      <div
-                        className="dev-expression-canvas"
-                        aria-label="すうひもち表情プレビュー"
-                      >
-                        <img
-                          src={`${ZOOM_ASSET_ROOT}/body/body-front.png`}
-                          alt=""
-                          draggable={false}
-                        />
-                        <img
-                          src={zoomArmAsset('left', devPreviewLeftArm)}
-                          alt=""
-                          draggable={false}
-                        />
-                        <img
-                          src={zoomArmAsset('right', devPreviewRightArm)}
-                          alt=""
-                          draggable={false}
-                        />
-                        <img
-                          src={zoomEyeAsset(devPreviewEmotion, devPreviewEyes)}
-                          alt=""
-                          draggable={false}
-                        />
-                        <img
-                          src={zoomMouthAsset(
-                            devPreviewMouth,
-                            devPreviewEmotion,
-                          )}
-                          alt=""
-                          draggable={false}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDevPreviewPlaying((playing) => !playing)
-                        }
-                      >
-                        {devPreviewPlaying
-                          ? 'アニメーション停止'
-                          : 'アニメーション再生'}
-                      </button>
-                      <label>
-                        表情
-                        <select
-                          value={devPreviewEmotion}
-                          onChange={(event) =>
-                            setDevPreviewEmotion(
-                              event.target.value as ZoomFaceEmotion,
-                            )
-                          }
+                    {!isInitialPreview && (
+                      <>
+                        <button onClick={resetAll}>
+                          <RotateCcw size={14} /> 初期化
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPhase('birthday');
+                            setBirthday(save.birthday);
+                          }}
                         >
-                          <option value="neutral">通常</option>
-                          <option value="smile">smile（にっこり）</option>
-                          <option value="really">Really（驚き）</option>
-                          <option value="happy">うれしい（旧）</option>
-                          <option value="nervous">緊張</option>
-                          <option value="sad">悲しい</option>
-                          <option value="surprised">驚き（旧）</option>
-                          <option value="thinking">考え中</option>
-                          <option value="angry">怒り</option>
-                        </select>
-                      </label>
-                      <label>
-                        目
-                        <select
-                          value={devPreviewEyes}
-                          onChange={(event) =>
-                            setDevPreviewEyes(
-                              event.target.value as ZoomEyeFrame,
-                            )
-                          }
+                          生年月日変更
+                        </button>
+                        <label>
+                          タイプ
+                          <select
+                            value={save.mochiType}
+                            onChange={(event) =>
+                              setSave((current) => ({
+                                ...current,
+                                mochiType: Number(event.target.value),
+                              }))
+                            }
+                          >
+                            {Array.from(
+                              { length: 9 },
+                              (_, index) => index + 1,
+                            ).map((type) => (
+                              <option key={type}>{type}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          時間帯
+                          <select
+                            value={timeMode}
+                            onChange={(event) =>
+                              setTimeMode(event.target.value as TimeMode)
+                            }
+                          >
+                            <option value="auto">自動</option>
+                            <option value="morning">朝</option>
+                            <option value="day">昼</option>
+                            <option value="evening">夕暮れ</option>
+                            <option value="night">夜</option>
+                            <option value="midnight">深夜</option>
+                          </select>
+                        </label>
+                        <button onClick={() => saySomething()}>
+                          <Sparkles size={14} /> 独り言
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startPersonWordCombo('squint', true)}
                         >
-                          <option value="open">開き</option>
-                          <option value="half">半開き</option>
-                          <option value="closed">閉じ</option>
-                        </select>
-                      </label>
-                      <label>
-                        口
-                        <select
-                          value={devPreviewMouth}
-                          onChange={(event) =>
-                            setDevPreviewMouth(
-                              event.target.value as ZoomMouthFrame,
-                            )
-                          }
-                        >
-                          <option value="closed">閉じ</option>
-                          <option value="small">小さく開き</option>
-                          <option value="open">開き</option>
-                        </select>
-                      </label>
-                      <label>
-                        左腕
-                        <select
-                          value={devPreviewLeftArm}
-                          onChange={(event) =>
-                            setDevPreviewLeftArm(
-                              event.target.value as ZoomArmPose,
-                            )
-                          }
-                        >
-                          <option value="down">下げ</option>
-                          <option value="up">上げ</option>
-                          <option value="open">開き</option>
-                          <option value="chest">胸元</option>
-                        </select>
-                      </label>
-                      <label>
-                        右腕
-                        <select
-                          value={devPreviewRightArm}
-                          onChange={(event) =>
-                            setDevPreviewRightArm(
-                              event.target.value as ZoomArmPose,
-                            )
-                          }
-                        >
-                          <option value="down">下げ</option>
-                          <option value="up">上げ</option>
-                          <option value="open">開き</option>
-                          <option value="chest">胸元</option>
-                        </select>
-                      </label>
-                    </div>
-                    {talkDebug && (
-                      <div className="conversation-debug">
-                        <b>STATE</b>
-                        <span>
-                          {talkDebug.state} / depth {talkDebug.depth}
-                        </span>
-                        <b>START</b>
-                        <span>{talkDebug.startType}</span>
-                        <b>TOPIC</b>
-                        <span>
-                          {talkDebug.topic || '—'} /{' '}
-                          {talkDebug.topicKnown ? 'KNOWN' : 'UNKNOWN'} /{' '}
-                          {talkDebug.topicScore}
-                        </span>
-                        <b>TEMPLATE</b>
-                        <span>{talkDebug.selectedTemplate || '—'}</span>
-                        <b>MEMORY</b>
-                        <span>{talkDebug.memoryHit ?? '—'}</span>
-                        <b>TOKENS</b>
-                        <code>
-                          {talkDebug.tokens.length
-                            ? talkDebug.tokens
-                                .map(
-                                  (token) =>
-                                    `${token.surface}:${token.known ? 'K' : 'U'}:${token.score}`,
+                          <Sparkles size={14} /> ことばコンボ開始
+                        </button>
+                        <section className="dev-initial-preview">
+                          <b>すうひもちガチャ（コイン・報酬なし）</b>
+                          <button
+                            type="button"
+                            onClick={() => previewGacha('N')}
+                          >
+                            N演出・結果表示
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => previewGacha('R')}
+                          >
+                            R演出・結果表示
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => previewGacha('SR')}
+                          >
+                            SR虹昇格・結果表示
+                          </button>
+                          <button type="button" onClick={previewGachaResult}>
+                            結果をすぐ表示
+                          </button>
+                          <button type="button" onClick={previewTenGacha}>
+                            10回連続テスト
+                          </button>
+                        </section>
+                        <section className="dev-initial-preview">
+                          <b>ことばコンボ・ダンス</b>
+                          <button
+                            type="button"
+                            onClick={() => startDevPersonWordComboDance('arc')}
+                          >
+                            コンボ＋arcダンス
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startDevPersonWordComboDance('squint')
+                            }
+                          >
+                            コンボ＋squintダンス
+                          </button>
+                          <label>
+                            ループ表情
+                            <select
+                              value={wordComboDanceExpression}
+                              onChange={(event) =>
+                                setWordComboDanceExpression(
+                                  event.target
+                                    .value as WordComboDanceExpression,
                                 )
-                                .join('\n')
-                            : '—'}
-                        </code>
-                        <b>ATTR</b>
-                        <code>
-                          {Object.keys(talkDebug.attributes).length
-                            ? JSON.stringify(talkDebug.attributes, null, 2)
-                            : '—'}
-                        </code>
-                      </div>
+                              }
+                            >
+                              <option value="arc">arc</option>
+                              <option value="squint">squint</option>
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={startDevPersonWordComboDanceLoop}
+                          >
+                            ダンスをループ
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!wordComboDance.active}
+                            onClick={stopWordComboDance}
+                          >
+                            ダンス停止
+                          </button>
+                          <span>
+                            {wordComboDanceReady
+                              ? `${wordComboDance.expression} 再生中`
+                              : '停止後は通常状態へ戻ります'}
+                          </span>
+                        </section>
+                        <button
+                          onClick={() =>
+                            conversation.current &&
+                            runDevConversation(
+                              conversation.current.advanceDay(),
+                            )
+                          }
+                        >
+                          +1日
+                        </button>
+                        <button
+                          onClick={() =>
+                            conversation.current &&
+                            runDevConversation(
+                              conversation.current.reopenToday(),
+                            )
+                          }
+                        >
+                          今日を再開
+                        </button>
+                        <button
+                          onClick={() =>
+                            conversation.current &&
+                            runDevConversation(
+                              conversation.current.clearOverride(),
+                            )
+                          }
+                        >
+                          現実の日付
+                        </button>
+                        <button
+                          onClick={() =>
+                            setShowCollisionDebug((visible) => !visible)
+                          }
+                        >
+                          当たり判定 {showCollisionDebug ? 'OFF' : 'ON'}
+                        </button>
+                        <div className="dev-expression-preview">
+                          <b>表情プレビュー</b>
+                          <div
+                            className="dev-expression-canvas"
+                            aria-label="すうひもち表情プレビュー"
+                          >
+                            <img
+                              src={`${ZOOM_ASSET_ROOT}/body/body-front.png`}
+                              alt=""
+                              draggable={false}
+                            />
+                            <img
+                              src={zoomArmAsset('left', devPreviewLeftArm)}
+                              alt=""
+                              draggable={false}
+                            />
+                            <img
+                              src={zoomArmAsset('right', devPreviewRightArm)}
+                              alt=""
+                              draggable={false}
+                            />
+                            <img
+                              src={zoomEyeAsset(
+                                devPreviewEmotion,
+                                devPreviewEyes,
+                              )}
+                              alt=""
+                              draggable={false}
+                            />
+                            <img
+                              src={zoomMouthAsset(
+                                devPreviewMouth,
+                                devPreviewEmotion,
+                              )}
+                              alt=""
+                              draggable={false}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDevPreviewPlaying((playing) => !playing)
+                            }
+                          >
+                            {devPreviewPlaying
+                              ? 'アニメーション停止'
+                              : 'アニメーション再生'}
+                          </button>
+                          <label>
+                            表情
+                            <select
+                              value={devPreviewEmotion}
+                              onChange={(event) =>
+                                setDevPreviewEmotion(
+                                  event.target.value as ZoomFaceEmotion,
+                                )
+                              }
+                            >
+                              <option value="neutral">通常</option>
+                              <option value="smile">smile（にっこり）</option>
+                              <option value="really">Really（驚き）</option>
+                              <option value="happy">うれしい（旧）</option>
+                              <option value="nervous">緊張</option>
+                              <option value="sad">悲しい</option>
+                              <option value="surprised">驚き（旧）</option>
+                              <option value="thinking">考え中</option>
+                              <option value="angry">怒り</option>
+                            </select>
+                          </label>
+                          <label>
+                            目
+                            <select
+                              value={devPreviewEyes}
+                              onChange={(event) =>
+                                setDevPreviewEyes(
+                                  event.target.value as ZoomEyeFrame,
+                                )
+                              }
+                            >
+                              <option value="open">開き</option>
+                              <option value="half">半開き</option>
+                              <option value="closed">閉じ</option>
+                            </select>
+                          </label>
+                          <label>
+                            口
+                            <select
+                              value={devPreviewMouth}
+                              onChange={(event) =>
+                                setDevPreviewMouth(
+                                  event.target.value as ZoomMouthFrame,
+                                )
+                              }
+                            >
+                              <option value="closed">閉じ</option>
+                              <option value="small">小さく開き</option>
+                              <option value="open">開き</option>
+                            </select>
+                          </label>
+                          <label>
+                            左腕
+                            <select
+                              value={devPreviewLeftArm}
+                              onChange={(event) =>
+                                setDevPreviewLeftArm(
+                                  event.target.value as ZoomArmPose,
+                                )
+                              }
+                            >
+                              <option value="down">下げ</option>
+                              <option value="up">上げ</option>
+                              <option value="open">開き</option>
+                              <option value="chest">胸元</option>
+                            </select>
+                          </label>
+                          <label>
+                            右腕
+                            <select
+                              value={devPreviewRightArm}
+                              onChange={(event) =>
+                                setDevPreviewRightArm(
+                                  event.target.value as ZoomArmPose,
+                                )
+                              }
+                            >
+                              <option value="down">下げ</option>
+                              <option value="up">上げ</option>
+                              <option value="open">開き</option>
+                              <option value="chest">胸元</option>
+                            </select>
+                          </label>
+                        </div>
+                        {talkDebug && (
+                          <div className="conversation-debug">
+                            <b>STATE</b>
+                            <span>
+                              {talkDebug.state} / depth {talkDebug.depth}
+                            </span>
+                            <b>START</b>
+                            <span>{talkDebug.startType}</span>
+                            <b>TOPIC</b>
+                            <span>
+                              {talkDebug.topic || '—'} /{' '}
+                              {talkDebug.topicKnown ? 'KNOWN' : 'UNKNOWN'} /{' '}
+                              {talkDebug.topicScore}
+                            </span>
+                            <b>TEMPLATE</b>
+                            <span>{talkDebug.selectedTemplate || '—'}</span>
+                            <b>MEMORY</b>
+                            <span>{talkDebug.memoryHit ?? '—'}</span>
+                            <b>TOKENS</b>
+                            <code>
+                              {talkDebug.tokens.length
+                                ? talkDebug.tokens
+                                    .map(
+                                      (token) =>
+                                        `${token.surface}:${token.known ? 'K' : 'U'}:${token.score}`,
+                                    )
+                                    .join('\n')
+                                : '—'}
+                            </code>
+                            <b>ATTR</b>
+                            <code>
+                              {Object.keys(talkDebug.attributes).length
+                                ? JSON.stringify(talkDebug.attributes, null, 2)
+                                : '—'}
+                            </code>
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 )}
-                </>}
               </div>
             </details>
           )}
         </div>
-        {!talkOpen &&
-          !potenoOpen &&
-          !twoDayReviewTalkOpen && (
-            <>
+        {!talkOpen && !potenoOpen && !twoDayReviewTalkOpen && (
+          <>
+            <button
+              ref={mobileNavHandleRef}
+              className={`mobile-room-menu-handle${mobileNavOpen ? ' is-open' : ''}`}
+              type="button"
+              aria-expanded={mobileNavOpen}
+              aria-controls="room-mobile-navigation"
+              onClick={() => setMobileNavOpen((open) => !open)}
+            >
+              <span aria-hidden="true">{mobileNavOpen ? '﹀' : '︿'}</span>
+              <b>メニュー</b>
+            </button>
+            <nav
+              ref={mobileNavRef}
+              id="room-mobile-navigation"
+              className={`room-nav${mobileNavOpen ? ' mobile-nav-open' : ''}`}
+              aria-label="部屋のメニュー"
+              onClick={() => {
+                if (mobileRoomMode) setMobileNavOpen(false);
+              }}
+            >
               <button
-                ref={mobileNavHandleRef}
-                className={`mobile-room-menu-handle${mobileNavOpen ? ' is-open' : ''}`}
-                type="button"
-                aria-expanded={mobileNavOpen}
-                aria-controls="room-mobile-navigation"
-                onClick={() => setMobileNavOpen((open) => !open)}
-              >
-                <span aria-hidden="true">{mobileNavOpen ? '﹀' : '︿'}</span>
-                <b>メニュー</b>
-              </button>
-              <nav
-                ref={mobileNavRef}
-                id="room-mobile-navigation"
-                className={`room-nav${mobileNavOpen ? ' mobile-nav-open' : ''}`}
-                aria-label="部屋のメニュー"
+                className={
+                  !memoryOpen &&
+                  !dictionaryOpen &&
+                  !foodOpen &&
+                  !itemOpen &&
+                  !minigameOpen &&
+                  !settingsOpen
+                    ? 'active'
+                    : ''
+                }
                 onClick={() => {
-                  if (mobileRoomMode) setMobileNavOpen(false);
+                  setMemoryOpen(false);
+                  setDictionaryOpen(false);
+                  setFoodOpen(false);
+                  setItemOpen(false);
+                  setMinigameOpen(false);
+                  setPotenoOpen(false);
+                  setSettingsOpen(false);
+                  setSelectedItemId(null);
+                  bubbleRef.current = null;
+                  setBubblePageIndex(0);
+                  setBubble(null);
                 }}
               >
-                <button
-                  className={
-                    !memoryOpen &&
-                    !dictionaryOpen &&
-                    !foodOpen &&
-                    !itemOpen &&
-                    !minigameOpen &&
-                    !settingsOpen
-                      ? 'active'
-                      : ''
-                  }
-                  onClick={() => {
-                    setMemoryOpen(false);
-                    setDictionaryOpen(false);
-                    setFoodOpen(false);
-                    setItemOpen(false);
-                    setMinigameOpen(false);
-                    setPotenoOpen(false);
-                    setSettingsOpen(false);
-                    setSelectedItemId(null);
-                    bubbleRef.current = null;
-                    setBubblePageIndex(0);
-                    setBubble(null);
-                  }}
-                >
-                  <Home size={19} />
-                  <span>部屋</span>
-                </button>
-                <button onClick={openTalk}>
-                  <MessageCircle size={19} />
-                  <span>はなす</span>
-                </button>
-                <button
-                  data-room-guide-target="journal"
-                  className={memoryOpen ? 'active' : ''}
-                  onClick={() => {
-                    finishRoomGuide();
-                    setMemoryOpen(true);
-                    setDictionaryOpen(false);
-                    setFoodOpen(false);
-                    setItemOpen(false);
-                    setMinigameOpen(false);
-                    setPotenoOpen(false);
-                    setSettingsOpen(false);
-                    setSelectedItemId(null);
-                  }}
-                >
-                  <NotebookTabs size={19} />
-                  <span>日誌</span>
-                </button>
-                <button
-                  className={dictionaryOpen ? 'active' : ''}
-                  onClick={openDictionary}
-                >
-                  <BookOpen size={19} />
-                  <span>辞書</span>
-                </button>
-                <button
-                  data-room-guide-target="items"
-                  className={itemOpen ? 'active' : ''}
-                  onClick={() => {
-                    finishRoomGuide();
-                    setMemoryOpen(false);
-                    setDictionaryOpen(false);
-                    setFoodOpen(false);
-                    setMinigameOpen(false);
-                    setPotenoOpen(false);
-                    setItemOpen((open) => {
-                      if (!open)
-                        setItemPanelX(
-                          window.matchMedia('(max-width: 700px)').matches
-                            ? 12
-                            : 3,
-                        );
-                      return !open;
-                    });
-                    setSettingsOpen(false);
-                    setItemPanelCollapsed(false);
-                    if (itemOpen) setSelectedItemId(null);
-                  }}
-                >
-                  <PackageOpen size={19} />
-                  <span>アイテム</span>
-                </button>
-                <button onClick={openPoteno}>
-                  <UserRoundPlus size={19} />
-                  <span className="room-nav-label-long">ポテノを呼ぶ</span>
-                  <span className="room-nav-label-short">ポテノ</span>
-                </button>
-                <button
-                  className={settingsOpen ? 'active' : ''}
-                  onClick={openSettings}
-                >
-                  <Settings size={19} />
-                  <span>設定</span>
-                </button>
-              </nav>
-            </>
-          )}
+                <Home size={19} />
+                <span>部屋</span>
+              </button>
+              <button onClick={openTalk}>
+                <MessageCircle size={19} />
+                <span>はなす</span>
+              </button>
+              <button
+                data-room-guide-target="journal"
+                className={memoryOpen ? 'active' : ''}
+                onClick={() => {
+                  finishRoomGuide();
+                  setMemoryOpen(true);
+                  setDictionaryOpen(false);
+                  setFoodOpen(false);
+                  setItemOpen(false);
+                  setMinigameOpen(false);
+                  setPotenoOpen(false);
+                  setSettingsOpen(false);
+                  setSelectedItemId(null);
+                }}
+              >
+                <NotebookTabs size={19} />
+                <span>日誌</span>
+              </button>
+              <button
+                className={dictionaryOpen ? 'active' : ''}
+                onClick={openDictionary}
+              >
+                <BookOpen size={19} />
+                <span>辞書</span>
+              </button>
+              <button
+                data-room-guide-target="items"
+                className={itemOpen ? 'active' : ''}
+                onClick={() => {
+                  finishRoomGuide();
+                  setMemoryOpen(false);
+                  setDictionaryOpen(false);
+                  setFoodOpen(false);
+                  setMinigameOpen(false);
+                  setPotenoOpen(false);
+                  setItemOpen((open) => {
+                    if (!open)
+                      setItemPanelX(
+                        window.matchMedia('(max-width: 700px)').matches
+                          ? 12
+                          : 3,
+                      );
+                    return !open;
+                  });
+                  setSettingsOpen(false);
+                  setItemPanelCollapsed(false);
+                  if (itemOpen) setSelectedItemId(null);
+                }}
+              >
+                <PackageOpen size={19} />
+                <span>アイテム</span>
+              </button>
+              <button onClick={openPoteno}>
+                <UserRoundPlus size={19} />
+                <span className="room-nav-label-long">ポテノを呼ぶ</span>
+                <span className="room-nav-label-short">ポテノ</span>
+              </button>
+              <button
+                className={settingsOpen ? 'active' : ''}
+                onClick={openSettings}
+              >
+                <Settings size={19} />
+                <span>設定</span>
+              </button>
+            </nav>
+          </>
+        )}
       </div>
       {gachaSession && (
         <GachaScreen
@@ -10086,7 +11284,11 @@ export function SuuhimochiGame() {
           preview={gachaSession.preview}
           instant={gachaSession.instant}
           testProgress={gachaTestProgress}
-          onAgain={() => gachaSession.preview ? previewGacha(gachaSession.reward.rarity) : startGacha()}
+          onAgain={() =>
+            gachaSession.preview
+              ? previewGacha(gachaSession.reward.rarity)
+              : startGacha()
+          }
           onClose={closeGacha}
           onRevealed={gachaRevealed}
         />

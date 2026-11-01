@@ -163,6 +163,7 @@ export type ConversationEngineRequest = {
   intent: ConversationIntent;
   day: number;
   seenConversationIds: readonly string[];
+  preferredCategory?: 'SELF' | 'CURIOUS';
   random?: () => number;
 };
 

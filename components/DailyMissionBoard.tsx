@@ -26,7 +26,7 @@ function MissionPostArt() {
         <span className={styles.sign}>ミッション</span>
   </>;
 }
-export function MissionPostPreview() { return <span className={styles.preview} aria-hidden="true"><MissionPostArt /></span>; }
+export function MissionPostPreview({ catalog = false }: { catalog?: boolean }) { return <span className={catalog ? styles.catalogPreview : styles.preview} aria-hidden="true"><MissionPostArt /></span>; }
 export function DailyMissionBoard({ summary, visible = true, portrait = false, onOpenChange, onCoinPresented, onMission, onCelebrated, openRequest = 0, onOpenRequestHandled, disabledMissions, position, editing = false, selected = false, onEditPointerDown, onEditPointerMove, onEditPointerEnd }: {
   summary: DailyMissionSummary; visible?: boolean; portrait?: boolean;
   onOpenChange: (open: boolean) => void; onOpenJournal: () => void;

@@ -46,6 +46,7 @@
 .board[data-editing=true] { touch-action:none; }.board[data-editing=true] .postButton { cursor:grab; touch-action:none; }.board[data-editing=true] .postButton:active { cursor:grabbing; }
 .board[data-selected=true] .post { outline:2px solid #ffe3a3; outline-offset:3px; }
 .preview { position:relative; display:block; width:64px; height:76px; transform:scale(.68); transform-origin:center; pointer-events:none; }
+.catalogPreview { position:relative; display:block; width:64px; height:76px; transform:scale(1.12); transform-origin:center; pointer-events:none; }
 
 /* The wall post opens the coin forge; the six missions stay inside its ring. */
 .dialog { width:min(calc(100vw - 16px),560px); max-height:calc(100dvh - 16px); border:4px solid #805c3e; border-radius:20px; background:repeating-linear-gradient(5deg,#856344 0 3px,#977251 5px 6px,#725136 9px 11px); color:#fff0cc; box-shadow:0 0 0 1px #e1c28b,0 15px 50px #25190f88,inset 0 0 0 1px #efce91; }

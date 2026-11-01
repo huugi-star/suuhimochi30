@@ -131,9 +131,15 @@ const DAY_CONVERSATIONS: readonly ConversationScript[] = [
  * 指定日の未閲覧会話を優先して選ぶ。
  * 旧テンプレート・記憶分類には一切フォールバックしない。
  */
-export function hasUnseenDayConversation(day: number, seenConversationIds: readonly string[]): boolean {
+export function hasUnseenDayConversation(
+  day: number,
+  seenConversationIds: readonly string[],
+  category?: 'SELF' | 'CURIOUS',
+): boolean {
   return DAY_CONVERSATIONS.some((conversation) => (
-    conversation.day === day && !seenConversationIds.includes(conversation.id)
+    conversation.day === day
+    && (!category || conversation.category === category)
+    && !seenConversationIds.includes(conversation.id)
   ));
 }
 export function runConversationEngine(
@@ -141,14 +147,23 @@ export function runConversationEngine(
 ): ConversationEngineResult {
   const forDay = DAY_CONVERSATIONS.filter((conversation) => conversation.day === request.day);
   const unseen = forDay.filter((conversation) => !request.seenConversationIds.includes(conversation.id));
+  const preferred = request.preferredCategory
+    ? unseen.filter((conversation) => conversation.category === request.preferredCategory)
+    : [];
   // 出会いのSELFを一つ残し、2会話目で興味を聞く。総数はSELF6 + CURIOUS6のまま。
   if (request.day === 1) {
     const first = unseen.find((conversation) => conversation.id === 'DAY01_SELF_01');
     const interest = unseen.find((conversation) => conversation.id === 'DAY01_CURIOUS_03');
-    if (first || interest) return { intent: request.intent, conversation: first ?? interest };
+    if (request.preferredCategory === 'SELF' && first) return { intent: request.intent, conversation: first };
+    if (request.preferredCategory === 'CURIOUS' && interest) return { intent: request.intent, conversation: interest };
+    if (!request.preferredCategory && (first || interest)) return { intent: request.intent, conversation: first ?? interest };
   }
   const unseenSelf = unseen.filter((conversation) => conversation.category === 'SELF');
-  const candidates = unseenSelf.length > 0 ? unseenSelf : (unseen.length > 0 ? unseen : forDay);
+  const candidates = preferred.length > 0
+    ? preferred
+    : request.preferredCategory
+      ? []
+      : unseenSelf.length > 0 ? unseenSelf : (unseen.length > 0 ? unseen : forDay);
   const random = request.random ?? Math.random;
   const index = candidates.length > 0
     ? Math.min(candidates.length - 1, Math.floor(random() * candidates.length))

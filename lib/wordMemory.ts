@@ -2691,16 +2691,18 @@ export class SuuhimochiConversation {
     ]);
   }
 
-  hasPendingDayConversation() {
+  hasPendingDayConversation(category?: 'SELF' | 'CURIOUS') {
     return !this.state.ended && Boolean(this.state.goalText)
-      && hasUnseenDayConversation(this.getCurrentDay(), this.state.seenConversationIds);
+      && hasUnseenDayConversation(this.getCurrentDay(), this.state.seenConversationIds, category);
   }
 
-  startDayConversation(): ConversationResponse | null {
-    return this.hasPendingDayConversation() ? this.startSession({ skipGoalCheck: true }) : null;
+  startDayConversation(preferredCategory?: 'SELF' | 'CURIOUS'): ConversationResponse | null {
+    return this.hasPendingDayConversation(preferredCategory)
+      ? this.startSession({ skipGoalCheck: true, preferredDayCategory: preferredCategory })
+      : null;
   }
 
-  startSession(options: { skipGoalCheck?: boolean } = {}): ConversationResponse {
+  startSession(options: { skipGoalCheck?: boolean; preferredDayCategory?: 'SELF' | 'CURIOUS' } = {}): ConversationResponse {
     this.rememberSession();
     this.clearActiveDayConversation();
 
@@ -2728,7 +2730,7 @@ export class SuuhimochiConversation {
       return this.openGoalCheck();
     }
 
-    return this.openNormalConversation();
+    return this.openNormalConversation(options.preferredDayCategory);
   }
 
   startWordTeaching(): ConversationResponse {
@@ -3282,11 +3284,12 @@ export class SuuhimochiConversation {
     this.farewellQueue = this.buildFarewellLines();
     return this.respond([this.farewellQueue.shift() ?? 'きょうで30日目なの。'], 'farewell', 'none', 'FAREWELL');
   }
-  private openNormalConversation(): ConversationResponse {
+  private openNormalConversation(preferredCategory?: 'SELF' | 'CURIOUS'): ConversationResponse {
     const turn = runConversationEngine({
       intent: 'CHAT',
       day: this.getCurrentDay(),
       seenConversationIds: this.state.seenConversationIds,
+      preferredCategory,
       random: this.random,
     });
 

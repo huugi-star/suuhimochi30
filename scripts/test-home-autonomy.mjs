@@ -6,63 +6,21 @@ const check = (name, fn) => { fn(); passed++; console.log('PASS', name); };
 try {
   const { HomeAutonomy, HOME_WAIT_MIN_MS, HOME_WAIT_MAX_MS } = await vite.ssrLoadModule('/lib/homeAutonomy.ts');
   const { SuuhimochiConversation } = await vite.ssrLoadModule('/lib/wordMemory.ts');
-  const cycleEnd = (q, time) => { assert.equal(q.wait(true, true, time), null); return q.wait(true, false, time + 1000); };
-  check('起動は外部情報→終了15秒後にひとり言→終了15秒後に興味ズーム', () => {
-    const q = new HomeAutonomy(() => 0.5), kinds = [];
-    const show = (kind) => { kinds.push(kind); return kind; };
-    assert.equal(q.wait(true, false, 0), 0); assert.equal(q.fire(0, show), 'external');
-    assert.equal(q.wait(true, false, 60000), null, 'render alone cannot declare an animation finished');
-    assert.equal(q.fire(60000, show), null);
-    assert.equal(cycleEnd(q, 60000), 15000); assert.equal(q.fire(75999, show), null);
-    assert.equal(q.fire(76000, show), 'monologue');
-    assert.equal(cycleEnd(q, 90000), 15000); assert.equal(q.fire(106000, show), 'interest');
-    assert.deepEqual(kinds, ['external', 'monologue', 'interest']);
+
+  const end=(q,now)=>{assert.equal(q.wait(true,true,now),null);return q.wait(true,false,now+1000)};
+  check('初回は案内操作後も3〜5秒、通信なしでズーム候補へ代替',()=>{
+    for(const r of [0,.5,.999999]){const q=new HomeAutonomy(()=>r);q.interrupt();assert.equal(q.wait(false,false,0),null);assert.equal(q.wait(true,true,1000),null);const delay=q.wait(true,false,2000);assert.ok(delay>=3000&&delay<=5000);assert.equal(q.fire(2000+delay-1,()=>{throw Error('early')}),null);const tried=[];assert.equal(q.fire(2000+delay,k=>{tried.push(k);return k==='external'?null:k}),'invite');assert.deepEqual(tried,['external','invite']);}
   });
-  check('待機は毎回15〜30秒を再抽選し、再描画で期限を延長しない', () => {
-    const values = [0, 0.2, 0.7, 0.999999]; let value = 0;
-    const q = new HomeAutonomy(() => value); q.interrupt();
-    const delays = new Set();
-    for (let n = 0; n < 16; n++) {
-      const start = n * 100000; value = values[n % values.length];
-      const delay = q.wait(true, false, start); delays.add(delay);
-      assert.ok(delay >= HOME_WAIT_MIN_MS && delay <= HOME_WAIT_MAX_MS);
-      assert.equal(q.wait(true, false, start + 1000), delay - 1000);
-      const action = q.fire(start + delay, (kind) => `${kind}:${n}`); assert.ok(action);
-      q.wait(true, true, start + delay + 1); q.interrupt();
-    }
-    assert.ok(delays.size >= 3);
+  check('外部情報会話の後はSELF/質問の順序を10〜15秒間隔で開始する',()=>{const q=new HomeAutonomy(()=>.5);assert.equal(q.wait(true,false,0),4000);assert.equal(q.fire(4000,k=>k),'external');assert.equal(q.fire(4000,()=>{throw Error('duplicate')}),null);assert.equal(q.wait(true,false,60000),null);assert.equal(end(q,60000),12500);});
+  check('外部情報の後は10〜15秒でSELF、さらに10〜15秒でCURIOUSへ順に誘う',()=>{const q=new HomeAutonomy(()=>0);assert.equal(q.wait(true,false,0),3000);assert.equal(q.fire(3000,k=>k==='external'?'外部話題':null),'external');assert.equal(q.wait(true,true,3001),null);assert.equal(q.wait(true,false,4000),10000);assert.equal(q.fire(14000,k=>k),'self-invite');assert.equal(q.wait(true,true,14001),null);assert.equal(q.wait(true,false,15000),10000);assert.equal(q.fire(25000,k=>k),'curious-invite');});
+  check('終了とカメラ復帰後の待機は毎回5〜15秒、再描画で期限を延長しない',()=>{
+    let r=0;const q=new HomeAutonomy(()=>r);let now=0;const delays=new Set();let delay=q.wait(true,false,now);q.fire(now+delay,k=>k);for(let i=0;i<12;i++){q.wait(true,true,now+delay+1);now+=100000;r=[0,.2,.7,.999999][i%4];delay=q.wait(true,false,now);delays.add(delay);assert.ok(delay>=5000&&delay<=15000);assert.equal(q.wait(true,false,now+1000),delay-1000);assert.ok(q.fire(now+delay,k=>k+':'+i));}assert.ok(delays.size>=3);
   });
-  check('操作・モーダル・カメラ復帰中は待機を破棄、終了から新しく計測', () => {
-    const q = new HomeAutonomy(() => 0.5); q.interrupt();
-    assert.equal(q.wait(true, false, 0), 22500);
-    q.interrupt(); assert.equal(q.wait(true, true, 22000), null);
-    assert.equal(q.fire(999999, () => { throw Error('must not play'); }), null);
-    assert.equal(q.wait(true, false, 1000000), 22500);
-    assert.equal(q.fire(1022499, () => 'too soon'), null);
+  check('操作・非表示・モーダルで予定を破棄し、終了後に新しく計測',()=>{const q=new HomeAutonomy(()=>.5);q.wait(true,false,0);q.fire(4000,k=>k);q.wait(true,true,4001);q.interrupt();q.wait(true,true,60000);assert.equal(q.fire(999999,()=>{throw Error('queued')}),null);assert.equal(q.wait(true,false,1000000),12500);assert.equal(q.fire(1012499,()=>{throw Error('early')}),null);});
+  check('種類の連続と偏りを抑え、外部情報0件でも3回以内ごとにズーム',()=>{
+    const q=new HomeAutonomy(()=>.5);let now=0,last=null,plain=0;const kinds=new Set();for(let i=0;i<30;i++){const delay=q.wait(true,false,now);now+=delay;const kind=q.fire(now,(k,recent)=>{assert.ok(recent.length<=8);return k==='external'?null:k+':'+i});if(last)assert.notEqual(kind,last);kinds.add(kind);plain=['invite','interest','external'].includes(kind)?0:plain+1;assert.ok(plain<=2);last=kind;q.wait(true,true,now+1);now+=1000;}assert.equal(kinds.size,4);
   });
-  check('起動演出中に手動操作した後は、残りの起動演出を連続再生しない', () => {
-    const q = new HomeAutonomy(() => 0.5); q.wait(true, false, 0); q.fire(0, () => 'first');
-    q.wait(true, true, 1); q.interrupt(); q.wait(true, true, 50000);
-    assert.equal(q.wait(true, false, 100000), 22500);
-  });
-  check('同じタイマーの二重実行を拒否し、直近の種類の偏りを避ける', () => {
-    const q = new HomeAutonomy(() => 0.5); q.interrupt(); let time = 0, last;
-    const kinds = new Set();
-    for (let n = 0; n < 20; n++) {
-      const delay = q.wait(true, false, time); time += delay;
-      const kind = q.fire(time, (kind, recent) => { assert.ok(recent.length <= 8); return `${kind}:${n}`; });
-      if (last) assert.notEqual(kind, last); last = kind; kinds.add(kind);
-      assert.equal(q.fire(time, () => { throw Error('duplicate'); }), null);
-      q.wait(true, true, time + 1); time += 1000;
-    }
-    assert.equal(kinds.size, 5);
-  });
-  check('外部情報0件は他の演出で代替し、全候補なしでも再試行ループにならない', () => {
-    const q = new HomeAutonomy(() => 0.5); q.wait(true, false, 0);
-    assert.ok(q.fire(0, (kind) => kind === 'external' ? null : 'fallback'));
-    const empty = new HomeAutonomy(() => 0.5); empty.wait(true, false, 0);
-    assert.equal(empty.fire(0, () => null), null); assert.equal(empty.wait(true, false, 1), 22500);
-  });
+  check('初回に未読DAYがなくても興味ズーム、全候補なしは新しいランダム待機で再試行',()=>{const q=new HomeAutonomy(()=>.5);q.wait(true,false,0);assert.equal(q.fire(4000,k=>k==='interest'?'質問':null),'interest');const empty=new HomeAutonomy(()=>.5);empty.wait(true,false,0);assert.equal(empty.fire(4000,()=>null),null);assert.equal(empty.wait(true,false,4001),10000);});
   check('誘いの候補確認は既読・辞書・会話数を変更せず、応じた時だけDAY台本を開始', () => {
     const map = new Map(); const storage = { getItem: (key) => map.get(key) ?? null, setItem: (key, value) => map.set(key, value), removeItem: (key) => map.delete(key) };
     const key = 'suuhimochi_conversation_v6_choices'; const now = () => new Date('2026-10-28T12:00:00+09:00');
@@ -73,6 +31,17 @@ try {
     const response = restored.startDayConversation(); assert.match(response.debug.selectedTemplate, /^DAY02_SELF_/);
     const after = JSON.parse(map.get(key)); assert.equal(after.seenConversationIds.length, 1); assert.equal(after.conversationCount, 20);
     assert.deepEqual(after.words, state.words); assert.deepEqual(after.goalChecks, state.goalChecks);
+  });
+  check('自発ズームの次の誘いでSELFとCURIOUSを指定して選べる', () => {
+    const map = new Map(); const storage = { getItem: (key) => map.get(key) ?? null, setItem: (key, value) => map.set(key, value), removeItem: (key) => map.delete(key) };
+    const now = () => new Date('2026-10-28T12:00:00+09:00');
+    const talk = new SuuhimochiConversation({ storage, now, random: () => 0 }); talk.setGoal('作品を作る');
+    const state = JSON.parse(map.get('suuhimochi_conversation_v6_choices')); state.dayOverride = 2; map.set('suuhimochi_conversation_v6_choices', JSON.stringify(state));
+    const restored = new SuuhimochiConversation({ storage, now, random: () => 0 });
+    assert.equal(restored.hasPendingDayConversation('SELF'), true); assert.equal(restored.hasPendingDayConversation('CURIOUS'), true);
+    assert.match(restored.startDayConversation('SELF').debug.selectedTemplate, /^DAY02_SELF_/);
+    const next = new SuuhimochiConversation({ storage, now, random: () => 0 });
+    assert.match(next.startDayConversation('CURIOUS').debug.selectedTemplate, /^DAY02_CURIOUS_/);
   });
   check('未読台本なしでは誘いから別会話や卒業を勝手に開始しない', () => {
     const map = new Map(); const storage = { getItem: (key) => map.get(key) ?? null, setItem: (key, value) => map.set(key, value), removeItem: (key) => map.delete(key) };
